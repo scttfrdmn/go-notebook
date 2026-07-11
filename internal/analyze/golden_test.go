@@ -22,6 +22,7 @@ var update = flag.Bool("update", false, "rewrite golden files")
 // fixtures. Positions are covered by the diagnostics golden tests instead.
 type goldenGraph struct {
 	Order    []string              `json:"order"`
+	Helpers  []string              `json:"helpers,omitempty"`
 	Producer map[string]string     `json:"producer"`
 	Cells    map[string]goldenCell `json:"cells"`
 }
@@ -54,6 +55,9 @@ func toGolden(g *graph.Graph) goldenGraph {
 	}
 	for _, id := range g.Order {
 		out.Order = append(out.Order, string(id))
+	}
+	for _, id := range g.Helpers {
+		out.Helpers = append(out.Helpers, string(id))
 	}
 	for sym, id := range g.Producer {
 		out.Producer[string(sym)] = string(id)
@@ -95,6 +99,13 @@ func TestGolden(t *testing.T) {
 			if err != nil {
 				t.Fatalf("analyze: %v", err)
 			}
+			// The golden pins the purity verdict too, so run the (off-hot-path)
+			// refinement pass the same way a build would.
+			pkg, err := LoadForPurity(dir)
+			if err != nil {
+				t.Fatalf("load for purity: %v", err)
+			}
+			RefinePurity(pkg, g)
 			got, err := json.MarshalIndent(toGolden(g), "", "  ")
 			if err != nil {
 				t.Fatal(err)

@@ -107,6 +107,12 @@ type Graph struct {
 	Cells    map[CellID]*Cell  `json:"cells"`
 	Producer map[Symbol]CellID `json:"producer"` // exactly one producer per Symbol (enforced by Check)
 	Order    []CellID          `json:"order"`    // source order, for default layout
+	// Helpers are top-level funcs in the notebook file that are NOT cells
+	// because they name no result (the wiring rule: no named result → no edge
+	// → not a cell). Recorded, in source order, so tooling can show them: a
+	// cell that vanishes because the author forgot to name its result is then a
+	// one-glance diagnosis rather than a mystery.
+	Helpers []CellID `json:"helpers,omitempty"`
 }
 
 // New returns an empty Graph with initialized maps.

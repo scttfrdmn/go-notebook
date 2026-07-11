@@ -16,6 +16,10 @@
     "capacityCurve",
     "notes"
   ],
+  "helpers": [
+    "erlangC",
+    "svg"
+  ],
   "producer": {
     "a": "offeredLoad",
     "c": "servers",

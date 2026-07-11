@@ -87,7 +87,7 @@
     },
     "readout": {
       "label": "Right now.",
-      "pure": true,
+      "pure": false,
       "params": [
         {
           "name": "state",

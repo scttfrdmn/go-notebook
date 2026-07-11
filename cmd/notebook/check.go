@@ -126,5 +126,15 @@ func renderGraph(g *graph.Graph) string {
 			fmt.Fprintf(&w, "    out  %s %s\n", r.Name, r.Type)
 		}
 	}
+	if len(g.Helpers) > 0 {
+		fmt.Fprintf(&w, "\nhelpers (not cells — they name no result): ")
+		for i, h := range g.Helpers {
+			if i > 0 {
+				fmt.Fprint(&w, ", ")
+			}
+			fmt.Fprint(&w, string(h))
+		}
+		fmt.Fprintln(&w)
+	}
 	return w.String()
 }

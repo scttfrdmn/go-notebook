@@ -1,9 +1,10 @@
 package analyze
 
 import (
+	"fmt"
+
 	"golang.org/x/tools/go/callgraph"
 	"golang.org/x/tools/go/callgraph/cha"
-	"golang.org/x/tools/go/callgraph/vta"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/ssa"
 	"golang.org/x/tools/go/ssa/ssautil"
@@ -11,14 +12,24 @@ import (
 	"github.com/scttfrdmn/go-notebook/internal/graph"
 )
 
-// impurePackages are standard-library packages whose use makes a cell impure:
-// a cell that transitively touches time, randomness, or I/O is not a pure
-// function of its inputs and must never be cached.
+// Purity is off the interactive path by design.
 //
-// This is the design's correction made concrete: cacheability is derived from
-// the call graph, never declared. There is deliberately no //notebook:nocache
-// directive — a comment that changes whether the answer is correct would
-// violate the type-vs-comment rule.
+// Purity is consumed by exactly one thing: the cache. And a conservative
+// verdict is always safe — marking a pure cell impure only costs a cache hit,
+// while marking an impure cell pure would give wrong answers. So cells default
+// to impure (see buildCell) and are refined here, at build time or in the
+// background, never blocking an edit.
+//
+// This is also why purity, not graph derivation, is what needs NeedDeps: the
+// call graph requires full dependency source. Keeping it on a separate pass is
+// what lets the interactive load drop NeedDeps and run in ~85ms.
+
+// impurePackages are standard-library packages whose use makes a cell impure: a
+// cell that transitively touches randomness or I/O is not a pure function of
+// its inputs and must never be cached.
+//
+// Cacheability is derived from the call graph, never declared — there is
+// deliberately no //notebook:nocache directive.
 var impurePackages = map[string]bool{
 	"os":           true,
 	"net":          true,
@@ -38,24 +49,23 @@ var impureFuncs = map[string]bool{
 	"time.After": true,
 }
 
-// annotatePurity derives the Pure flag for every cell in g from the package
-// call graph, mutating the cells in place.
+// RefinePurity computes the Pure flag for every cell in g from the package call
+// graph, mutating the cells in place. It requires a package loaded with
+// NeedDeps (full dependency source) — use [LoadForPurity].
 //
-// It builds SSA for the whole program and a VTA call graph. VTA rather than CHA
-// is deliberate: CHA over-approximates interface dispatch, so a cell that
-// merely calls fmt.Fprintf into an in-memory strings.Builder gets linked to
-// *os.File.Write and is falsely marked impure — which would make nearly every
-// render cell uncacheable. VTA prunes those spurious edges using type-flow, and
-// correctly reports such cells pure.
+// It uses a CHA call graph rather than VTA: purity needs only a sound
+// over-approximation of "does this reach time.Now / rand / os / net", and CHA
+// provides that far more cheaply. CHA over-approximates interface dispatch, so
+// it may occasionally mark a pure cell impure — which costs a cache hit and
+// nothing else, the safe direction.
 //
-// Purity is best-effort: if SSA cannot be built, cells are left pure=false
-// (the conservative default), and analysis does not fail — an inability to
-// prove purity is not a notebook error.
-func annotatePurity(pkg *packages.Package, g *graph.Graph) {
+// RefinePurity is best-effort: if SSA cannot be built or a cell's function
+// cannot be found, that cell keeps its (safe, impure) default and no error is
+// returned.
+func RefinePurity(pkg *packages.Package, g *graph.Graph) {
 	prog, ssaPkgs := ssautil.AllPackages([]*packages.Package{pkg}, ssa.InstantiateGenerics)
 	prog.Build()
 
-	// Locate the SSA package matching the notebook's types package.
 	var nbPkg *ssa.Package
 	for _, p := range ssaPkgs {
 		if p != nil && p.Pkg == pkg.Types {
@@ -64,22 +74,38 @@ func annotatePurity(pkg *packages.Package, g *graph.Graph) {
 		}
 	}
 	if nbPkg == nil {
-		return // cannot map cells to SSA functions; leave pure=false
+		return
 	}
 
-	cg := vta.CallGraph(ssautil.AllFunctions(prog), cha.CallGraph(prog))
-
+	cg := cha.CallGraph(prog)
 	for id, cell := range g.Cells {
 		fn := nbPkg.Func(string(id))
 		if fn == nil {
-			continue
+			continue // keep the safe impure default
 		}
 		cell.Pure = !reachesImpure(cg, fn)
 	}
 }
 
+// LoadForPurity loads the notebook package with full dependency source
+// (LoadAllSyntax implies NeedDeps) so its call graph can be built. This is the
+// heavy load; keep it off the interactive path.
+func LoadForPurity(dir string) (*packages.Package, error) {
+	cfg := &packages.Config{Mode: packages.LoadAllSyntax, Dir: dir}
+	pkgs, err := packages.Load(cfg, ".")
+	if err != nil {
+		return nil, fmt.Errorf("loading package for purity in %s: %w", dir, err)
+	}
+	if len(pkgs) == 0 {
+		return nil, fmt.Errorf("no Go package found in %s", dir)
+	}
+	if len(pkgs[0].Errors) > 0 {
+		return nil, fmt.Errorf("package %s has errors: %w", pkgs[0].Name, pkgs[0].Errors[0])
+	}
+	return pkgs[0], nil
+}
+
 // reachesImpure reports whether fn transitively calls any impure function.
-//
 // Package init functions are skipped: a package's init pulling in os (as fmt's
 // does) says nothing about whether a cell's own logic is pure.
 func reachesImpure(cg *callgraph.Graph, fn *ssa.Function) bool {
@@ -99,7 +125,7 @@ func reachesImpure(cg *callgraph.Graph, fn *ssa.Function) bool {
 
 		if callee := n.Func; callee != nil {
 			if callee.Name() == "init" {
-				continue // package initialization is not part of a cell's purity
+				continue
 			}
 			if isImpureFunc(callee) {
 				return true

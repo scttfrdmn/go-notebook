@@ -19,23 +19,32 @@ const notebookDirective = "//go:notebook"
 // TypesAnalyzer derives a notebook graph using go/packages and go/types. It is
 // the only Analyzer implementation in this milestone.
 //
-// The zero value is ready to use.
+// The zero value is ready to use. Analyze performs a cold, one-shot derivation.
+// For the interactive re-analysis path (a one-cell edit), use a [Session],
+// which primes the importer once and then re-typechecks only the notebook
+// package — orders of magnitude faster than reloading.
 type TypesAnalyzer struct{}
 
 var _ Analyzer = TypesAnalyzer{}
 
-// loadMode is the set of package facts the analyzer needs. Types and TypesInfo
-// give cell signatures; Syntax gives doc comments and positions; Deps lets the
-// type checker resolve imported types (context.Context, and any domain types).
-const loadMode = packages.NeedName | packages.NeedFiles | packages.NeedSyntax |
-	packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports | packages.NeedDeps
+// graphLoadMode is the package facts needed to derive the graph. Crucially it
+// omits NeedDeps: dependency types are resolved from export data via
+// NeedImports, which is cheap. NeedDeps (full dependency source) is an order of
+// magnitude more expensive and is required only for purity's call graph — a
+// separate, off-the-hot-path concern (see purity.go).
+const graphLoadMode = packages.NeedName | packages.NeedFiles | packages.NeedSyntax |
+	packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports
 
-// Analyze loads the package in dir, finds the notebook file, and builds the
-// graph. Load failures return an error; notebook-level problems (missing
-// producers, cycles, unnamed results, unsupported folds) are returned as
+// Analyze loads the package in dir (graph mode, no NeedDeps), finds the
+// notebook file, and derives the graph. Purity is NOT computed here: cells
+// default to impure, which is the always-safe default (a conservative impure
+// verdict only costs a cache miss). Refine purity separately with
+// [RefinePurity] when the cache needs it; never on an interactive edit.
+//
+// Load failures return an error; notebook-level problems are returned as
 // diagnostics on the fullest graph the analyzer could build.
 func (TypesAnalyzer) Analyze(dir string) (*graph.Graph, []graph.Diagnostic, error) {
-	cfg := &packages.Config{Mode: loadMode, Dir: dir}
+	cfg := &packages.Config{Mode: graphLoadMode, Dir: dir}
 	pkgs, err := packages.Load(cfg, ".")
 	if err != nil {
 		return nil, nil, fmt.Errorf("loading package in %s: %w", dir, err)
@@ -45,55 +54,74 @@ func (TypesAnalyzer) Analyze(dir string) (*graph.Graph, []graph.Diagnostic, erro
 	}
 	pkg := pkgs[0]
 	if len(pkg.Errors) > 0 {
-		// A package that does not typecheck cannot yield a reliable graph.
 		return nil, nil, fmt.Errorf("package %s has errors: %w", pkg.Name, pkg.Errors[0])
 	}
+	return buildFromTypes(pkg.Fset, pkg.Syntax, pkg.Types)
+}
 
-	file, err := findNotebookFile(pkg)
+// buildFromTypes derives the graph from an already-typechecked package. It is
+// the shared core of both the cold [TypesAnalyzer.Analyze] path and the
+// incremental [Session] path, so the two cannot diverge.
+//
+// Cells are looked up by name in the package scope (rather than via a
+// TypesInfo.Defs map), which works identically whether the package came from
+// go/packages or from an incremental re-typecheck.
+func buildFromTypes(fset *token.FileSet, files []*ast.File, tpkg *types.Package) (*graph.Graph, []graph.Diagnostic, error) {
+	file, err := findNotebookFile(files)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	g := graph.New()
 	var diags []graph.Diagnostic
+	q := types.RelativeTo(tpkg)
+	scope := tpkg.Scope()
 
-	qualifier := types.RelativeTo(pkg.Types)
 	for _, decl := range file.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
 		if !ok {
 			continue
 		}
-		cell, cellDiags, isCell := buildCell(pkg, fn, qualifier)
+		if fn.Recv != nil {
+			continue // a method is neither a cell nor a listed helper
+		}
+		obj := scope.Lookup(fn.Name.Name)
+		fnObj, ok := obj.(*types.Func)
+		if !ok {
+			continue
+		}
+		cell, cellDiags, isCell := buildCell(fset, fn, fnObj, q)
 		if !isCell {
+			// A top-level func that produces no named result is a helper.
+			// Record it (unless generic, which is a distinct exclusion) so
+			// tooling can explain why it isn't a cell.
+			if sig, ok := fnObj.Type().(*types.Signature); ok && sig.TypeParams().Len() == 0 {
+				g.Helpers = append(g.Helpers, graph.CellID(fn.Name.Name))
+			}
 			continue
 		}
 		g.Add(cell)
 		diags = append(diags, cellDiags...)
 	}
 
-	// Purity is derived from the call graph, never declared. Best-effort: a
-	// failure to compute it leaves cells pure=false conservatively and does not
-	// fail analysis (it is not a notebook error).
-	annotatePurity(pkg, g)
-
 	diags = append(diags, g.Check()...)
 	return g, diags, nil
 }
 
-// findNotebookFile returns the single file in the package carrying the
-// //go:notebook directive. It errors if there is none or more than one.
-func findNotebookFile(pkg *packages.Package) (*ast.File, error) {
+// findNotebookFile returns the single file carrying the //go:notebook
+// directive. It errors if there is none or more than one.
+func findNotebookFile(files []*ast.File) (*ast.File, error) {
 	var found *ast.File
-	for _, f := range pkg.Syntax {
+	for _, f := range files {
 		if hasNotebookDirective(f) {
 			if found != nil {
-				return nil, fmt.Errorf("package %s has more than one %s file", pkg.Name, notebookDirective)
+				return nil, fmt.Errorf("package has more than one %s file", notebookDirective)
 			}
 			found = f
 		}
 	}
 	if found == nil {
-		return nil, fmt.Errorf("no %s file found in package %s", notebookDirective, pkg.Name)
+		return nil, fmt.Errorf("no %s file found", notebookDirective)
 	}
 	return found, nil
 }
@@ -113,43 +141,48 @@ func hasNotebookDirective(f *ast.File) bool {
 
 // buildCell turns a function declaration into a graph cell, if it is one.
 //
-// The cell-detection rule: a cell is a top-level (non-method) func with a doc
-// comment and at least one named, non-error result. A documented func whose
-// results are all unnamed produces no symbols — it cannot be wired to anything
-// — and is therefore an ordinary helper, invisible to the graph. This keeps the
-// design's "the name is the edge" honest while letting documented helpers
-// (capacity.go's erlangC, svg) stay helpers.
+// The cell-detection rule is the wiring rule doing double duty: a cell is a
+// top-level func that produces at least one named, non-error result. The named
+// result IS the edge, so a function that names no result produces no edge and
+// therefore cannot be a cell — it is an ordinary helper, regardless of whether
+// it has a doc comment. The doc comment is the label, not the marker.
+//
+// Two exclusions:
+//
+//   - Methods are never cells (they are not in package scope by bare name; the
+//     caller's scope lookup already filters them, but we guard anyway).
+//   - Generic functions are never cells: a func with type parameters has no
+//     concrete result type to wire.
 //
 // The "unnamed result" diagnostic fires only for the genuinely ambiguous case:
 // a cell that names some results but leaves a non-error result unnamed.
-func buildCell(pkg *packages.Package, fn *ast.FuncDecl, q types.Qualifier) (*graph.Cell, []graph.Diagnostic, bool) {
-	if fn.Recv != nil || fn.Doc == nil {
-		return nil, nil, false // methods and undocumented funcs are never cells
+func buildCell(fset *token.FileSet, fn *ast.FuncDecl, fnObj *types.Func, q types.Qualifier) (*graph.Cell, []graph.Diagnostic, bool) {
+	if fn.Recv != nil {
+		return nil, nil, false // methods are never cells
 	}
-	obj := pkg.TypesInfo.Defs[fn.Name]
-	if obj == nil {
-		return nil, nil, false
-	}
-	sig, ok := obj.Type().(*types.Signature)
+	sig, ok := fnObj.Type().(*types.Signature)
 	if !ok {
 		return nil, nil, false
+	}
+	if sig.TypeParams().Len() > 0 {
+		return nil, nil, false // generic funcs have no concrete result type to wire
 	}
 
 	results := sig.Results()
 	named, hasUnnamedData := classifyResults(results)
 	if named == 0 {
-		return nil, nil, false // no edges produced → a helper, not a cell
+		return nil, nil, false // produces no named result → a helper, not a cell
 	}
 
 	cell := &graph.Cell{
 		ID:         graph.CellID(fn.Name.Name),
-		Pos:        position(pkg.Fset, fn.Name.Pos()),
-		Doc:        fn.Doc.Text(),
+		Pos:        position(fset, fn.Name.Pos()),
+		Doc:        docText(fn),
 		Label:      label(fn),
 		Directives: directives(fn),
-		Params:     buildParams(pkg, sig.Params(), q),
-		Results:    buildResults(pkg, results, q),
-		Pure:       false, // set later by annotatePurity
+		Params:     buildParams(fset, sig.Params(), q),
+		Results:    buildResults(fset, results, q),
+		Pure:       false, // safe default; refined by RefinePurity, never on the hot path
 	}
 
 	var diags []graph.Diagnostic
@@ -157,7 +190,7 @@ func buildCell(pkg *packages.Package, fn *ast.FuncDecl, q types.Qualifier) (*gra
 		diags = append(diags, graph.Diagnostic{
 			Pos:  cell.Pos,
 			Msg:  fmt.Sprintf("cell %q has an unnamed result; cell results must be named — the name is the edge.", cell.ID),
-			Hint: "name every result, or drop the doc comment to make this an ordinary helper",
+			Hint: "name every result, or leave all results unnamed to make this an ordinary helper",
 		})
 	}
 	// Prev[T] folds are deferred this milestone. The Delayed edge kind and the
@@ -173,6 +206,14 @@ func buildCell(pkg *packages.Package, fn *ast.FuncDecl, q types.Qualifier) (*gra
 		}
 	}
 	return cell, diags, true
+}
+
+// docText returns the cell's full doc comment text, or "" if it has none.
+func docText(fn *ast.FuncDecl) string {
+	if fn.Doc == nil {
+		return ""
+	}
+	return fn.Doc.Text()
 }
 
 // classifyResults counts named data results and reports whether any non-error
@@ -198,7 +239,7 @@ func classifyResults(results *types.Tuple) (named int, hasUnnamedData bool) {
 func isBlank(name string) bool { return name == "" || name == "_" }
 
 // buildParams renders each parameter into the IR, classifying its kind.
-func buildParams(pkg *packages.Package, params *types.Tuple, q types.Qualifier) []graph.Param {
+func buildParams(fset *token.FileSet, params *types.Tuple, q types.Qualifier) []graph.Param {
 	var out []graph.Param
 	for i := 0; i < params.Len(); i++ {
 		v := params.At(i)
@@ -206,26 +247,27 @@ func buildParams(pkg *packages.Package, params *types.Tuple, q types.Qualifier) 
 			Name: graph.Symbol(v.Name()),
 			Type: types.TypeString(v.Type(), q),
 			Kind: paramKind(v.Type()),
-			Pos:  position(pkg.Fset, v.Pos()),
+			Pos:  position(fset, v.Pos()),
 		})
 	}
 	return out
 }
 
-// buildResults renders each result into the IR, marking a trailing error.
-func buildResults(pkg *packages.Package, results *types.Tuple, q types.Qualifier) []graph.Result {
+// buildResults renders each result into the IR, marking a trailing error and
+// normalizing a blank result name to the empty string (it names no symbol).
+func buildResults(fset *token.FileSet, results *types.Tuple, q types.Qualifier) []graph.Result {
 	var out []graph.Result
 	for i := 0; i < results.Len(); i++ {
 		v := results.At(i)
 		name := v.Name()
 		if isBlank(name) {
-			name = "" // a blank result names no symbol; do not index it
+			name = ""
 		}
 		out = append(out, graph.Result{
 			Name:    graph.Symbol(name),
 			Type:    types.TypeString(v.Type(), q),
 			IsError: isErrorType(v.Type()),
-			Pos:     position(pkg.Fset, v.Pos()),
+			Pos:     position(fset, v.Pos()),
 		})
 	}
 	return out
@@ -233,10 +275,10 @@ func buildResults(pkg *packages.Package, results *types.Tuple, q types.Qualifier
 
 // paramKind classifies a parameter by its type:
 //
-//   - context.Context      → Injected (supplied by the runtime, not an edge)
-//   - Prev[T]              → Delayed  (a previous-epoch self-edge; folds are
+//   - context.Context → Injected (supplied by the runtime, not an edge)
+//   - Prev[T]         → Delayed  (a previous-epoch self-edge; folds are
 //     deferred, so the caller also emits an "unsupported" diagnostic)
-//   - anything else        → Wired    (an ordinary edge)
+//   - anything else   → Wired    (an ordinary edge)
 func paramKind(t types.Type) graph.ParamKind {
 	switch {
 	case isContextType(t):
@@ -249,9 +291,7 @@ func paramKind(t types.Type) graph.ParamKind {
 }
 
 // isErrorType reports whether t is the builtin error interface.
-func isErrorType(t types.Type) bool {
-	return types.Identical(t, errorType)
-}
+func isErrorType(t types.Type) bool { return types.Identical(t, errorType) }
 
 var errorType = types.Universe.Lookup("error").Type()
 
@@ -267,8 +307,8 @@ func isContextType(t types.Type) bool {
 }
 
 // isPrevType reports whether t is the notebook's Prev[T] fold marker. Prev is
-// defined in the notebook package itself (a struct with a single Value field),
-// so matching the type name is sufficient and needs no import.
+// defined in the notebook package itself, so matching the type name is
+// sufficient and needs no import.
 func isPrevType(t types.Type) bool {
 	named, ok := t.(*types.Named)
 	if !ok {
