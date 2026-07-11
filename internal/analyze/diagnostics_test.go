@@ -16,7 +16,7 @@ import (
 // pinned character-for-character — with fixture-relative paths so the golden is
 // machine-independent.
 func TestDiagnostics(t *testing.T) {
-	roots := []string{"testdata/errors", "testdata/cycles"}
+	roots := []string{"testdata/errors", "testdata/cycles", "testdata/notices"}
 	for _, root := range roots {
 		dirs, err := filepath.Glob(root + "/*")
 		if err != nil {
