@@ -28,7 +28,7 @@ func Build(g *graph.Graph, info analyze.PackageInfo, moduleRoot string) (*Overla
 	if err != nil {
 		return nil, err
 	}
-	mainSrc, err := MainPackage(info)
+	mainSrc, err := MainPackage(g, info)
 	if err != nil {
 		return nil, err
 	}

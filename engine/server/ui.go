@@ -53,7 +53,7 @@ for (const m of META) {
     out.className = 'val';
     input.oninput = () => {
       out.textContent = input.value;
-      setLeaf(m.ID, Number(input.value));
+      setLeaf(m.Leaf, Number(input.value)); // address the leaf by its symbol
     };
     controls.append(label, input, out);
   }

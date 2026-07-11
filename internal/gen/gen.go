@@ -176,10 +176,25 @@ func writeMeta(b *bytes.Buffer, g *graph.Graph) {
 	fmt.Fprintf(b, "var NotebookMeta = []engine.CellMeta{\n")
 	for _, id := range g.Order {
 		c := g.Cells[id]
-		fmt.Fprintf(b, "\t{ID: %q, Label: %q, Directives: %s},\n",
-			c.ID, c.Label, directiveLiteral(c.Directives))
+		fmt.Fprintf(b, "\t{ID: %q, Leaf: %q, Label: %q, Directives: %s},\n",
+			c.ID, leafSymbol(c), c.Label, directiveLiteral(c.Directives))
 	}
 	fmt.Fprintf(b, "}\n")
+}
+
+// leafSymbol returns the symbol a control cell produces (its first named data
+// result), or "" if the cell is not a control. This is the symbol the head, UI,
+// and --set address — a leaf is identified by what it produces, not its name.
+func leafSymbol(c *graph.Cell) graph.Symbol {
+	if _, ok := c.Directives["slider"]; !ok {
+		return ""
+	}
+	for _, r := range c.Results {
+		if !r.IsError && r.Name != "" {
+			return r.Name
+		}
+	}
+	return ""
 }
 
 // directiveLiteral renders a directive map as a Go composite literal with keys

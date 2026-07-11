@@ -7,8 +7,10 @@ notebook_gen.go
 /cmd/notebook/notebook
 *.exe
 
-# Persisted head state (a few floats per notebook)
+# Persisted head state (a few floats per notebook). `notebook run` writes
+# notebook-head.json next to the source; it is per-user state, never committed.
 *.head.json
+notebook-head.json
 
 # Go
 *.test
