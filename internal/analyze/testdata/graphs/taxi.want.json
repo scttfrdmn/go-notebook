@@ -1,0 +1,189 @@
+{
+  "order": [
+    "trips",
+    "scale",
+    "drivers",
+    "demand",
+    "load",
+    "pressure",
+    "saturated",
+    "intro"
+  ],
+  "helpers": [
+    "Scan",
+    "parseTrip",
+    "atof",
+    "atoi",
+    "contentHash",
+    "sourceID"
+  ],
+  "producer": {
+    "all": "trips",
+    "bad": "saturated",
+    "c": "drivers",
+    "curve": "load",
+    "hours": "demand",
+    "md": "intro",
+    "rows": "scale",
+    "util": "pressure"
+  },
+  "cells": {
+    "demand": {
+      "label": "Demand and service time by hour of day.",
+      "pure": false,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "all",
+          "type": "Rel[Trip]",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "hours",
+          "type": "[]HourStat"
+        },
+        {
+          "name": "err",
+          "type": "error",
+          "isError": true
+        }
+      ]
+    },
+    "drivers": {
+      "label": "Drivers on the road.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "50",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "c",
+          "type": "int"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Taxis as a queueing system.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "load": {
+      "label": "Offered load, hour by hour.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "hours",
+          "type": "[]HourStat",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "curve",
+          "type": "[]Hourly"
+        },
+        {
+          "name": "err",
+          "type": "error",
+          "isError": true
+        }
+      ]
+    },
+    "pressure": {
+      "label": "Utilization by hour, and where the fleet is underwater.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "curve",
+          "type": "[]Hourly",
+          "kind": "wired"
+        },
+        {
+          "name": "c",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "util",
+          "type": "Chart"
+        }
+      ]
+    },
+    "saturated": {
+      "label": "The hours that break.",
+      "pure": false,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "curve",
+          "type": "[]Hourly",
+          "kind": "wired"
+        },
+        {
+          "name": "c",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "bad",
+          "type": "Readout"
+        }
+      ]
+    },
+    "scale": {
+      "label": "Trips on file.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "all",
+          "type": "Rel[Trip]",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "rows",
+          "type": "int64"
+        }
+      ]
+    },
+    "trips": {
+      "label": "Every trip on file.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "all",
+          "type": "Rel[Trip]"
+        },
+        {
+          "name": "err",
+          "type": "error",
+          "isError": true
+        }
+      ]
+    }
+  }
+}
