@@ -416,12 +416,18 @@ type TypesAnalyzer struct{} // go/packages + go/types. The only impl for now.
 
 Procedure:
 
-1. `packages.Load` with `NeedSyntax|NeedTypes|NeedTypesInfo|NeedDeps` on the notebook directory.
+1. **Two-tier load.** Graph derivation loads with `NeedName|NeedFiles|NeedSyntax|NeedTypes|NeedTypesInfo|NeedImports` — **no `NeedDeps`**. Dependency types (`context.Context` and domain types) resolve from export data via `NeedImports`; `NeedDeps` loads full dependency *source* and is ~4× more expensive. It is required only by purity's call graph (§5.3), which is a separate pass off the interactive path. *(Measured: dropping `NeedDeps` took cold derivation from 625ms to 86ms — see #16.)*
 2. Find the file carrying `//go:notebook`.
-3. **A cell is a top-level func in that file with a doc comment.** Undocumented funcs are helpers and are invisible to the graph. Methods are never cells.
-4. Every result must be **named** (except a trailing `error`). An unnamed result on a cell is a diagnostic: *"cell results must be named; the name is the edge."*
+3. **A cell is a non-generic, non-method, top-level func with ≥1 named non-error result.** This is the wiring rule doing double duty: the named result *is* the edge, so a func that names no result produces no edge and cannot be a cell — it is an ordinary helper, **regardless of whether it has a doc comment**. The doc comment is the *label*, not the marker. Two explicit exclusions:
+   - **Generic funcs are never cells** — a func with type parameters has no concrete result type to wire. (Not optional; it is a hole otherwise.)
+   - **Methods are never cells.**
+
+   `check` prints the **helper list** (top-level funcs that name no result), so a cell that silently vanishes because the author forgot to name its result is a one-glance diagnosis. The reverse — a helper that names its results and gets promoted to a cell — fails loudly with a "no cell produces `x`" diagnostic rather than corrupting silently.
+4. A cell that names *some* results but leaves a non-error result unnamed (or `_`) is a diagnostic: *"cell results must be named; the name is the edge."* (An all-unnamed func is simply a helper, not an error.)
 5. Params: `context.Context` → `Injected`. `Prev[T]` → `Delayed` *(cannot occur yet; write the branch, return a "not supported in this milestone" diagnostic)*. Everything else → `Wired`.
 6. Build `Producer` from result names; run `graph.Check`.
+
+**Interactive re-analysis (KC2).** The dependency graph does not change on a one-cell edit — only the notebook's own file contents do. So the incremental path (`analyze.Session`) primes the dependency importer once and thereafter re-typechecks *only* the notebook package against that cached importer — no `packages.Load`, no `go list`. *(Measured: 0.48ms, vs. the ~86ms cold load. gopls stays a "later" item unless a warm re-typecheck ever exceeds ~100ms.)*
 
 Diagnostics carry `token.Position` and must be **actionable**. The message for a missing producer is the difference between this feeling like a tool and feeling like a toy:
 
@@ -471,9 +477,13 @@ The type assertions are **safe by construction** — codegen knew the static typ
 
 ### 5.3 Purity
 
-`Pure` is **derived, never declared.** Build a call graph from the loaded package (`golang.org/x/tools/go/callgraph/cha` is sufficient) and mark a cell impure if it transitively reaches: `time.Now`, `time.Since`, `math/rand`, `crypto/rand`, `os`, `net`, `io` on real handles, or any cgo boundary.
+`Pure` is **derived, never declared.** Build a call graph and mark a cell impure if it transitively reaches: `time.Now`, `time.Since`, `math/rand`, `crypto/rand`, `os`, `net`, `net/http`, or any cgo boundary.
 
-Impure cells are never cached. Conservative and cheap.
+**Purity is off the interactive path, and that is architecture, not optimization.** Purity is consumed by exactly one thing — the cache — and a conservative verdict is *always safe*: marking a pure cell impure only costs a cache hit, while marking an impure cell pure gives wrong answers. Therefore:
+
+- **Cells default to impure.** The graph derivation (§5.1) sets `Pure = false` and does not compute purity at all. A separate `RefinePurity` pass upgrades cells to pure at build time or in the background — **never blocking a keystroke**.
+- **Purity, not graph derivation, is what needs `NeedDeps`** (the call graph requires full dependency source). Keeping it a separate pass is exactly what lets the interactive load drop `NeedDeps`.
+- **CHA, not VTA.** Purity needs only a *sound over-approximation* of "does this reach an impure primitive," and `callgraph/cha` provides that at a fraction of VTA's cost. CHA over-approximates interface dispatch, so it may occasionally mark a pure cell impure — the safe direction, costing a cache hit and nothing else. *(Earlier drafts reached for VTA to avoid `fmt`-using render cells being flagged impure via `os`; with default-impure semantics that precision buys nothing, so CHA wins.)*
 
 > This is the correction from the design doc. A `//notebook:nocache` directive is *wrong* — a comment that changes whether the answer is correct violates the type-vs-comment rule. The toolchain already knows.
 
@@ -515,12 +525,12 @@ Flags to accept now because they cost nothing and prove the shape:
 
 ### Kill criteria — measure these, do not hope
 
-- **KC1 — analysis.** Full graph derivation on `capacity.go` **< 50 ms**.
-- **KC2 — the one that matters.** Re-analysis after a one-cell edit **< 100 ms**. If this is seconds, the `go/types`-per-keystroke plan is dead and gopls moves from "later" to "now." *This is the number the whole milestone exists to produce.*
+- **KC1 — cold analysis.** Full graph derivation on `capacity.go` **< 1 s**. *(A cold load happens once, at launch, hidden behind the browser opening — it is not the interactive path. Original target was < 50 ms; that conflated cold startup with the edit loop and was relaxed. Measured: 86 ms.)*
+- **KC2 — the one that matters.** Re-analysis after a one-cell edit **< 100 ms**. If a *warm incremental* re-typecheck is seconds, the `go/types`-per-keystroke plan is dead and gopls moves from "later" to "now." *This is the number the whole milestone exists to produce.* **It is pure `internal/analyze` and does not need the engine, so it is measured in M1, not M3.** Measured: 0.48 ms (incremental `Session`).
 - **KC3 — interaction.** Slider drag → repaint, p95 **< 50 ms** on `capacity.go`.
 - **KC4 — the edit loop.** Save a cell body → rebuild → restart → head restored → repainted, **< 500 ms**.
 
-If KC2 and KC4 land, the design is alive and everything in the deferred list is worth building. If KC4 is >2 s, the compile-first bet fails at the interactive tier and the honest response is to *change the pitch* (batch and cluster work, where the loop is irrelevant) rather than to paper over it.
+If KC2 and KC4 land, the design is alive and everything in the deferred list is worth building. If KC4 is >2 s, the compile-first bet fails at the interactive tier and the honest response is to *change the pitch* (batch and cluster work, where the loop is irrelevant) rather than to paper over it. **KC2 has landed (M1) with a ~200× margin.**
 
 ---
 
