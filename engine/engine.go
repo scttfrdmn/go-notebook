@@ -23,11 +23,27 @@ type CellID string
 // identified by the symbol it produces.
 type Symbol string
 
+// LeafID identifies an input leaf by the symbol it produces. A leaf is a cell
+// whose value the user (or, later, a timer or grip) writes directly.
+type LeafID = Symbol
+
+// Epoch counts edits. Each write to the head bumps the epoch; a wave carries
+// its epoch so superseded results can be discarded before they commit.
+type Epoch uint64
+
 // Inputs maps each of a cell's parameter symbols to its current value.
 type Inputs map[Symbol]any
 
 // Outputs maps each of a cell's result symbols to the value it produced.
 type Outputs map[Symbol]any
+
+// Value is a symbol's current value plus a version. The cache keys on versions,
+// so arbitrary Go values never have to be hashed: two runs with the same input
+// versions produce the same output.
+type Value struct {
+	V       any
+	Version uint64
+}
 
 // Node is the unit of execution. Generated cells are one implementation; an
 // interpreted or remote executor can be another without the scheduler knowing.
