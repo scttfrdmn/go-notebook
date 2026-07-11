@@ -73,6 +73,11 @@ type Node interface {
 type CellMeta struct {
 	// ID is the cell this metadata describes.
 	ID CellID
+	// Leaf is the symbol this cell produces when it is an input control (a leaf
+	// the user edits). Empty for non-leaf cells. The head, the UI, and --set
+	// all address a leaf by this symbol — a leaf is identified by the symbol it
+	// produces, not by the cell's name.
+	Leaf Symbol
 	// Label is the cell's display label (the first sentence of its doc
 	// comment, or its function name).
 	Label string

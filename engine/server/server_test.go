@@ -92,7 +92,7 @@ func (n fnNode) Run(ctx context.Context, in engine.Inputs) (engine.Outputs, erro
 // This is the slider→repaint path KC3 measures, exercised end-to-end.
 func TestServerEditRepaints(t *testing.T) {
 	rt, meta := testRuntime(t)
-	srv := httptest.NewServer(New(rt, meta).Handler())
+	srv := httptest.NewServer(New(rt, meta, nil).Handler())
 	defer srv.Close()
 
 	// Open the event stream.
@@ -200,7 +200,7 @@ func TestSetRoundTrip(t *testing.T) {
 		t.Skip("latency measurement skipped in -short mode")
 	}
 	rt, meta := testRuntime(t)
-	srv := httptest.NewServer(New(rt, meta).Handler())
+	srv := httptest.NewServer(New(rt, meta, nil).Handler())
 	defer srv.Close()
 
 	const samples = 50

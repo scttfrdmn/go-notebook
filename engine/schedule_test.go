@@ -19,10 +19,10 @@ type fnNode struct {
 	run  func(ctx context.Context, in Inputs) (Outputs, error)
 }
 
-func (n fnNode) ID() CellID       { return n.id }
-func (n fnNode) In() []Symbol     { return n.in }
-func (n fnNode) Out() []Symbol    { return n.out }
-func (n fnNode) Pure() bool       { return n.pure }
+func (n fnNode) ID() CellID    { return n.id }
+func (n fnNode) In() []Symbol  { return n.in }
+func (n fnNode) Out() []Symbol { return n.out }
+func (n fnNode) Pure() bool    { return n.pure }
 func (n fnNode) Run(ctx context.Context, in Inputs) (Outputs, error) {
 	return n.run(ctx, in)
 }

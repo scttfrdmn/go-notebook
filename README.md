@@ -33,7 +33,27 @@ The wiring rule, in one sentence:
 
 ## Status
 
-**Design complete, unbuilt.** Nine notebooks written, six of them ports of marimo gallery examples. Nothing here has been compiled. The next step is `docs/core-loop-spec.md`, which exists to produce two numbers (KC2 and KC4) that determine whether the compile-first bet works at the interactive tier.
+**The core loop is built and the compile-first bet is measured.** The toolchain analyzes a notebook, derives the graph from `go/types`, generates a registry via `go build -overlay` (never touching your source tree), and runs it through a glitch-free reactive engine served to a browser — or headless as a batch job.
+
+```
+go tool notebook check ./examples/capacity     # print the dependency graph
+go tool notebook run   ./examples/capacity     # serve it; edit source, it rebuilds
+go tool notebook build ./examples/capacity     # emit a standalone binary
+./capacity --headless --set servers=120 --json # the same file, as a job
+```
+
+The four kill criteria, measured on an M4 Pro (see the design's `docs/core-loop-spec.md` §7 for what each proves):
+
+| KC | What | Target | Measured |
+|----|------|--------|----------|
+| KC1 | cold graph derivation | < 1s | **86 ms** |
+| KC2 | re-analysis after a one-cell edit | < 100 ms | **~0.5 ms** |
+| KC3 | slider → repaint (p95) | < 50 ms | **~15 µs** engine + **~165 µs** transport |
+| KC4 | save → rebuild → restart → repaint | < 500 ms | **~470 ms** (capacity); marginal on larger notebooks |
+
+KC2 — the number the design hinged on — lands with a ~200× margin, which retires the project's largest engineering risk (incremental analysis) and defers the gopls migration indefinitely. **KC4 is the honest caveat:** it passes for capacity-scale notebooks but is marginal-to-failing on the largest example (lego, ~510 ms–1.1 s), dominated by `go build` and OS binary-first-exec — both toolchain/OS, not the engine (a wave is ~2 µs). Overlapping the rebuild with the running binary is the identified path to real margin ([#22](https://github.com/scttfrdmn/go-notebook/issues/22)).
+
+**Built so far:** `internal/graph` (plain-data IR, no `go/types`), `internal/analyze` (incremental type-checking `Session`, CHA-based purity), `internal/gen` (codegen + overlay), `engine` (head + epoch'd glitch-free scheduler + cache + capability probes), `engine/server` (SSE + edits; the only `net/http`). Deferred by design (seams cut, features skipped): `Prev[T]` folds, grips, SQL/`Rel[T]`, WASM. Progress is tracked in [GitHub issues](https://github.com/scttfrdmn/go-notebook/issues); kill-criteria numbers live on [#16](https://github.com/scttfrdmn/go-notebook/issues/16).
 
 ## Documents
 

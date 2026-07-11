@@ -44,6 +44,14 @@ type Runtime struct {
 	versions map[Symbol]uint64
 	lastVals map[Symbol]any
 	vmu      sync.Mutex
+
+	// serial disables goroutine fan-out (cells in a level run sequentially).
+	// This restores per-cell stdout for debugging, at the cost of parallelism.
+	serial bool
+
+	// finals holds the most recent committed value of every symbol, for
+	// headless --json output. Guarded by vmu.
+	finals map[Symbol]any
 }
 
 // Config describes the static graph shape the runtime executes. It is derived
@@ -57,6 +65,9 @@ type Config struct {
 	// Levels are the precomputed topological levels over all cells, from the
 	// graph's Plan. Cells within a level are independent.
 	Levels [][]CellID
+	// Serial disables goroutine fan-out: cells within a level run one at a
+	// time. Used by --serial to restore per-cell stdout for debugging.
+	Serial bool
 }
 
 // NewRuntime builds a runtime from a config, a head, and a cache.
@@ -71,6 +82,8 @@ func NewRuntime(cfg Config, head *Head, cache Store) *Runtime {
 		cache:    cache,
 		versions: make(map[Symbol]uint64),
 		lastVals: make(map[Symbol]any),
+		finals:   make(map[Symbol]any),
+		serial:   cfg.Serial,
 	}
 	for _, n := range cfg.Nodes {
 		r.nodes[n.ID()] = n
@@ -212,9 +225,57 @@ func (r *Runtime) runWave(ctx context.Context, epoch Epoch, snap map[LeafID]any)
 				values[k] = v
 			}
 			r.bumpVersions(res.out)
+			r.recordFinals(res.out)
 			r.emit(r.doneEvent(epoch, res))
 		}
 	}
+}
+
+// recordFinals stores the latest committed value of each produced symbol, for
+// headless --json output.
+func (r *Runtime) recordFinals(out Outputs) {
+	r.vmu.Lock()
+	defer r.vmu.Unlock()
+	for k, v := range out {
+		r.finals[k] = v
+	}
+}
+
+// Finals returns a copy of the most recent committed value of every symbol,
+// after a wave. It is the batch/headless output: run once, read the results.
+func (r *Runtime) Finals() map[Symbol]any {
+	r.vmu.Lock()
+	defer r.vmu.Unlock()
+	cp := make(map[Symbol]any, len(r.finals))
+	for k, v := range r.finals {
+		cp[k] = v
+	}
+	return cp
+}
+
+// leafOverride reports whether a cell's output should be taken from the head
+// rather than computed. A leaf cell produces a symbol registered as a leaf; if
+// the wave's value space already holds that symbol (seeded from the head
+// snapshot), the head value wins and the cell body is skipped. Returns the
+// outputs to adopt and true when overridden.
+//
+// A leaf cell with no head value yet (never edited) is NOT overridden — it runs
+// its body to produce the default, which is exactly the schema/default role the
+// design assigns a leaf cell's body.
+func (r *Runtime) leafOverride(node Node, values map[Symbol]any) (Outputs, bool) {
+	outs := node.Out()
+	if len(outs) != 1 {
+		return nil, false // multi-output cells are not simple leaves
+	}
+	sym := outs[0]
+	if !r.leaves[sym] {
+		return nil, false
+	}
+	v, ok := values[sym]
+	if !ok {
+		return nil, false // no head value yet: run the body for the default
+	}
+	return Outputs{sym: v}, true
 }
 
 // levelResult is one cell's outcome within a level.
@@ -246,6 +307,19 @@ func (r *Runtime) runLevel(ctx context.Context, epoch Epoch, level []CellID, val
 			continue
 		}
 
+		// Leaf override: a leaf cell's body is only the DEFAULT. When the head
+		// holds a value for the leaf's output symbol (a slider was moved, or
+		// --set was given), use that value and skip the body entirely. This is
+		// what makes a slider actually move the model: the edited value flows
+		// downstream instead of the cell's hardcoded default. The head value is
+		// already in `values` (seeded from the snapshot), so we just adopt it as
+		// this cell's output.
+		if out, ok := r.leafOverride(node, values); ok {
+			results[i] = levelResult{id: id, out: out}
+			r.emit(Event{Epoch: epoch, Cell: id, State: StateRunning})
+			continue
+		}
+
 		// Pure cells consult the cache, keyed on input versions (never a value
 		// hash). Impure cells — those that transitively touch time, rand, or
 		// I/O — skip the cache entirely, because their output is not a function
@@ -268,14 +342,23 @@ func (r *Runtime) runLevel(ctx context.Context, epoch Epoch, level []CellID, val
 			in[sym] = values[sym]
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		run := func() {
 			res := r.runNode(ctx, node, in)
 			if res.err == nil && node.Pure() {
 				r.cache.Put(r.cacheKey(node.ID(), node.In()), res.out)
 			}
 			results[i] = res
+		}
+		if r.serial {
+			// Sequential: cells in a level run one at a time, so per-cell stdout
+			// doesn't interleave. This is the --serial debugging mode.
+			run()
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			run()
 		}()
 	}
 	wg.Wait()

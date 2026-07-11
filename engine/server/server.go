@@ -26,12 +26,27 @@ import (
 type Server struct {
 	rt   *engine.Runtime
 	meta []engine.CellMeta
+	set  SetFunc
 	mux  *http.ServeMux
 }
 
-// New builds a server for a runtime and its cell metadata.
-func New(rt *engine.Runtime, meta []engine.CellMeta) *Server {
-	s := &Server{rt: rt, meta: meta, mux: http.NewServeMux()}
+// SetFunc applies a leaf edit: it coerces the raw JSON value (numbers arrive as
+// float64) into the leaf's static Go type and writes it through the head, then
+// runs the wave. The generated main supplies this because only codegen knows
+// each leaf's real type — the server itself is type-agnostic. A nil SetFunc
+// falls back to writing the raw value (used in tests with already-typed values).
+type SetFunc func(ctx context.Context, leaf string, raw any)
+
+// New builds a server for a runtime, its cell metadata, and a type-aware leaf
+// setter. If set is nil, edits write the raw JSON value directly (fine for
+// tests whose leaves are already the right type).
+func New(rt *engine.Runtime, meta []engine.CellMeta, set SetFunc) *Server {
+	if set == nil {
+		set = func(ctx context.Context, leaf string, raw any) {
+			rt.Set(ctx, engine.LeafID(leaf), raw)
+		}
+	}
+	s := &Server{rt: rt, meta: meta, set: set, mux: http.NewServeMux()}
 	s.mux.HandleFunc("/", s.handleIndex)
 	s.mux.HandleFunc("/events", s.handleEvents)
 	s.mux.HandleFunc("/set", s.handleSet)
@@ -126,8 +141,8 @@ func (s *Server) handleSet(w http.ResponseWriter, r *http.Request) {
 	}
 	// Run the wave in the background so the POST returns immediately; the client
 	// sees results stream in over /events. Coalescing in the scheduler handles
-	// rapid drags.
-	go s.rt.Set(context.Background(), engine.LeafID(req.Leaf), req.Value)
+	// rapid drags. The set func coerces the raw JSON value to the leaf's type.
+	go s.set(context.Background(), req.Leaf, req.Value)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -148,8 +163,8 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 // Serve starts an HTTP server on addr and blocks. Each client that connects to
 // the event stream triggers a full wave, so a freshly-opened page always shows
 // current state without a separate startup wave here.
-func Serve(ctx context.Context, addr string, rt *engine.Runtime, meta []engine.CellMeta) error {
-	s := New(rt, meta)
+func Serve(ctx context.Context, addr string, rt *engine.Runtime, meta []engine.CellMeta, set SetFunc) error {
+	s := New(rt, meta, set)
 	srv := &http.Server{Addr: addr, Handler: s.Handler()}
 	go func() {
 		<-ctx.Done()
