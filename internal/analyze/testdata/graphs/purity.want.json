@@ -1,0 +1,97 @@
+{
+  "order": [
+    "base",
+    "noise",
+    "stamp",
+    "formatted",
+    "doubled"
+  ],
+  "producer": {
+    "d": "doubled",
+    "n": "base",
+    "r": "noise",
+    "s": "formatted",
+    "t": "stamp"
+  },
+  "cells": {
+    "base": {
+      "label": "A pure constant.",
+      "pure": true,
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    },
+    "doubled": {
+      "label": "doubled is pure: arithmetic only, no fmt, no impure reach.",
+      "pure": true,
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "d",
+          "type": "int"
+        }
+      ]
+    },
+    "formatted": {
+      "label": "formatted is pure arithmetic, but formats with fmt.Sprintf.",
+      "pure": false,
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "s",
+          "type": "string"
+        }
+      ]
+    },
+    "noise": {
+      "label": "noise is genuinely impure: it reaches math/rand.",
+      "pure": false,
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "r",
+          "type": "int"
+        }
+      ]
+    },
+    "stamp": {
+      "label": "stamp is genuinely impure: it reaches time.Now.",
+      "pure": false,
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "t",
+          "type": "int64"
+        }
+      ]
+    }
+  }
+}

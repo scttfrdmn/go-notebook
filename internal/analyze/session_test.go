@@ -86,32 +86,54 @@ func TestCellVsHelperBoundary(t *testing.T) {
 	}
 }
 
-// TestPurityCHA confirms the CHA-based refinement marks compute-only cells pure
-// even when they use fmt (which VTA was needed for under the old approach — but
-// capacity's cells write to strings.Builder, and CHA still resolves those as
-// pure here because they don't reach os/rand/time directly). The key assertion
-// is the safe direction: nothing compute-only is left impure that shouldn't be,
-// and any over-approximation only ever costs a cache hit.
-func TestPurityCHA(t *testing.T) {
-	g, _, err := TypesAnalyzer{}.Analyze(capacityDir)
+// TestPurityDefaultsImpure confirms the always-safe default: before
+// RefinePurity runs, every cell is impure. The graph derivation must not depend
+// on purity, so the interactive path never blocks on it.
+func TestPurityDefaultsImpure(t *testing.T) {
+	g, _, err := TypesAnalyzer{}.Analyze("testdata/graphs/purity")
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Before refinement, everything defaults to the safe impure verdict.
 	for id, c := range g.Cells {
 		if c.Pure {
-			t.Fatalf("cell %q should default to impure before RefinePurity", id)
+			t.Errorf("cell %q should default to impure before RefinePurity", id)
 		}
 	}
-	pkg, err := LoadForPurity(capacityDir)
+}
+
+// TestPurityRefinement pins the CHA verdicts on a fixture with known-pure,
+// known-impure, and over-approximated cells:
+//
+//   - base, doubled       genuinely pure arithmetic → pure
+//   - noise (math/rand)   genuinely impure → MUST stay impure (the direction
+//     that matters: a cached stale draw would be silently wrong)
+//   - stamp (time.Now)    genuinely impure → MUST stay impure
+//   - formatted (fmt)     pure arithmetic that formats; CHA conservatively
+//     marks it impure — the safe over-approximation, costing only a cache hit
+func TestPurityRefinement(t *testing.T) {
+	const dir = "testdata/graphs/purity"
+	g, _, err := TypesAnalyzer{}.Analyze(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg, err := LoadForPurity(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	RefinePurity(pkg, g)
 
-	// arrivalRate is a trivial constant cell — unambiguously pure.
-	if !g.Cells["arrivalRate"].Pure {
-		t.Error("arrivalRate should be pure after refinement")
+	// The direction that must never break: an impure cell classified pure would
+	// serve stale cached state and be silently wrong.
+	for _, id := range []string{"noise", "stamp"} {
+		if g.Cells[graph.CellID(id)].Pure {
+			t.Errorf("%q reaches an impure primitive; marking it pure is a correctness bug", id)
+		}
+	}
+	// The safe direction: genuinely pure cells are pure.
+	for _, id := range []string{"base", "doubled"} {
+		if !g.Cells[graph.CellID(id)].Pure {
+			t.Errorf("%q is pure arithmetic and should be classified pure", id)
+		}
 	}
 }
 

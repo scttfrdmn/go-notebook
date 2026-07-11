@@ -108,6 +108,21 @@ func LoadForPurity(dir string) (*packages.Package, error) {
 // reachesImpure reports whether fn transitively calls any impure function.
 // Package init functions are skipped: a package's init pulling in os (as fmt's
 // does) says nothing about whether a cell's own logic is pure.
+//
+// INVARIANT — conservative by default, and do not "fix" a cell that comes out
+// impure here. Purity feeds only the cache. The two error directions are not
+// symmetric: marking a pure cell impure costs one cache miss (it recomputes and
+// gets the right answer); marking an impure cell pure serves a stale cached
+// value and is silently WRONG. So over-approximating "impure" is always safe
+// and under-approximating is a correctness bug.
+//
+// Concrete example of the safe over-approximation: queue.go's readout cell is
+// pure arithmetic that formats its output with fmt.Sprintf. CHA cannot prove
+// fmt's internal interface dispatch (Formatter/Stringer) stays away from the
+// impure set, so it conservatively marks readout impure. That costs one cache
+// hit and nothing else. VTA's type-flow would prune the spurious edge and call
+// it pure — but that precision buys only cache hits while risking the one error
+// that matters, so CHA is the correct choice, not a limitation to work around.
 func reachesImpure(cg *callgraph.Graph, fn *ssa.Function) bool {
 	root := cg.Nodes[fn]
 	if root == nil {
