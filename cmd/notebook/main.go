@@ -19,8 +19,9 @@ const usage = `notebook — a reactive notebook toolchain
 usage:
   notebook check <dir|file>   analyze a notebook and print its dependency graph
   notebook build <dir|file>   analyze, generate a registry, and compile a binary
+  notebook run   <dir|file>   build and serve the notebook in a browser
 
-Run "notebook check ./examples/capacity" to see a graph.
+Run "notebook run ./examples/capacity" to open a notebook.
 `
 
 func main() {
@@ -39,6 +40,8 @@ func run(args []string) int {
 		return cmdCheck(args[1:])
 	case "build":
 		return cmdBuild(args[1:])
+	case "run":
+		return cmdRun(args[1:])
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return 0

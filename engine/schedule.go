@@ -94,6 +94,12 @@ func NewRuntime(cfg Config, head *Head, cache Store) *Runtime {
 		}
 		r.deps[n.ID()] = ds
 	}
+
+	// Levels are supplied by the caller (tests) or computed from the nodes'
+	// declared shape (the generated main, which stays topology-free).
+	if r.levels == nil {
+		r.levels = computeLevels(cfg.Nodes, r.producer)
+	}
 	return r
 }
 
@@ -129,6 +135,13 @@ func (r *Runtime) emit(ev Event) {
 func (r *Runtime) Set(ctx context.Context, leaf LeafID, v any) {
 	epoch := r.head.Set(leaf, v)
 
+	// A leaf is a symbol too, but nothing "produces" it, so bumpVersions (which
+	// runs on cell outputs) never versions it. Bump it here — only when it
+	// actually changed — so pure cells that read this leaf get a fresh cache key
+	// and recompute. Without this, a slider drag would serve a stale cached
+	// value: the exact opposite of reactive.
+	r.bumpVersions(Outputs{Symbol(leaf): v})
+
 	// Record this as the newest epoch. A wave for an older epoch that observes
 	// current > its own epoch is stale and must not commit.
 	r.mu.Lock()
@@ -139,6 +152,14 @@ func (r *Runtime) Set(ctx context.Context, leaf LeafID, v any) {
 
 	snap, snapEpoch := r.head.Snapshot()
 	r.runWave(ctx, snapEpoch, snap)
+}
+
+// RunAll executes a full wave over the whole graph at the current head state.
+// It is used once at startup so every cell renders before any edit, and after a
+// rebuild when the process restarts with a restored head.
+func (r *Runtime) RunAll(ctx context.Context) {
+	snap, epoch := r.head.Snapshot()
+	r.runWave(ctx, epoch, snap)
 }
 
 // superseded reports whether a newer edit has arrived since this wave's epoch.

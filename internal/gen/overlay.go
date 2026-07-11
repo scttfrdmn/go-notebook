@@ -97,6 +97,10 @@ func (o *Overlay) writeJSON() error {
 	return nil
 }
 
+// TempDir returns the temp directory backing the overlay, a safe place to write
+// the built binary (it is cleaned up with the overlay).
+func (o *Overlay) TempDir() string { return o.tmpDir }
+
 // Cleanup removes the temp directory backing the overlay. Safe to call on a
 // partially-constructed Overlay and safe to call more than once.
 func (o *Overlay) Cleanup() {
