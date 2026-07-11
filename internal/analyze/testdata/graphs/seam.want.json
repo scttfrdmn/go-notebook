@@ -1,0 +1,185 @@
+{
+  "order": [
+    "source",
+    "amount",
+    "seamOrder",
+    "precomputeCost",
+    "original",
+    "carved",
+    "seamHeatmap",
+    "intro"
+  ],
+  "helpers": [
+    "lowestEnergySeam",
+    "energy",
+    "parallelRows",
+    "fetchImage"
+  ],
+  "producer": {
+    "after": "carved",
+    "before": "original",
+    "cost": "precomputeCost",
+    "elapsed": "seamOrder",
+    "heat": "seamHeatmap",
+    "img": "source",
+    "md": "intro",
+    "order": "seamOrder",
+    "scale": "amount"
+  },
+  "cells": {
+    "amount": {
+      "label": "Amount of resizing to perform.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "step": "0.05"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "scale",
+          "type": "Scale"
+        }
+      ]
+    },
+    "carved": {
+      "label": "Carved.",
+      "pure": false,
+      "isLeaf": false,
+      "directives": {
+        "row": "compare"
+      },
+      "params": [
+        {
+          "name": "img",
+          "type": "Frame",
+          "kind": "wired"
+        },
+        {
+          "name": "order",
+          "type": "SeamMap",
+          "kind": "wired"
+        },
+        {
+          "name": "scale",
+          "type": "Scale",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "after",
+          "type": "Image"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Seam carving.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "original": {
+      "label": "Original.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "row": "compare"
+      },
+      "params": [
+        {
+          "name": "img",
+          "type": "Frame",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "before",
+          "type": "Image"
+        }
+      ]
+    },
+    "precomputeCost": {
+      "label": "Time spent finding seams, as a readable card.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "elapsed",
+          "type": "time.Duration",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "cost",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "seamHeatmap": {
+      "label": "Seam order, as a heat map: dark pixels go first.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "order",
+          "type": "SeamMap",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "heat",
+          "type": "Image"
+        }
+      ]
+    },
+    "seamOrder": {
+      "label": "Order in which seams are removed, and how long finding it took.",
+      "pure": false,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "img",
+          "type": "Frame",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "order",
+          "type": "SeamMap"
+        },
+        {
+          "name": "elapsed",
+          "type": "time.Duration"
+        }
+      ]
+    },
+    "source": {
+      "label": "The Persistence of Memory.",
+      "pure": false,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "img",
+          "type": "Frame"
+        },
+        {
+          "name": "err",
+          "type": "error",
+          "isError": true
+        }
+      ]
+    }
+  }
+}

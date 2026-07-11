@@ -548,6 +548,8 @@ If KC2 and KC4 land, the design is alive and everything in the deferred list is 
 
 ## 8. Testing
 
+> **A test that observes an effect must observe the effect it *names*.** "Events streamed" is not "the value changed." "Output discarded" is not "compute abandoned." "The chart repainted" is not "the chart repainted *because of what I did*." Every real bug in this project has hidden in exactly that gap: the inert slider (the chart repainted, but from the default, not the edit), the false drag-coalescing (99 waves were "discarded" — after running to completion, not instead of it), the toothless glitch test (edits didn't overlap, so no glitch was possible), the strconv miscompile (the notebook that would have caught it wasn't built). When a test asserts a mechanism works, assert the *consequence the mechanism exists for* — the changed value, the abandoned work, the observed race — not merely that the machinery moved. If you can't observe the consequence directly, the test is decoration.
+
 - **`internal/graph`** is plain data with no I/O — table-driven tests, high coverage, no fixtures beyond JSON.
 - **Golden graphs.** `testdata/graphs/*.go` → `*.want.json`. Every design-doc notebook that this milestone can parse goes in here, including ones whose *features* are unimplemented — parsing must not regress when they land.
 - **Diagnostics are golden too.** `testdata/cycles/` and `testdata/errors/` with exact expected messages. Message quality is a feature; test it like one.

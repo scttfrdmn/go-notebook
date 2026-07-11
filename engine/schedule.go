@@ -37,6 +37,10 @@ type Runtime struct {
 	mu      sync.Mutex
 	subs    []chan Event
 	current Epoch // the newest epoch that has begun a wave; used to supersede
+	// waves holds the cancel func of each in-flight wave by epoch, so a newer
+	// edit can cancel older waves' contexts — turning supersession from "discard
+	// the result" into "abandon the compute" for cells that honor ctx.Done().
+	waves map[Epoch]context.CancelFunc
 	// versions holds the current version of each symbol's value, for cache keys.
 	// A version bumps only when the value actually changes (propagation
 	// pruning), so an identical recompute neither invalidates the cache nor
@@ -83,6 +87,7 @@ func NewRuntime(cfg Config, head *Head, cache Store) *Runtime {
 		versions: make(map[Symbol]uint64),
 		lastVals: make(map[Symbol]any),
 		finals:   make(map[Symbol]any),
+		waves:    make(map[Epoch]context.CancelFunc),
 		serial:   cfg.Serial,
 	}
 	for _, n := range cfg.Nodes {
@@ -155,11 +160,17 @@ func (r *Runtime) Set(ctx context.Context, leaf LeafID, v any) {
 	// value: the exact opposite of reactive.
 	r.bumpVersions(Outputs{Symbol(leaf): v})
 
-	// Record this as the newest epoch. A wave for an older epoch that observes
-	// current > its own epoch is stale and must not commit.
+	// Record this as the newest epoch and cancel every older in-flight wave, so
+	// a superseded wave's cells that honor ctx.Done() actually abandon their
+	// compute instead of finishing and having the result discarded.
 	r.mu.Lock()
 	if epoch > r.current {
 		r.current = epoch
+	}
+	for e, cancel := range r.waves {
+		if e < epoch {
+			cancel()
+		}
 	}
 	r.mu.Unlock()
 
@@ -187,7 +198,25 @@ func (r *Runtime) superseded(epoch Epoch) bool {
 // values from `snap` and cell outputs from `values`, a per-wave map seeded from
 // the snapshot — never from shared mutable state. No cell can observe a value
 // from a different epoch, because this wave has its own isolated value space.
-func (r *Runtime) runWave(ctx context.Context, epoch Epoch, snap map[LeafID]any) {
+func (r *Runtime) runWave(parent context.Context, epoch Epoch, snap map[LeafID]any) {
+	// Derive a per-wave context, cancelled either when this call returns or when
+	// a newer edit supersedes this epoch (see Set). A slow cell that honors
+	// ctx.Done() abandons its work the moment it is superseded.
+	ctx, cancel := context.WithCancel(parent)
+	r.mu.Lock()
+	// If a newer wave already started before we registered, cancel immediately.
+	if r.current > epoch {
+		cancel()
+	}
+	r.waves[epoch] = cancel
+	r.mu.Unlock()
+	defer func() {
+		r.mu.Lock()
+		delete(r.waves, epoch)
+		r.mu.Unlock()
+		cancel()
+	}()
+
 	// values is this wave's private symbol space: leaves first, then cell
 	// outputs as they are produced. It is never shared with another wave.
 	values := make(map[Symbol]any, len(snap))
