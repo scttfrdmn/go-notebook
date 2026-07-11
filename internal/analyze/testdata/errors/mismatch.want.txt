@@ -1,0 +1,2 @@
+mismatch.go:12:15: cell "consumer" takes `x string`, but cell "producer" produces `x` as `int`.
+                   an edge matches on name and type; these disagree (mismatch.go:9:18)

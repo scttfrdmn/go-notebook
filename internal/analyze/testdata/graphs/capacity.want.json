@@ -1,0 +1,352 @@
+{
+  "order": [
+    "arrivalRate",
+    "serviceRate",
+    "servers",
+    "hourlyPrice",
+    "slaTarget",
+    "offeredLoad",
+    "utilization",
+    "waitProbability",
+    "meanWait",
+    "jobsInSystem",
+    "hourlyCost",
+    "costPerJob",
+    "slaMet",
+    "capacityCurve",
+    "notes"
+  ],
+  "helpers": [
+    "erlangC",
+    "svg"
+  ],
+  "producer": {
+    "a": "offeredLoad",
+    "c": "servers",
+    "cost": "hourlyCost",
+    "curve": "capacityCurve",
+    "inSystem": "jobsInSystem",
+    "intro": "notes",
+    "lambda": "arrivalRate",
+    "meets": "slaMet",
+    "mu": "serviceRate",
+    "pWait": "waitProbability",
+    "perJob": "costPerJob",
+    "price": "hourlyPrice",
+    "rho": "utilization",
+    "target": "slaTarget",
+    "wq": "meanWait"
+  },
+  "cells": {
+    "arrivalRate": {
+      "label": "Incoming jobs per hour.",
+      "pure": true,
+      "directives": {
+        "max": "5000",
+        "min": "0",
+        "slider": "",
+        "step": "50"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "lambda",
+          "type": "PerHour"
+        }
+      ]
+    },
+    "capacityCurve": {
+      "label": "Cost vs. latency as the fleet scales past its stability floor.",
+      "pure": true,
+      "directives": {
+        "height": "320"
+      },
+      "params": [
+        {
+          "name": "lambda",
+          "type": "PerHour",
+          "kind": "wired"
+        },
+        {
+          "name": "mu",
+          "type": "PerHour",
+          "kind": "wired"
+        },
+        {
+          "name": "price",
+          "type": "USD",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "curve",
+          "type": "Chart"
+        }
+      ]
+    },
+    "costPerJob": {
+      "label": "Amortized infrastructure cost per completed job.",
+      "pure": true,
+      "params": [
+        {
+          "name": "cost",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "lambda",
+          "type": "PerHour",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "perJob",
+          "type": "USD"
+        }
+      ]
+    },
+    "hourlyCost": {
+      "label": "Fleet cost per hour.",
+      "pure": true,
+      "params": [
+        {
+          "name": "c",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "price",
+          "type": "USD",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "cost",
+          "type": "USD"
+        }
+      ]
+    },
+    "hourlyPrice": {
+      "label": "On-demand price per server-hour.",
+      "pure": true,
+      "directives": {
+        "max": "5",
+        "min": "0",
+        "slider": "",
+        "step": "0.001"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "price",
+          "type": "USD"
+        }
+      ]
+    },
+    "jobsInSystem": {
+      "label": "Expected number of jobs in the system, via Little's law (L = lambda * W).",
+      "pure": true,
+      "params": [
+        {
+          "name": "lambda",
+          "type": "PerHour",
+          "kind": "wired"
+        },
+        {
+          "name": "wq",
+          "type": "Seconds",
+          "kind": "wired"
+        },
+        {
+          "name": "mu",
+          "type": "PerHour",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "inSystem",
+          "type": "float64"
+        }
+      ]
+    },
+    "meanWait": {
+      "label": "Mean time a job spends waiting in queue before service.",
+      "pure": true,
+      "params": [
+        {
+          "name": "pWait",
+          "type": "Probability",
+          "kind": "wired"
+        },
+        {
+          "name": "rho",
+          "type": "float64",
+          "kind": "wired"
+        },
+        {
+          "name": "c",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "mu",
+          "type": "PerHour",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "wq",
+          "type": "Seconds"
+        }
+      ]
+    },
+    "notes": {
+      "label": "Orientation shown above the controls.",
+      "pure": true,
+      "params": null,
+      "results": [
+        {
+          "name": "intro",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "offeredLoad": {
+      "label": "Offered load in Erlangs (lambda/mu).",
+      "pure": true,
+      "params": [
+        {
+          "name": "lambda",
+          "type": "PerHour",
+          "kind": "wired"
+        },
+        {
+          "name": "mu",
+          "type": "PerHour",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "a",
+          "type": "Erlangs"
+        }
+      ]
+    },
+    "servers": {
+      "label": "Servers in the fleet.",
+      "pure": true,
+      "directives": {
+        "max": "256",
+        "min": "1",
+        "slider": ""
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "c",
+          "type": "int"
+        }
+      ]
+    },
+    "serviceRate": {
+      "label": "Jobs completed per hour, per server.",
+      "pure": true,
+      "directives": {
+        "max": "200",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "mu",
+          "type": "PerHour"
+        }
+      ]
+    },
+    "slaMet": {
+      "label": "Whether the current fleet meets the wait-probability SLA.",
+      "pure": true,
+      "params": [
+        {
+          "name": "pWait",
+          "type": "Probability",
+          "kind": "wired"
+        },
+        {
+          "name": "target",
+          "type": "Probability",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "meets",
+          "type": "bool"
+        }
+      ]
+    },
+    "slaTarget": {
+      "label": "SLA: the largest acceptable probability that a job has to wait.",
+      "pure": true,
+      "params": null,
+      "results": [
+        {
+          "name": "target",
+          "type": "Probability"
+        }
+      ]
+    },
+    "utilization": {
+      "label": "Server utilization.",
+      "pure": true,
+      "params": [
+        {
+          "name": "a",
+          "type": "Erlangs",
+          "kind": "wired"
+        },
+        {
+          "name": "c",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "rho",
+          "type": "float64"
+        }
+      ]
+    },
+    "waitProbability": {
+      "label": "Probability an arriving job finds every server busy (Erlang C).",
+      "pure": true,
+      "params": [
+        {
+          "name": "a",
+          "type": "Erlangs",
+          "kind": "wired"
+        },
+        {
+          "name": "c",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "pWait",
+          "type": "Probability"
+        }
+      ]
+    }
+  }
+}

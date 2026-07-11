@@ -1,0 +1,62 @@
+{
+  "order": [
+    "base",
+    "doubled",
+    "bounded"
+  ],
+  "helpers": [
+    "clamp"
+  ],
+  "producer": {
+    "m": "doubled",
+    "n": "base",
+    "result": "bounded"
+  },
+  "cells": {
+    "base": {
+      "label": "A raw input value.",
+      "pure": true,
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    },
+    "bounded": {
+      "label": "bounded is a cell that uses both the helper and the generic func internally.",
+      "pure": true,
+      "params": [
+        {
+          "name": "m",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "result",
+          "type": "int"
+        }
+      ]
+    },
+    "doubled": {
+      "label": "doubled is a real cell: it names its result, so it produces an edge.",
+      "pure": true,
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "m",
+          "type": "int"
+        }
+      ]
+    }
+  }
+}

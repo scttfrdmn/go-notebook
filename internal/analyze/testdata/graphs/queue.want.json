@@ -1,0 +1,196 @@
+{
+  "order": [
+    "clock",
+    "seed",
+    "arrivalRate",
+    "serviceRate",
+    "servers",
+    "sim",
+    "depth",
+    "readout",
+    "intro"
+  ],
+  "producer": {
+    "c": "servers",
+    "lambda": "arrivalRate",
+    "md": "intro",
+    "mu": "serviceRate",
+    "now": "readout",
+    "plot": "depth",
+    "seed": "seed",
+    "state": "sim",
+    "tick": "clock"
+  },
+  "cells": {
+    "arrivalRate": {
+      "label": "Incoming jobs per hour.",
+      "pure": true,
+      "directives": {
+        "max": "5000",
+        "min": "0",
+        "slider": "",
+        "step": "50"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "lambda",
+          "type": "PerHour"
+        }
+      ]
+    },
+    "clock": {
+      "label": "Simulation clock.",
+      "pure": true,
+      "directives": {
+        "interval": "100ms",
+        "timer": ""
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "tick",
+          "type": "Tick"
+        }
+      ]
+    },
+    "depth": {
+      "label": "Queue depth over the last four minutes of simulated time.",
+      "pure": true,
+      "directives": {
+        "height": "300"
+      },
+      "params": [
+        {
+          "name": "state",
+          "type": "Sim",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "plot",
+          "type": "Chart"
+        }
+      ]
+    },
+    "intro": {
+      "label": "A queue you can watch.",
+      "pure": true,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "readout": {
+      "label": "Right now.",
+      "pure": false,
+      "params": [
+        {
+          "name": "state",
+          "type": "Sim",
+          "kind": "wired"
+        },
+        {
+          "name": "c",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "now",
+          "type": "Readout"
+        }
+      ]
+    },
+    "seed": {
+      "label": "Random seed.",
+      "pure": true,
+      "params": null,
+      "results": [
+        {
+          "name": "seed",
+          "type": "int64"
+        }
+      ]
+    },
+    "servers": {
+      "label": "Servers in the fleet.",
+      "pure": true,
+      "directives": {
+        "max": "200",
+        "min": "1",
+        "slider": ""
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "c",
+          "type": "int"
+        }
+      ]
+    },
+    "serviceRate": {
+      "label": "Jobs completed per hour, per server.",
+      "pure": true,
+      "directives": {
+        "max": "200",
+        "min": "1",
+        "slider": ""
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "mu",
+          "type": "PerHour"
+        }
+      ]
+    },
+    "sim": {
+      "label": "Queue state.",
+      "pure": true,
+      "params": [
+        {
+          "name": "prev",
+          "type": "Prev[Sim]",
+          "kind": "delayed"
+        },
+        {
+          "name": "tick",
+          "type": "Tick",
+          "kind": "wired"
+        },
+        {
+          "name": "seed",
+          "type": "int64",
+          "kind": "wired"
+        },
+        {
+          "name": "lambda",
+          "type": "PerHour",
+          "kind": "wired"
+        },
+        {
+          "name": "mu",
+          "type": "PerHour",
+          "kind": "wired"
+        },
+        {
+          "name": "c",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "state",
+          "type": "Sim"
+        }
+      ]
+    }
+  }
+}

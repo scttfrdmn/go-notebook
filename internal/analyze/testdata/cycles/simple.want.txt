@@ -1,0 +1,2 @@
+simple.go:12:6: cycle among cells: b -> c -> a -> b.
+                cells cannot depend on each other in a loop; a stateful feedback loop needs Prev[T] (not supported yet)
