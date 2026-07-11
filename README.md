@@ -44,14 +44,23 @@ go tool notebook build ./examples/capacity     # emit a standalone binary
 
 The four kill criteria, measured on an M4 Pro (see the design's `docs/core-loop-spec.md` §7 for what each proves):
 
-| KC | What | Target | Measured |
-|----|------|--------|----------|
-| KC1 | cold graph derivation | < 1s | **86 ms** |
-| KC2 | re-analysis after a one-cell edit | < 100 ms | **~0.5 ms** |
-| KC3 | slider → repaint (p95) | < 50 ms | **~15 µs** engine + **~165 µs** transport |
-| KC4 | save → rebuild → restart → repaint | < 500 ms | **~470 ms** (capacity); marginal on larger notebooks |
+| KC | What | Target | Measured | |
+|----|------|--------|----------|--|
+| KC1 | cold graph derivation | < 1 s | **86 ms** | ✅ |
+| KC2 | re-analysis after a one-cell edit | < 100 ms | **~0.5 ms** | ✅ |
+| KC3 | slider → repaint (p95) | < 50 ms | **~15 µs** engine + **~165 µs** transport | ✅ |
+| KC4 | save → rebuild → restart → repaint | < 500 ms | **~470 ms** (capacity) · **~760 ms** (lego) | ⚠️ **size-dependent** |
 
-KC2 — the number the design hinged on — lands with a ~200× margin, which retires the project's largest engineering risk (incremental analysis) and defers the gopls migration indefinitely. **KC4 is the honest caveat:** it passes for capacity-scale notebooks but is marginal-to-failing on the largest example (lego, ~510 ms–1.1 s), dominated by `go build` and OS binary-first-exec — both toolchain/OS, not the engine (a wave is ~2 µs). Overlapping the rebuild with the running binary is the identified path to real margin ([#22](https://github.com/scttfrdmn/go-notebook/issues/22)).
+KC2 — the number the design hinged on — lands with a ~200× margin, which retires the project's largest engineering risk (incremental analysis) and defers the gopls migration indefinitely.
+
+**KC4 has a size ceiling.** `capacity` (234 lines) passes at ~470 ms; `lego` (575 lines, the largest buildable example) is ~760 ms — measured externally, edit → server serving the new result. Two things are true at once, and both matter:
+
+- **The design is vindicated.** A wave is ~2 µs, analysis ~0.5 ms; the engine contributes ~13 ms to the loop. Nothing in the architecture is slow.
+- **The loop is fundamentally `go build` + OS first-exec.** ~285 ms to compile + ~180 ms for the OS to first-execute a fresh binary + the initial wave — all serial, all on the path to seeing your edit. Both grow with notebook size, and "it's the toolchain, not our code" is true and irrelevant to the person waiting.
+
+Overlapping the rebuild with the running binary ([#22](https://github.com/scttfrdmn/go-notebook/issues/22), **done**) keeps the notebook *responsive during* a rebuild — no dark screen — but does **not** reduce time-to-reflect-an-edit, because that is inherently build + exec. Pre-warming the new binary was tried and removed: it cost more (a full headless wave) than the first-exec it saved.
+
+**The honest conclusion is the fork the design anticipated.** The interactive edit loop has a notebook-size ceiling around a few hundred lines; past it, compile-first is too slow for keystroke-grade editing. That is a real limit, not a bug to optimize away — and it makes the product the **batch/cluster story** (`--headless --set --json`, which works today and runs the same file as a job) with interactive editing as a bonus that holds for smaller notebooks. Slider interaction *within* a built notebook (KC3) is instant regardless of size; only the rebuild-on-source-edit loop has the ceiling.
 
 **Built so far:** `internal/graph` (plain-data IR, no `go/types`), `internal/analyze` (incremental type-checking `Session`, CHA-based purity), `internal/gen` (codegen + overlay), `engine` (head + epoch'd glitch-free scheduler + cache + capability probes), `engine/server` (SSE + edits; the only `net/http`). Deferred by design (seams cut, features skipped): `Prev[T]` folds, grips, SQL/`Rel[T]`, WASM. Progress is tracked in [GitHub issues](https://github.com/scttfrdmn/go-notebook/issues); kill-criteria numbers live on [#16](https://github.com/scttfrdmn/go-notebook/issues/16).
 

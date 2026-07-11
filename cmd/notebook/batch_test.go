@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -70,6 +71,70 @@ func TestBatchUnstableQueueJSON(t *testing.T) {
 	if !strings.Contains(string(out), "Inf") {
 		t.Errorf("expected an Inf value stringified in output:\n%s", out)
 	}
+}
+
+// TestLeafPropertyEndToEnd is the property that would have caught the inert-
+// slider bug on the REAL notebook: for each control leaf, --set it away from
+// its default and assert the batch JSON output differs from the unset run.
+// Driving the built binary (not the engine directly) is the point — it
+// exercises the full leaf-identity + coercion + override path a slider uses.
+func TestLeafPropertyEndToEnd(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds a binary; skipped in -short mode")
+	}
+	root := repoRoot(t)
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "capnb")
+	if code := cmdBuild([]string{"-o", bin, filepath.Join(root, "examples", "capacity")}); code != 0 {
+		t.Fatalf("build returned %d", code)
+	}
+
+	run := func(sets ...string) map[string]any {
+		args := []string{"--headless", "--json", "--head", filepath.Join(tmp, "h"+strings.Join(sets, "_")+".json")}
+		for _, s := range sets {
+			args = append(args, "--set", s)
+		}
+		out, err := exec.Command(bin, args...).Output()
+		if err != nil {
+			t.Fatalf("run %v: %v", sets, err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(out, &m); err != nil {
+			t.Fatalf("bad JSON for %v: %v", sets, err)
+		}
+		return m
+	}
+
+	base := run() // defaults
+
+	// Each capacity leaf (by symbol) and a value clearly different from default.
+	edits := map[string]string{
+		"c":      "200",  // servers
+		"lambda": "3000", // arrivalRate
+		"mu":     "50",   // serviceRate
+		"price":  "3.5",  // hourlyPrice
+	}
+	for leaf, val := range edits {
+		got := run(leaf + "=" + val)
+		if sameAllValues(base, got) {
+			t.Errorf("leaf %q set to %s changed NO downstream value — inert control", leaf, val)
+		}
+	}
+}
+
+// sameAllValues reports whether two result maps have identical values for all
+// shared keys (a crude deep-equal over JSON scalars/strings).
+func sameAllValues(a, b map[string]any) bool {
+	for k, av := range a {
+		bv, ok := b[k]
+		if !ok {
+			continue
+		}
+		if fmt.Sprint(av) != fmt.Sprint(bv) {
+			return false
+		}
+	}
+	return true
 }
 
 // repoRoot walks up to the go.mod.
