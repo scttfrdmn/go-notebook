@@ -1,0 +1,16 @@
+# Generated registry — codegen writes via `go build -overlay`, never to the source tree.
+# This entry is belt-and-suspenders in case a debug build emits it locally.
+notebook_gen.go
+
+# Build output
+/notebook
+/cmd/notebook/notebook
+*.exe
+
+# Persisted head state (a few floats per notebook)
+*.head.json
+
+# Go
+*.test
+*.out
+/dist/
