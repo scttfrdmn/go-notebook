@@ -17,6 +17,7 @@
     "base": {
       "label": "A pure constant.",
       "pure": true,
+      "isLeaf": true,
       "params": null,
       "results": [
         {
@@ -28,6 +29,7 @@
     "doubled": {
       "label": "doubled is pure: arithmetic only, no fmt, no impure reach.",
       "pure": true,
+      "isLeaf": false,
       "params": [
         {
           "name": "n",
@@ -45,6 +47,7 @@
     "formatted": {
       "label": "formatted is pure arithmetic, but formats with fmt.Sprintf.",
       "pure": false,
+      "isLeaf": false,
       "params": [
         {
           "name": "n",
@@ -62,6 +65,7 @@
     "noise": {
       "label": "noise is genuinely impure: it reaches math/rand.",
       "pure": false,
+      "isLeaf": false,
       "params": [
         {
           "name": "n",
@@ -79,6 +83,7 @@
     "stamp": {
       "label": "stamp is genuinely impure: it reaches time.Now.",
       "pure": false,
+      "isLeaf": false,
       "params": [
         {
           "name": "n",

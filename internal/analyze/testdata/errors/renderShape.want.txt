@@ -1,0 +1,2 @@
+render.go:17:6: cell "chart" has a Render() method, but its Render() result has no string field named MIME; it will not render.
+                did you mean "MIME"? (the field name is case-sensitive: MIME, not Mime)

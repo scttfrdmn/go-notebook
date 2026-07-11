@@ -16,6 +16,7 @@
     "load": {
       "label": "Loads rows, and may fail.",
       "pure": true,
+      "isLeaf": false,
       "params": [
         {
           "name": "ctx",
@@ -43,6 +44,7 @@
     "seed": {
       "label": "A raw seed value.",
       "pure": true,
+      "isLeaf": true,
       "params": null,
       "results": [
         {
@@ -54,6 +56,7 @@
     "split": {
       "label": "Splits a seed into two independent streams.",
       "pure": true,
+      "isLeaf": false,
       "params": [
         {
           "name": "n",
@@ -75,6 +78,7 @@
     "total": {
       "label": "Sums the loaded rows against the high stream.",
       "pure": true,
+      "isLeaf": false,
       "params": [
         {
           "name": "rows",
