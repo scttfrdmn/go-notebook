@@ -1,0 +1,2 @@
+unnamed.go:13:6: cell "partial" has an unnamed result; cell results must be named — the name is the edge.
+                 name every result, or drop the doc comment to make this an ordinary helper

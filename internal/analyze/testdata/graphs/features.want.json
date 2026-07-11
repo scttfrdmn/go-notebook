@@ -1,0 +1,98 @@
+{
+  "order": [
+    "seed",
+    "split",
+    "load",
+    "total"
+  ],
+  "producer": {
+    "hi": "split",
+    "lo": "split",
+    "n": "seed",
+    "rows": "load",
+    "sum": "total"
+  },
+  "cells": {
+    "load": {
+      "label": "Loads rows, and may fail.",
+      "pure": true,
+      "params": [
+        {
+          "name": "ctx",
+          "type": "context.Context",
+          "kind": "injected"
+        },
+        {
+          "name": "lo",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "rows",
+          "type": "[]int"
+        },
+        {
+          "name": "err",
+          "type": "error",
+          "isError": true
+        }
+      ]
+    },
+    "seed": {
+      "label": "A raw seed value.",
+      "pure": true,
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    },
+    "split": {
+      "label": "Splits a seed into two independent streams.",
+      "pure": true,
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "lo",
+          "type": "int"
+        },
+        {
+          "name": "hi",
+          "type": "int"
+        }
+      ]
+    },
+    "total": {
+      "label": "Sums the loaded rows against the high stream.",
+      "pure": true,
+      "params": [
+        {
+          "name": "rows",
+          "type": "[]int",
+          "kind": "wired"
+        },
+        {
+          "name": "hi",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "sum",
+          "type": "int"
+        }
+      ]
+    }
+  }
+}

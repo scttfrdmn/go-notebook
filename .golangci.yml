@@ -1,0 +1,28 @@
+# golangci-lint configuration for go-notebook.
+#
+# The spec (§9) names errcheck, govet, staticcheck, and revive. staticcheck in
+# golangci-lint v2 subsumes the older gosimple/stylecheck.
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - revive
+
+  settings:
+    revive:
+      rules:
+        - name: exported
+          # engine will be a public API; documented exports are enforced there.
+          disabled: false
+
+  exclusions:
+    generated: lax
+    paths:
+      # Notebook files are Go packages whose cells are called only by generated
+      # code, so linters see them as dead code, undocumented, etc. They are
+      # fixtures and demonstrations, not library code — exclude them wholesale.
+      - examples
+      - internal/analyze/testdata

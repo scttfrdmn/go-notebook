@@ -1,0 +1,46 @@
+// Command notebook is the go-notebook toolchain, invoked as `go tool notebook`.
+//
+// This milestone ships one subcommand:
+//
+//	notebook check <dir|file>   analyze only: print the graph, report
+//	                            diagnostics, exit non-zero on error.
+//
+// Later milestones add `run` (serve) and `build` (emit a binary).
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+// usage is printed for -h and on argument errors.
+const usage = `notebook — a reactive notebook toolchain
+
+usage:
+  notebook check <dir|file>   analyze a notebook and print its dependency graph
+
+Run "notebook check ./examples/capacity" to see a graph.
+`
+
+func main() {
+	os.Exit(run(os.Args[1:]))
+}
+
+// run dispatches a subcommand and returns the process exit code, so it is
+// testable without spawning a process.
+func run(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprint(os.Stderr, usage)
+		return 2
+	}
+	switch args[0] {
+	case "check":
+		return cmdCheck(args[1:])
+	case "-h", "--help", "help":
+		fmt.Print(usage)
+		return 0
+	default:
+		fmt.Fprintf(os.Stderr, "notebook: unknown subcommand %q\n\n%s", args[0], usage)
+		return 2
+	}
+}

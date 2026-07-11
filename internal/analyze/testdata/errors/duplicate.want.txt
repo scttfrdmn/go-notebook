@@ -1,0 +1,2 @@
+duplicate.go:13:16: cell "second" produces `x int`, but `x` is already produced by cell "first".
+                    a result name is an edge, so it must be unique; first produced here (duplicate.go:10:15)
