@@ -199,9 +199,10 @@ func buildCell(fset *token.FileSet, fn *ast.FuncDecl, fnObj *types.Func, q types
 	for _, p := range cell.Params {
 		if p.Kind == graph.Delayed {
 			diags = append(diags, graph.Diagnostic{
-				Pos:  p.Pos,
-				Msg:  fmt.Sprintf("cell %q takes `%s %s`; Prev[T] folds are not supported in this milestone.", cell.ID, p.Name, p.Type),
-				Hint: "stateful cells (a Tick-clocked fold) are a later milestone; this cell will not run yet",
+				Pos:      p.Pos,
+				Severity: graph.Notice,
+				Msg:      fmt.Sprintf("cell %q takes `%s %s`; Prev[T] folds are not supported in this milestone.", cell.ID, p.Name, p.Type),
+				Hint:     "stateful cells (a Tick-clocked fold) are a later milestone; this cell will be skipped",
 			})
 		}
 	}

@@ -1,0 +1,2 @@
+fold.go:23:14: notice: cell "counter" takes `prev Prev[int]`; Prev[T] folds are not supported in this milestone.
+                       stateful cells (a Tick-clocked fold) are a later milestone; this cell will be skipped

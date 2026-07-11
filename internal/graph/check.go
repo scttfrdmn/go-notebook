@@ -6,6 +6,29 @@ import (
 	"strings"
 )
 
+// Severity classifies how much a diagnostic blocks. An Error is a real defect
+// in the notebook (a missing producer, a cycle, a type mismatch) and must stop
+// a build. A Notice reports something the toolchain cannot do yet — a deferred
+// feature such as a Prev[T] fold — which is not the author's mistake: the
+// affected cell is skipped and the rest still builds.
+type Severity int
+
+const (
+	// Error is a defect that blocks a build.
+	Error Severity = iota
+	// Notice is a non-blocking limitation (a deferred feature); the affected
+	// cell is skipped but the notebook still builds.
+	Notice
+)
+
+// String renders a Severity for diagnostic output.
+func (s Severity) String() string {
+	if s == Notice {
+		return "notice"
+	}
+	return "error"
+}
+
 // Diagnostic is a single problem found in a notebook, carrying enough
 // structure to render an actionable message.
 //
@@ -16,17 +39,23 @@ import (
 //	capacity.go:31:19: cell "utilization" needs `a Erlangs`, but no cell produces it.
 //	                   Did you mean `offeredLoad`, which produces `a Erlangs`? (capacity.go:26)
 type Diagnostic struct {
-	Pos  Position `json:"pos"`
-	Msg  string   `json:"msg"`
-	Hint string   `json:"hint,omitempty"` // optional second line, aligned under Msg
+	Pos      Position `json:"pos"`
+	Severity Severity `json:"severity"`
+	Msg      string   `json:"msg"`
+	Hint     string   `json:"hint,omitempty"` // optional second line, aligned under Msg
 	// HintPos, when set, is appended to the hint line as " (file:line:col)".
 	HintPos *Position `json:"hintPos,omitempty"`
 }
 
 // String renders the diagnostic in the canonical compiler format, with any
-// hint indented to align under the message text.
+// hint indented to align under the message text. An Error carries no severity
+// prefix (matching the standard tool format); a Notice is marked "notice:" so a
+// deferred-feature limitation reads distinctly from a real defect.
 func (d Diagnostic) String() string {
 	prefix := fmt.Sprintf("%s:%d:%d: ", d.Pos.Filename, d.Pos.Line, d.Pos.Column)
+	if d.Severity == Notice {
+		prefix += "notice: "
+	}
 	out := prefix + d.Msg
 	if d.Hint != "" {
 		hint := d.Hint
