@@ -183,6 +183,7 @@ func buildCell(fset *token.FileSet, fn *ast.FuncDecl, fnObj *types.Func, q types
 		Params:     buildParams(fset, sig.Params(), q),
 		Results:    buildResults(fset, results, q),
 		Pure:       false, // safe default; refined by RefinePurity, never on the hot path
+		IsLeaf:     isLeafCell(sig),
 	}
 
 	var diags []graph.Diagnostic
@@ -268,10 +269,11 @@ func buildResults(fset *token.FileSet, results *types.Tuple, q types.Qualifier) 
 			name = ""
 		}
 		out = append(out, graph.Result{
-			Name:    graph.Symbol(name),
-			Type:    types.TypeString(v.Type(), q),
-			IsError: isErrorType(v.Type()),
-			Pos:     position(fset, v.Pos()),
+			Name:       graph.Symbol(name),
+			Type:       types.TypeString(v.Type(), q),
+			Underlying: basicKind(v.Type()),
+			IsError:    isErrorType(v.Type()),
+			Pos:        position(fset, v.Pos()),
 		})
 	}
 	return out

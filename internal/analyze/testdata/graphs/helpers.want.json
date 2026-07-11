@@ -16,6 +16,7 @@
     "base": {
       "label": "A raw input value.",
       "pure": true,
+      "isLeaf": true,
       "params": null,
       "results": [
         {
@@ -27,6 +28,7 @@
     "bounded": {
       "label": "bounded is a cell that uses both the helper and the generic func internally.",
       "pure": true,
+      "isLeaf": false,
       "params": [
         {
           "name": "m",
@@ -44,6 +46,7 @@
     "doubled": {
       "label": "doubled is a real cell: it names its result, so it produces an edge.",
       "pure": true,
+      "isLeaf": false,
       "params": [
         {
           "name": "n",

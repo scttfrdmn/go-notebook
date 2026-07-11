@@ -30,6 +30,7 @@ type goldenGraph struct {
 type goldenCell struct {
 	Label      string            `json:"label"`
 	Pure       bool              `json:"pure"`
+	IsLeaf     bool              `json:"isLeaf"`
 	Directives map[string]string `json:"directives,omitempty"`
 	Params     []goldenParam     `json:"params"`
 	Results    []goldenResult    `json:"results"`
@@ -63,7 +64,7 @@ func toGolden(g *graph.Graph) goldenGraph {
 		out.Producer[string(sym)] = string(id)
 	}
 	for id, c := range g.Cells {
-		gc := goldenCell{Label: c.Label, Pure: c.Pure, Directives: c.Directives}
+		gc := goldenCell{Label: c.Label, Pure: c.Pure, IsLeaf: c.IsLeaf, Directives: c.Directives}
 		for _, p := range c.Params {
 			gc.Params = append(gc.Params, goldenParam{
 				Name: string(p.Name), Type: p.Type, Kind: p.Kind.String(),

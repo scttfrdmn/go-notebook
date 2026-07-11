@@ -25,6 +25,7 @@
     "arrivalRate": {
       "label": "Incoming jobs per hour.",
       "pure": true,
+      "isLeaf": true,
       "directives": {
         "max": "5000",
         "min": "0",
@@ -42,6 +43,7 @@
     "clock": {
       "label": "Simulation clock.",
       "pure": true,
+      "isLeaf": true,
       "directives": {
         "interval": "100ms",
         "timer": ""
@@ -57,6 +59,7 @@
     "depth": {
       "label": "Queue depth over the last four minutes of simulated time.",
       "pure": true,
+      "isLeaf": false,
       "directives": {
         "height": "300"
       },
@@ -77,6 +80,7 @@
     "intro": {
       "label": "A queue you can watch.",
       "pure": true,
+      "isLeaf": false,
       "params": null,
       "results": [
         {
@@ -88,6 +92,7 @@
     "readout": {
       "label": "Right now.",
       "pure": false,
+      "isLeaf": false,
       "params": [
         {
           "name": "state",
@@ -110,6 +115,7 @@
     "seed": {
       "label": "Random seed.",
       "pure": true,
+      "isLeaf": true,
       "params": null,
       "results": [
         {
@@ -121,6 +127,7 @@
     "servers": {
       "label": "Servers in the fleet.",
       "pure": true,
+      "isLeaf": true,
       "directives": {
         "max": "200",
         "min": "1",
@@ -137,6 +144,7 @@
     "serviceRate": {
       "label": "Jobs completed per hour, per server.",
       "pure": true,
+      "isLeaf": true,
       "directives": {
         "max": "200",
         "min": "1",
@@ -153,6 +161,7 @@
     "sim": {
       "label": "Queue state.",
       "pure": true,
+      "isLeaf": false,
       "params": [
         {
           "name": "prev",

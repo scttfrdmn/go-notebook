@@ -38,22 +38,34 @@ const cells = document.getElementById('cells');
 const controls = document.getElementById('controls');
 const cellEls = {};
 
-// Build a control for each cell whose directives declare a slider.
+// Build a control for EVERY leaf (m.Leaf non-empty). Leaf-ness is decided by
+// the analyzer from the type, never a directive — so every input has a control
+// even with no //notebook: line. The directive only refines what the control
+// looks like: a slider when min/max are given, otherwise a plain field. Delete
+// every directive and every control is still here, just plainer. That is the
+// degradation ladder.
 for (const m of META) {
-  const d = m.Directives || {};
-  if ('slider' in d) {
+  if (m.Leaf) {
+    const d = m.Directives || {};
     const label = document.createElement('label');
     label.textContent = m.Label || m.ID;
-    const input = document.createElement('input');
-    input.type = 'range';
-    input.min = d.min ?? 0;
-    input.max = d.max ?? 100;
-    input.step = d.step ?? 1;
     const out = document.createElement('span');
     out.className = 'val';
+    const input = document.createElement('input');
+    const ranged = ('slider' in d) || ('min' in d) || ('max' in d);
+    if (ranged) {
+      input.type = 'range';
+      input.min = d.min ?? 0;
+      input.max = d.max ?? 100;
+      input.step = d.step ?? 1;
+    } else {
+      // Plainest rung: a text/number field. A bool leaf gets a checkbox.
+      input.type = 'text';
+    }
     input.oninput = () => {
+      const v = input.type === 'range' ? Number(input.value) : coerce(input.value);
       out.textContent = input.value;
-      setLeaf(m.Leaf, Number(input.value)); // address the leaf by its symbol
+      setLeaf(m.Leaf, v);
     };
     controls.append(label, input, out);
   }
@@ -63,6 +75,13 @@ for (const m of META) {
   el.innerHTML = '<div class="id">' + m.ID + '</div><div class="body"></div>';
   cells.append(el);
   cellEls[m.ID] = el;
+}
+
+// coerce turns a text-field string into a number when it looks numeric, else
+// leaves it a string; the server does the authoritative type coercion.
+function coerce(s) {
+  const n = Number(s);
+  return s.trim() !== '' && !Number.isNaN(n) ? n : s;
 }
 
 function setLeaf(leaf, value) {

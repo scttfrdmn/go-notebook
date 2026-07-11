@@ -182,11 +182,13 @@ func writeMeta(b *bytes.Buffer, g *graph.Graph) {
 	fmt.Fprintf(b, "}\n")
 }
 
-// leafSymbol returns the symbol a control cell produces (its first named data
-// result), or "" if the cell is not a control. This is the symbol the head, UI,
-// and --set address — a leaf is identified by what it produces, not its name.
+// leafSymbol returns the symbol a leaf cell produces (its single named data
+// result), or "" if the cell is not a leaf. Leaf-ness is decided by the
+// analyzer from the TYPE (graph.Cell.IsLeaf), never by a directive — the
+// directive only refines how the control renders. This is the symbol the head,
+// UI, and --set address: a leaf is identified by what it produces.
 func leafSymbol(c *graph.Cell) graph.Symbol {
-	if _, ok := c.Directives["slider"]; !ok {
+	if !c.IsLeaf {
 		return ""
 	}
 	for _, r := range c.Results {

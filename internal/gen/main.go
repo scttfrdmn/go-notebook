@@ -91,7 +91,7 @@ func setLeaf(head *engine.Head, name, raw string) error {
 `)
 	for _, leaf := range leafSymbols(g) {
 		fmt.Fprintf(b, "\tcase %q:\n", leaf.name)
-		writeParseCase(b, alias, string(leaf.name), leaf.typ)
+		writeParseCase(b, alias, leaf)
 	}
 	b.WriteString(`	default:
 		return errUnknownLeaf(name)
@@ -121,7 +121,7 @@ func setLeafValue(ctx context.Context, rt *engine.Runtime, name string, raw any)
 `)
 	for _, leaf := range leafSymbols(g) {
 		fmt.Fprintf(b, "\tcase %q:\n", leaf.name)
-		writeCoerceCase(b, alias, string(leaf.name), leaf.typ)
+		writeCoerceCase(b, alias, leaf)
 	}
 	b.WriteString(`	}
 }
@@ -129,12 +129,13 @@ func setLeafValue(ctx context.Context, rt *engine.Runtime, name string, raw any)
 `)
 }
 
-// writeCoerceCase converts a raw JSON value (float64 for numbers) to the leaf's
-// type and sets it via rt.Set. JSON has one number type, so both int and float
-// leaves read the float64 and convert.
-func writeCoerceCase(b *bytes.Buffer, alias, name, typ string) {
-	qualified := qualifyType(alias, typ)
-	switch underlyingKind(typ) {
+// writeCoerceCase converts a raw JSON leaf value to its static type and sets it
+// via rt.Set. JSON numbers arrive as float64 and bools as bool; the leaf's
+// underlying kind (from the IR, not guessed) selects the conversion.
+func writeCoerceCase(b *bytes.Buffer, alias string, leaf leafInfo) {
+	name := string(leaf.name)
+	qualified := qualifyType(alias, leaf.typ)
+	switch underlyingKind(leaf.underlying) {
 	case kindInt:
 		fmt.Fprintf(b, `		if f, ok := raw.(float64); ok {
 			rt.Set(ctx, %q, %s(int(f)))
@@ -147,6 +148,12 @@ func writeCoerceCase(b *bytes.Buffer, alias, name, typ string) {
 		}
 		return
 `, name, qualified)
+	case kindBool:
+		fmt.Fprintf(b, `		if v, ok := raw.(bool); ok {
+			rt.Set(ctx, %q, %s(v))
+		}
+		return
+`, name, qualified)
 	default:
 		fmt.Fprintf(b, `		rt.Set(ctx, %q, raw)
 		return
@@ -154,13 +161,13 @@ func writeCoerceCase(b *bytes.Buffer, alias, name, typ string) {
 	}
 }
 
-// writeParseCase emits the body of a setLeaf case for a given leaf type. It
-// handles the underlying kinds the notebook leaves use (int and float-based
-// named types); the value is converted to the exact static type so the cell's
-// type assertion at runtime is safe.
-func writeParseCase(b *bytes.Buffer, alias, name, typ string) {
-	qualified := qualifyType(alias, typ)
-	switch underlyingKind(typ) {
+// writeParseCase emits the body of a setLeaf case (--set leaf=value from the
+// CLI), converting the string to the leaf's static type via its underlying
+// kind so the cell's runtime assertion is safe.
+func writeParseCase(b *bytes.Buffer, alias string, leaf leafInfo) {
+	name := string(leaf.name)
+	qualified := qualifyType(alias, leaf.typ)
+	switch underlyingKind(leaf.underlying) {
 	case kindInt:
 		fmt.Fprintf(b, `		v, err := strconv.Atoi(raw)
 		if err != nil {
@@ -177,9 +184,17 @@ func writeParseCase(b *bytes.Buffer, alias, name, typ string) {
 		head.Set(%q, %s(v))
 		return nil
 `, name, qualified)
+	case kindBool:
+		fmt.Fprintf(b, `		v, err := strconv.ParseBool(raw)
+		if err != nil {
+			return err
+		}
+		head.Set(%q, %s(v))
+		return nil
+`, name, qualified)
 	default:
 		// Fall back to a string set; the cell's assertion will catch a real
-		// mismatch. Rare for leaves, which are numeric controls.
+		// mismatch. Rare for leaves.
 		fmt.Fprintf(b, `		head.Set(%q, raw)
 		return nil
 `, name)
@@ -290,25 +305,26 @@ func cutEquals(s string) (name, val string, ok bool) {
 // --- codegen helpers for leaf types ---
 
 type leafInfo struct {
-	name graph.Symbol
-	typ  string
+	name       graph.Symbol
+	typ        string
+	underlying string // the result's basic kind from the IR ("int"/"float64"/"bool"/…)
 }
 
-// leafSymbols returns the leaves (control cells) and their result types, sorted
-// by name for stable output. A leaf here is a cell with a slider directive; its
-// single data result gives the type.
+// leafSymbols returns the leaves and their result types, sorted by name for
+// stable output. Leaf-ness is the analyzer's type-driven graph.Cell.IsLeaf, not
+// a directive; a leaf's single data result gives the type.
 func leafSymbols(g *graph.Graph) []leafInfo {
 	var out []leafInfo
 	for _, id := range g.Order {
 		c := g.Cells[id]
-		if _, ok := c.Directives["slider"]; !ok {
+		if !c.IsLeaf {
 			continue
 		}
 		for _, r := range c.Results {
 			if r.IsError || r.Name == "" {
 				continue
 			}
-			out = append(out, leafInfo{name: r.Name, typ: r.Type})
+			out = append(out, leafInfo{name: r.Name, typ: r.Type, underlying: r.Underlying})
 			break
 		}
 	}
@@ -322,29 +338,25 @@ const (
 	kindOther typeKind = iota
 	kindInt
 	kindFloat
+	kindBool
 )
 
-// underlyingKind classifies a leaf's rendered type string by its likely
-// underlying numeric kind. Named float types (PerHour, USD) render as their
-// name; the notebook's controls are int or float64-based, so this covers them.
-// A type it can't classify falls back to a string set (rare for a control).
-func underlyingKind(typ string) typeKind {
-	switch typ {
+// underlyingKind classifies a leaf by its underlying basic kind, taken from the
+// IR (the analyzer resolved it via go/types — even through a named type like
+// PerHour over float64). No string-guessing: a name we don't recognize is
+// kindOther and falls back to a raw set.
+func underlyingKind(underlying string) typeKind {
+	switch underlying {
 	case "int", "int8", "int16", "int32", "int64",
-		"uint", "uint8", "uint16", "uint32", "uint64":
+		"uint", "uint8", "uint16", "uint32", "uint64", "uintptr":
 		return kindInt
 	case "float32", "float64":
 		return kindFloat
-	}
-	// Named types: the notebook's numeric controls are float64-based
-	// (PerHour, USD, Probability) or int. We can't see the underlying kind
-	// from the name alone, so default to float — the common case for a
-	// ranged control — and let a genuine int-named leaf be handled by the
-	// int branch above when it renders as a bare int.
-	if strings.ContainsAny(typ, ".[]*") {
+	case "bool":
+		return kindBool
+	default:
 		return kindOther
 	}
-	return kindFloat
 }
 
 // qualifyType prefixes a notebook-package type with the import alias so the

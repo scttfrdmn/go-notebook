@@ -77,6 +77,12 @@ type Param struct {
 type Result struct {
 	Name Symbol `json:"name"`
 	Type string `json:"type"`
+	// Underlying is the result's underlying basic kind ("int", "float64",
+	// "bool", "string", …) when it is a basic-kinded type — even through a named
+	// type like PerHour over float64 — or "" for composite/interface types. It
+	// is filled by the analyzer from go/types, so codegen never has to guess an
+	// underlying kind from the rendered type string.
+	Underlying string `json:"underlying,omitempty"`
 	// IsError marks a trailing error result. It is not an edge: it is the
 	// failure channel that blocks downstream cells rather than feeding them.
 	IsError bool     `json:"isError"`
@@ -99,6 +105,13 @@ type Cell struct {
 	// Pure is derived (never declared): false if the cell transitively touches
 	// time, randomness, or I/O. Impure cells are never cached.
 	Pure bool `json:"pure"`
+	// IsLeaf marks an editable input: a cell whose value the user (or a timer,
+	// or a grip) writes directly. Leaf-ness is decided by the TYPE, never by a
+	// directive — a comment must not decide whether something is an input. A
+	// cell is a leaf iff it produces a single value that is widget-capable
+	// (Bounds/Options/Reconcile) or, when parameterless, a scalar basic kind.
+	// The directive only refines how the control looks, never whether it is one.
+	IsLeaf bool `json:"isLeaf"`
 }
 
 // Graph is the whole notebook: its cells, the producer index that realizes the
