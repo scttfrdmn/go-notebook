@@ -487,6 +487,18 @@ The type assertions are **safe by construction** — codegen knew the static typ
 
 > This is the correction from the design doc. A `//notebook:nocache` directive is *wrong* — a comment that changes whether the answer is correct violates the type-vs-comment rule. The toolchain already knows.
 
+### 5.4 Never re-derive from text what the type checker already knows
+
+**The load-bearing principle, stated once because it has already been violated three times.** When a structural fact is decidable from `go/types`, decide it there and carry the answer in the IR — never reach for the cheaper textual proxy (a comment, or the rendered type *string*). The type checker is holding the answer; asking a string to impersonate it is how silent lies get in.
+
+Three instances, all the same error:
+
+- **`//notebook:nocache`** (rejected in §5.3): a *comment* deciding whether a result is correct. Purity is a call-graph fact.
+- **A directive deciding leaf-ness** (regression, fixed): `//notebook:slider` deciding whether a cell is an *editable input at all*, so `slaTarget() Probability` (which has `Bounds()` but no directive) silently wasn't a control. Leaf-ness is a *type* fact — a cell is a leaf iff its output is widget-capable, a scalar basic kind (parameterless), or a `Reconciler` (parameterized). The directive only refines how the control **renders**. Carried on `graph.Cell.IsLeaf`.
+- **Guessing a basic kind from the type string** (fixed alongside it): codegen classifying `--set` coercion by pattern-matching the rendered type name, defaulting named types to `float64` — which silently miscompiled a `bool` leaf. The underlying kind is a `go/types` fact; it is carried on `graph.Result.Underlying`, filled by the analyzer, so codegen never parses a type name.
+
+The test for any new feature: *is this fact one `go/types` already computed?* If yes, the analyzer records it in the plain-data IR and every later stage reads it. A comment configures **presentation**; it never decides **structure or correctness**.
+
 ---
 
 ## 6. The CLI
