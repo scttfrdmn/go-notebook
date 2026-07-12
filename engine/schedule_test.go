@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -150,45 +149,53 @@ func TestSupersede(t *testing.T) {
 	rt := NewRuntime(cfg, head, NewMemoStore())
 
 	sub := rt.Subscribe()
-	done := make(chan struct{})
 	go func() {
 		for ev := range sub {
 			if ev.Cell == "sink" && ev.State == StateDone {
 				atomic.AddInt64(&settled, 1)
 			}
 		}
-		close(done)
 	}()
 
 	// Prime the pump: fire the first edit and wait until its sink cell is
-	// actually running, so its wave is registered and mid-compute.
-	go rt.Set(context.Background(), "n", 1)
+	// actually running, so its wave is registered and mid-compute. Track its Set
+	// so we can wait for it to return (it will be superseded and bail).
+	primeDone := make(chan struct{})
+	go func() { rt.Set(context.Background(), "n", 1); close(primeDone) }()
 	<-running
 
-	// Now flood the rest. Each bumps the epoch (head.Set, synchronous at Set
-	// entry) and cancels older in-flight waves. We do NOT wg.Wait() here: the
-	// surviving wave's Set blocks on release, so waiting on it would deadlock.
-	// Instead gate release on the head epoch reaching `edits` — proof every edit
-	// has been applied and every supersession registered.
+	// Flood the rest. Each bumps the epoch (head.Set, synchronous at Set entry)
+	// and cancels older in-flight waves. A superseded wave's sink bails on
+	// ctx.Done immediately — only the newest, un-superseded wave stays blocked on
+	// release, so exactly it will commit once released.
+	var wg sync.WaitGroup
 	for i := 2; i <= edits; i++ {
-		go rt.Set(context.Background(), "n", i)
+		wg.Add(1)
+		go func(n int) { defer wg.Done(); rt.Set(context.Background(), "n", n) }(i)
 	}
-	for head.Epoch() < Epoch(edits) {
-		time.Sleep(time.Millisecond)
-	}
-	close(release) // unblock the surviving wave
 
-	// Allow events to drain, then close the subscription.
-	time.Sleep(50 * time.Millisecond)
+	// Wait on the observed condition — every edit applied — so the primed wave is
+	// provably superseded before we release. The final epoch is edits+1 (the +1
+	// is the head.Set("n", 0) at setup). No duration is involved: a real hang
+	// fails at waitFor's deadline instead of a sleep masking it.
+	waitFor(t, func() bool { return head.Epoch() >= Epoch(edits+1) }, "all edits applied")
+	close(release) // unblock the one surviving wave; superseded ones already bailed
 
-	// At least one settled; far fewer than `edits` (most superseded). Coalescing
-	// must happen — the primed overlap guarantees the precondition.
+	// Every Set goroutine returns once its wave settles or is superseded. When
+	// they have all returned, no more sink-done events will be emitted — the
+	// storm is quiescent, observed, not slept for.
+	wg.Wait()
+	<-primeDone
+
+	// The surviving wave's sink-done event is emitted synchronously before its
+	// Set returns, but the counting goroutine drains asynchronously; wait for it
+	// to observe at least the one guaranteed settle. `settled` only grows and no
+	// new events can arrive now, so once it's >= 1 the count is final.
+	waitFor(t, func() bool { return atomic.LoadInt64(&settled) >= 1 }, "the surviving wave to settle")
+
+	// Far fewer than `edits` settled (most superseded) — coalescing happened.
 	got := atomic.LoadInt64(&settled)
-	if got < 1 {
-		t.Fatalf("expected at least one settled wave, got %d", got)
-	}
 	if got == edits {
 		t.Errorf("no coalescing: all %d edits settled; expected supersession", edits)
 	}
-	_ = fmt.Sprint // keep fmt import if assertions change
 }

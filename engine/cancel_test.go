@@ -56,20 +56,21 @@ func TestSupersedeCancelsCompute(t *testing.T) {
 	for i := 2; i <= edits; i++ {
 		go rt.Set(context.Background(), "n", i)
 	}
-	// Wait until every edit has been applied (epoch reached), then give the
-	// superseded cells time to observe cancellation and the survivor to finish.
-	for head.Epoch() < Epoch(edits) {
-		time.Sleep(time.Millisecond)
-	}
-	time.Sleep(150 * time.Millisecond)
+
+	// Wait on the observed conditions the test names, not a duration: every edit
+	// applied (so every supersession has been issued), then at least one cell
+	// cancelled (supersession abandoned real compute) — the whole point. A slow
+	// machine polls more; a real regression (nothing ever cancelled) fails loud
+	// at the deadline instead of being masked by a fixed sleep.
+	waitFor(t, func() bool { return head.Epoch() >= Epoch(edits) }, "all edits applied")
+	waitFor(t, func() bool { return atomic.LoadInt64(&cancelled) > 0 }, "a superseded cell to cancel")
 
 	comp := atomic.LoadInt64(&completed)
 	canc := atomic.LoadInt64(&cancelled)
 	t.Logf("of %d edits: %d cells completed, %d cancelled mid-compute", edits, comp, canc)
 
 	// The point: supersession abandoned real compute. Not every wave ran to
-	// completion — most were cancelled. (At least one must have been cancelled;
-	// in practice nearly all but the last are.)
+	// completion — most were cancelled.
 	if canc == 0 {
 		t.Error("no cell was cancelled — supersession is not abandoning compute (ctx not wired)")
 	}
@@ -100,9 +101,10 @@ func TestContextInjectedAndCancellableOnLastWave(t *testing.T) {
 	head.Set("n", 0)
 	rt := NewRuntime(cfg, head, NewMemoStore())
 
-	// A single settled edit completes and records its value.
+	// A single settled edit completes and records its value. Set runs the wave
+	// synchronously and returns only once it settles, so the value is recorded
+	// by the time Set returns — assert it directly, no wait needed.
 	rt.Set(context.Background(), "n", 42)
-	time.Sleep(20 * time.Millisecond)
 	if got := atomic.LoadInt64(&lastVal); got != 42 {
 		t.Errorf("the settled wave's cell should complete with 42, got %d", got)
 	}
