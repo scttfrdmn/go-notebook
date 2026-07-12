@@ -19,9 +19,17 @@ func TestSupersedeCancelsCompute(t *testing.T) {
 	var completed int64 // cells that ran to completion (not cancelled)
 	var cancelled int64 // cells that observed ctx.Done() and bailed
 
+	// running closes when the first wave's cell has entered its compute loop, so
+	// that wave is provably in-flight when the later edits arrive. Firing edits
+	// concurrently and hoping one is mid-compute is a flake on fast/loaded
+	// runners; priming the pump makes the supersession deterministic.
+	running := make(chan struct{})
+	var once sync.Once
+
 	slow := fnNode{
 		id: "slow", in: []Symbol{"n"}, out: []Symbol{"out"}, pure: false,
 		run: func(ctx context.Context, in Inputs) (Outputs, error) {
+			once.Do(func() { close(running) })
 			// Simulate heavy compute in slices, checking for cancellation.
 			for i := 0; i < 100; i++ {
 				select {
@@ -40,18 +48,19 @@ func TestSupersedeCancelsCompute(t *testing.T) {
 	head.Set("n", 0)
 	rt := NewRuntime(cfg, head, NewMemoStore())
 
-	// Fire many edits concurrently; each supersedes the last.
 	const edits = 20
-	var wg sync.WaitGroup
-	for i := 1; i <= edits; i++ {
-		wg.Add(1)
-		go func(n int) {
-			defer wg.Done()
-			rt.Set(context.Background(), "n", n)
-		}(i)
+	// Prime: fire the first edit and wait until its cell is mid-compute.
+	go rt.Set(context.Background(), "n", 1)
+	<-running
+	// Flood the rest; each bumps the epoch and cancels the in-flight older wave.
+	for i := 2; i <= edits; i++ {
+		go rt.Set(context.Background(), "n", i)
 	}
-	wg.Wait()
-	// Give any still-running cell time to observe the final cancellation.
+	// Wait until every edit has been applied (epoch reached), then give the
+	// superseded cells time to observe cancellation and the survivor to finish.
+	for head.Epoch() < Epoch(edits) {
+		time.Sleep(time.Millisecond)
+	}
 	time.Sleep(150 * time.Millisecond)
 
 	comp := atomic.LoadInt64(&completed)
