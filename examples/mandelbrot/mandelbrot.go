@@ -283,9 +283,9 @@ type Handle struct {
 }
 
 type Chart struct {
-	Title          string
-	X              []float64
-	Actual, Ideal  []float64
+	Title         string
+	X             []float64
+	Actual, Ideal []float64
 }
 
 func (c Chart) Render() Rendered {

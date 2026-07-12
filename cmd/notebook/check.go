@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -20,29 +21,15 @@ import (
 //
 //	--timing   print KC1 (graph-derivation) wall time to stderr
 func cmdCheck(args []string) int {
-	var timing bool
-	var target string
-	for _, a := range args {
-		switch a {
-		case "--timing":
-			timing = true
-		default:
-			if target != "" {
-				fmt.Fprintf(os.Stderr, "notebook check: unexpected extra argument %q\n", a)
-				return 2
-			}
-			target = a
-		}
-	}
-	if target == "" {
-		fmt.Fprintln(os.Stderr, "notebook check: need a directory or file")
+	fs := flag.NewFlagSet("check", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	timing := fs.Bool("timing", false, "print KC1 (graph-derivation) wall time")
+	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-
-	dir, err := resolveDir(target)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "notebook check: %v\n", err)
-		return 1
+	dir, code := targetDir(fs, "check")
+	if code != 0 {
+		return code
 	}
 
 	start := time.Now()
@@ -63,7 +50,7 @@ func cmdCheck(args []string) int {
 		fmt.Fprintf(os.Stderr, "\n%d diagnostic(s)\n", len(diags))
 	}
 
-	if timing {
+	if *timing {
 		fmt.Fprintf(os.Stderr, "\nKC1 graph derivation: %v\n", elapsed)
 	}
 
@@ -85,6 +72,46 @@ func resolveDir(target string) (string, error) {
 		return target, nil
 	}
 	return filepath.Dir(target), nil
+}
+
+// targetDir reads the single positional argument (a dir or file) from a parsed
+// flag set and resolves it to the package directory. It reports a usage error
+// (exit 2) if the argument is missing or duplicated, or a load error (exit 1) if
+// the path is bad; a zero code means dir is valid.
+func targetDir(fs *flag.FlagSet, cmd string) (dir string, code int) {
+	rest := fs.Args()
+	if len(rest) == 0 {
+		fmt.Fprintf(os.Stderr, "notebook %s: need a directory or file\n", cmd)
+		return "", 2
+	}
+	if len(rest) > 1 {
+		fmt.Fprintf(os.Stderr, "notebook %s: unexpected extra argument %q\n", cmd, rest[1])
+		return "", 2
+	}
+	dir, err := resolveDir(rest[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "notebook %s: %v\n", cmd, err)
+		return "", 1
+	}
+	return dir, 0
+}
+
+// reportDiagnostics prints diagnostics to stderr and reports whether any are
+// blocking errors (as opposed to notices for deferred features). A true return
+// means the command should stop with a non-zero exit.
+func reportDiagnostics(diags []graph.Diagnostic, cmd string) (hasErrors bool) {
+	var errCount int
+	for _, d := range diags {
+		fmt.Fprintln(os.Stderr, d.String())
+		if d.Severity == graph.Error {
+			errCount++
+		}
+	}
+	if errCount > 0 {
+		fmt.Fprintf(os.Stderr, "\nnotebook %s: %d error(s); not proceeding\n", cmd, errCount)
+		return true
+	}
+	return false
 }
 
 // renderGraph produces a human-readable rendering of the graph: cells in source

@@ -319,8 +319,8 @@ func (c Chart) Render() Rendered {
 			d.String(), stroke, width, dash)
 	}
 
-	path(c.Hull, "#c026d3", "5 4", 1)  // control polygon
-	path(c.Curve, "#4338ca", "", 2.5)  // the fitted curve
+	path(c.Hull, "#c026d3", "5 4", 1) // control polygon
+	path(c.Curve, "#4338ca", "", 2.5) // the fitted curve
 	for _, p := range c.Samples {
 		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="2.5" fill="#0f172a" fill-opacity="0.45"/>`,
 			sx(p.X), sy(p.Y))

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/scttfrdmn/go-notebook/internal/analyze"
 	"github.com/scttfrdmn/go-notebook/internal/gen"
-	"github.com/scttfrdmn/go-notebook/internal/graph"
 )
 
 // cmdBuild implements `notebook build <dir|file>`: analyze → codegen → overlay
@@ -20,40 +20,16 @@ import (
 //	-o <path>   output binary path (default: ./<pkgname>)
 //	--timing    print codegen + build wall time to stderr
 func cmdBuild(args []string) int {
-	var (
-		out    string
-		timing bool
-		target string
-	)
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch a {
-		case "-o":
-			if i+1 >= len(args) {
-				fmt.Fprintln(os.Stderr, "notebook build: -o needs an argument")
-				return 2
-			}
-			i++
-			out = args[i]
-		case "--timing":
-			timing = true
-		default:
-			if target != "" {
-				fmt.Fprintf(os.Stderr, "notebook build: unexpected extra argument %q\n", a)
-				return 2
-			}
-			target = a
-		}
-	}
-	if target == "" {
-		fmt.Fprintln(os.Stderr, "notebook build: need a directory or file")
+	fs := flag.NewFlagSet("build", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	out := fs.String("o", "", "output binary path (default ./<pkgname>)")
+	timing := fs.Bool("timing", false, "print codegen + build wall time")
+	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-
-	dir, err := resolveDir(target)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "notebook build: %v\n", err)
-		return 1
+	dir, code := targetDir(fs, "build")
+	if code != 0 {
+		return code
 	}
 
 	res, err := analyze.LoadPackage(dir)
@@ -63,15 +39,7 @@ func cmdBuild(args []string) int {
 	}
 	// Errors block the build; notices (deferred features) are printed but the
 	// runnable subset still compiles.
-	var errCount int
-	for _, d := range res.Diagnostics {
-		fmt.Fprintln(os.Stderr, d.String())
-		if d.Severity == graph.Error {
-			errCount++
-		}
-	}
-	if errCount > 0 {
-		fmt.Fprintf(os.Stderr, "\nnotebook build: %d error(s); not building\n", errCount)
+	if reportDiagnostics(res.Diagnostics, "build") {
 		return 1
 	}
 
@@ -90,10 +58,11 @@ func cmdBuild(args []string) int {
 	defer overlay.Cleanup()
 	genElapsed := time.Since(genStart)
 
-	if out == "" {
-		out = "./" + res.Package.Name
+	outPath := *out
+	if outPath == "" {
+		outPath = "./" + res.Package.Name
 	}
-	absOut, err := filepath.Abs(out)
+	absOut, err := filepath.Abs(outPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "notebook build: %v\n", err)
 		return 1
@@ -111,7 +80,7 @@ func cmdBuild(args []string) int {
 	buildElapsed := time.Since(buildStart)
 
 	fmt.Fprintf(os.Stderr, "built %s\n", absOut)
-	if timing {
+	if *timing {
 		fmt.Fprintf(os.Stderr, "codegen: %v   go build: %v   total: %v\n",
 			genElapsed, buildElapsed, genElapsed+buildElapsed)
 	}

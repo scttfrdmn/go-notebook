@@ -10,6 +10,12 @@ linters:
     - govet
     - staticcheck
     - revive
+    # The rest of the Go Report Card set, enforced in one place:
+    - ineffassign
+    - misspell
+    - gocyclo
+    - unconvert
+    - gocritic
 
   settings:
     revive:
@@ -17,6 +23,9 @@ linters:
         - name: exported
           # engine will be a public API; documented exports are enforced there.
           disabled: false
+    gocyclo:
+      # Go Report Card flags functions over ~15; keep the whole tree under it.
+      min-complexity: 15
 
   exclusions:
     generated: lax

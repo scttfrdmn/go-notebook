@@ -158,7 +158,7 @@ func (r *Runtime) Set(ctx context.Context, leaf LeafID, v any) {
 	// actually changed — so pure cells that read this leaf get a fresh cache key
 	// and recompute. Without this, a slider drag would serve a stale cached
 	// value: the exact opposite of reactive.
-	r.bumpVersions(Outputs{Symbol(leaf): v})
+	r.bumpVersions(Outputs{leaf: v})
 
 	// Record this as the newest epoch and cancel every older in-flight wave, so
 	// a superseded wave's cells that honor ctx.Done() actually abandon their
