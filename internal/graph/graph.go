@@ -99,6 +99,11 @@ type Cell struct {
 	Pos        Position          `json:"pos"`
 	Doc        string            `json:"doc"`   // full doc comment text
 	Label      string            `json:"label"` // first sentence of Doc, or the function name
+	// Source is the cell's verbatim source — its doc comment through the closing
+	// brace — so the view can show "a cell is a function," read-only. It is
+	// derived from the file the cell was parsed from; presentation only, never
+	// parsed or executed.
+	Source     string            `json:"source,omitempty"`
 	Directives map[string]string `json:"directives,omitempty"`
 	Params     []Param           `json:"params"`
 	Results    []Result          `json:"results"`
