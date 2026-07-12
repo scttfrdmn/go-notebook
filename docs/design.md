@@ -96,6 +96,8 @@ Strip lines and it never breaks, only plainens:
 
 Delete every comment and every semantic type and the notebook still runs and still renders. **Losing the view costs polish, never correctness.** If it could cost correctness, you put compute in the view layer by mistake.
 
+The same ladder runs on the **output** side, and symmetry is the point: a value with a `Render()` method shows its rich view; a bare scalar (a `float64`, or a named type over one like `Erlangs`) shows its value as a `text/plain` readout, live, updating as upstream leaves change; a composite with no `Render` (a raw slice/struct) shows nothing and the transport hides it. So *every value the graph computes is visible by default* — the display mirror of "nothing editable is invisible." The engine supplies the scalar readout in `doneEvent` (the "caller-chosen default readout" `AsRendered` always anticipated); it is not an engine API change — `Event.Out` was always the display seam, scalars simply stop being nil. A leaf's control already *is* its view, so the client suppresses a leaf's cell-body to avoid echoing an input as a value.
+
 ### Type or comment?
 
 Not a matter of how much you care. The question is: **does any cell downstream depend on this being true?**

@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -431,20 +432,58 @@ func (r *Runtime) markStale(epoch Epoch, level []CellID) {
 	}
 }
 
-// doneEvent builds the StateDone event for a completed cell, attaching rendered
-// output when the cell's (single) value is Renderable.
+// doneEvent builds the StateDone event for a completed cell, attaching output
+// per the display degradation ladder: a Renderable value carries its rich view;
+// a bare scalar (a float64/int/bool/string, or a named type over one — e.g.
+// utilization's rho) carries a text/plain readout so the value the graph
+// computes is visible, not invisible, and updates as upstream leaves change. A
+// value that is neither (a raw slice/struct with no Render) carries nothing and
+// the transport leaves it hidden. This is the output-side mirror of the control
+// ladder ("losing the view costs polish, never correctness", design.md:88) and
+// the "caller-chosen default readout" render.go anticipates. No API change —
+// Out was always the display seam; scalars simply stop being nil.
 func (r *Runtime) doneEvent(epoch Epoch, res levelResult) Event {
 	ev := Event{Epoch: epoch, Cell: res.id, State: StateDone}
-	// Attach a rendered blob if any output value is Renderable. A cell with a
-	// single output is the common view case.
+	// A cell with a single output is the common view case. Prefer a Renderable;
+	// otherwise fall back to a scalar readout.
 	for _, v := range res.out {
 		if rendered, ok := AsRendered(v); ok {
 			rc := rendered
 			ev.Out = &rc
 			break
 		}
+		if txt, ok := scalarReadout(v); ok {
+			ev.Out = &Rendered{MIME: "text/plain", Data: txt}
+			break
+		}
 	}
 	return ev
+}
+
+// scalarReadout formats v as a plain-text readout when it is a scalar — a basic
+// kind or a named type over one (PerHour, Seconds, Probability). Composite kinds
+// (slice, struct, map) return false: they have no obvious one-line form and are
+// left to a Render() method or hidden. Uses reflect.Kind, so a `type USD float64`
+// formats like its float64 underlying without the engine knowing the named type.
+func scalarReadout(v any) (string, bool) {
+	if v == nil {
+		return "", false
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Bool:
+		return fmt.Sprintf("%v", rv.Bool()), true
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return fmt.Sprintf("%d", rv.Int()), true
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return fmt.Sprintf("%d", rv.Uint()), true
+	case reflect.Float32, reflect.Float64:
+		return strconv.FormatFloat(rv.Float(), 'g', 6, 64), true
+	case reflect.String:
+		return rv.String(), true
+	default:
+		return "", false
+	}
 }
 
 // bumpVersions increments the stored version of a produced symbol only when its

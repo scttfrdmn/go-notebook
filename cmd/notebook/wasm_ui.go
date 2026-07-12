@@ -90,11 +90,19 @@ globalThis.__notebook_event = (ev) => {
   lastEpoch[ev.cell] = ev.epoch;
   el.classList.toggle('blocked', ev.state === 'blocked' || ev.state === 'error');
   const body = el.querySelector('.body');
-  if (ev.state === 'error') { body.textContent = 'error: ' + (ev.err||''); return; }
-  if (ev.state === 'blocked') { body.textContent = 'blocked upstream'; return; }
-  if (!ev.mime) return;
-  if (ev.mime === 'text/markdown') body.textContent = ev.data;
-  else body.innerHTML = ev.data;
+  // Reveal only when there is something to show. The output degradation ladder:
+  // a Renderable output shows its rich view; a bare scalar (utilization → a
+  // float64 with no Render) shows its value as text/plain — the engine supplies
+  // that readout. A non-scalar with no view (a raw []Pt/struct) sends nothing and
+  // stays hidden, so the display is never a wall of empty labels. Errors and
+  // blocked states are always shown — never silently swallowed.
+  if (ev.state === 'error') { el.hidden = false; body.textContent = 'error: ' + (ev.err||''); reportHeight(); return; }
+  if (ev.state === 'blocked') { el.hidden = false; body.textContent = 'blocked upstream'; reportHeight(); return; }
+  if (el.dataset.leaf) return; // a leaf's control is its view; don't echo it as a body
+  if (!ev.mime) return; // no view for this value — leave hidden
+  el.hidden = false;
+  if (ev.mime === 'image/svg+xml' || ev.mime === 'text/html') body.innerHTML = ev.data;
+  else body.textContent = ev.data; // text/plain scalar readout, markdown source
   reportHeight();
 };
 
@@ -133,6 +141,10 @@ function buildUI() {
     }
     const el = document.createElement('div');
     el.className = 'cell';
+    el.hidden = true; // revealed by the first event that has something to show
+    // A leaf's control at the top already IS its view; suppress its cell body so
+    // an input isn't also echoed as a value below (servers=80 shown twice).
+    if (m.Leaf) el.dataset.leaf = '1';
     el.innerHTML = '<div class="id">'+m.ID+'</div><div class="body"></div>';
     cells.append(el);
     cellEls[m.ID] = el;
