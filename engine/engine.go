@@ -90,4 +90,8 @@ type CellMeta struct {
 	// engine wires by symbol, from the generated registry), and carries no Go
 	// types, so it stays on the transport-agnostic metadata boundary.
 	In []CellID `json:",omitempty"`
+	// Source is the cell's verbatim source (doc comment through closing brace),
+	// so the view can show "a cell is a function," read-only. Presentation-only,
+	// like the fields above; never parsed or executed.
+	Source string `json:",omitempty"`
 }

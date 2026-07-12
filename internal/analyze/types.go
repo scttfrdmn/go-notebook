@@ -3,8 +3,10 @@ package analyze
 import (
 	"fmt"
 	"go/ast"
+	"go/printer"
 	"go/token"
 	"go/types"
+	"strings"
 
 	"golang.org/x/tools/go/packages"
 
@@ -179,6 +181,7 @@ func buildCell(fset *token.FileSet, fn *ast.FuncDecl, fnObj *types.Func, q types
 		Pos:        position(fset, fn.Name.Pos()),
 		Doc:        docText(fn),
 		Label:      label(fn),
+		Source:     cellSource(fset, fn),
 		Directives: directives(fn),
 		Params:     buildParams(fset, sig.Params(), q),
 		Results:    buildResults(fset, results, q),
@@ -219,6 +222,22 @@ func docText(fn *ast.FuncDecl) string {
 		return ""
 	}
 	return fn.Doc.Text()
+}
+
+// cellSource renders a cell's verbatim source — its doc comment through the
+// closing brace — for the read-only source view. It prints from the AST via
+// go/printer rather than slicing file bytes, so it works identically on the
+// cold path and the incremental session (which may hold no raw file text), and
+// canonically reformats to gofmt. Doc comments are attached only if present.
+func cellSource(fset *token.FileSet, fn *ast.FuncDecl) string {
+	var b strings.Builder
+	cfg := &printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
+	// printer includes the FuncDecl's Doc comment when it is attached, which it
+	// is here (the decl came straight from the parser).
+	if err := cfg.Fprint(&b, fset, fn); err != nil {
+		return "" // presentation only; a print failure just hides the source
+	}
+	return b.String()
 }
 
 // classifyResults counts named data results and reports whether any non-error

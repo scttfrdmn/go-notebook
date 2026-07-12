@@ -44,6 +44,15 @@ const indexHTML = `<!doctype html>
   .cell .err { color: var(--err); font: 12px/1.4 monospace; white-space: pre-wrap; }
   .val { font-variant-numeric: tabular-nums; }
   input[type=range] { width: 100%; }
+  /* Read-only source per cell — "a cell is a function," made visible. Not an
+     editor: your editor is your editor. */
+  .cell details { margin-top: .4rem; }
+  .cell details summary { font: 11px monospace; color: var(--muted); cursor: pointer; list-style: none; }
+  .cell details summary::-webkit-details-marker { display: none; }
+  .cell details summary::before { content: '▸ source'; }
+  .cell details[open] summary::before { content: '▾ source'; }
+  .cell pre.src { margin: .4rem 0 0; padding: .7rem .9rem; background: #0f1524; color: #e6ebf5;
+                  border-radius: 8px; font: 12px/1.5 monospace; overflow-x: auto; }
   /* The dependency graph — the artifact. Which cell feeds which, colored by the
      same live wave state as the cells below. */
   .graph { border: 1px solid var(--line); border-radius: 10px; margin: 0 0 1.5rem; overflow-x: auto; }
@@ -106,6 +115,16 @@ for (const m of META) {
   el.className = 'cell';
   el.innerHTML = '<div class="id"><span class="dot"></span>' + m.ID +
                  '</div><div class="err" hidden></div><div class="body"></div>';
+  // Read-only source disclosure (text node, never HTML — it's code, not markup).
+  if (m.Source) {
+    const det = document.createElement('details');
+    const sum = document.createElement('summary');
+    const pre = document.createElement('pre');
+    pre.className = 'src';
+    pre.textContent = m.Source;
+    det.append(sum, pre);
+    el.append(det);
+  }
   cells.append(el);
   cellEls[m.ID] = el;
 }

@@ -2,6 +2,9 @@ package analyze
 
 import (
 	"encoding/json"
+	"go/parser"
+	"go/token"
+	"strings"
 	"testing"
 
 	"github.com/scttfrdmn/go-notebook/internal/graph"
@@ -83,6 +86,32 @@ func TestCellVsHelperBoundary(t *testing.T) {
 	}
 	if helpers["pick"] {
 		t.Errorf("generic pick should NOT be listed as a helper, got helpers=%v", g.Helpers)
+	}
+}
+
+// TestCellSourceCaptured confirms the read-only source view's data: each cell
+// carries its verbatim source — doc comment through the function body — so the
+// view can show "a cell is a function." Asserts the actual text (§8), including
+// that the doc comment and body are both present.
+func TestCellSourceCaptured(t *testing.T) {
+	g, _, err := TypesAnalyzer{}.Analyze("testdata/graphs/helpers")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, ok := g.Cells["doubled"]
+	if !ok {
+		t.Fatal("doubled should be a cell")
+	}
+	if !strings.Contains(c.Source, "func doubled(") {
+		t.Errorf("source should contain the func signature; got:\n%s", c.Source)
+	}
+	if !strings.Contains(c.Source, "return") {
+		t.Errorf("source should contain the body; got:\n%s", c.Source)
+	}
+	// The captured source is a self-contained func decl, so it re-parses.
+	if _, perr := parser.ParseFile(token.NewFileSet(), "src.go",
+		"package p\n"+c.Source, parser.AllErrors); perr != nil {
+		t.Errorf("captured source does not re-parse: %v\n%s", perr, c.Source)
 	}
 }
 

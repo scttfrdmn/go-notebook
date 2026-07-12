@@ -83,16 +83,13 @@ func TestMetaCarriesDependencyEdges(t *testing.T) {
 	}
 	src := string(reg.Content)
 
-	// utilization consumes offeredLoad (a) and servers (c).
-	for _, want := range []string{
-		`{ID: "utilization", Leaf: "", Label: "Server utilization.", Directives: nil, In: []engine.CellID{"offeredLoad", "servers"}}`,
-	} {
-		if !strings.Contains(src, want) {
-			t.Errorf("meta missing expected edge line:\n  want substring: %s", want)
-		}
+	// utilization consumes offeredLoad (a) and servers (c). Match the edge
+	// substring (the line also carries Source, which we don't pin here).
+	if !strings.Contains(src, `ID: "utilization", Leaf: "", Label: "Server utilization.", Directives: nil, In: []engine.CellID{"offeredLoad", "servers"}, Source:`) {
+		t.Errorf("utilization's In should be {offeredLoad, servers}")
 	}
 	// A source leaf has no upstream — In is nil, not an empty slice literal.
-	if !strings.Contains(src, `{ID: "arrivalRate", Leaf: "lambda", Label: "Incoming jobs per hour.", Directives: map[string]string{"max": "5000", "min": "0", "slider": "", "step": "50"}, In: nil}`) {
+	if !strings.Contains(src, `ID: "arrivalRate", Leaf: "lambda", Label: "Incoming jobs per hour.", Directives: map[string]string{"max": "5000", "min": "0", "slider": "", "step": "50"}, In: nil, Source:`) {
 		t.Errorf("a source leaf should have In: nil (no upstream)")
 	}
 }

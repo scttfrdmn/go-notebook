@@ -176,8 +176,8 @@ func writeMeta(b *bytes.Buffer, g *graph.Graph) {
 	fmt.Fprintf(b, "var NotebookMeta = []engine.CellMeta{\n")
 	for _, id := range g.Order {
 		c := g.Cells[id]
-		fmt.Fprintf(b, "\t{ID: %q, Leaf: %q, Label: %q, Directives: %s, In: %s},\n",
-			c.ID, leafSymbol(c), c.Label, directiveLiteral(c.Directives), upstreamLiteral(g, c))
+		fmt.Fprintf(b, "\t{ID: %q, Leaf: %q, Label: %q, Directives: %s, In: %s, Source: %q},\n",
+			c.ID, leafSymbol(c), c.Label, directiveLiteral(c.Directives), upstreamLiteral(g, c), c.Source)
 	}
 	fmt.Fprintf(b, "}\n")
 }
