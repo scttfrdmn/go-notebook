@@ -49,7 +49,17 @@ globalThis.__notebook_event = (ev) => {
   if (!ev.mime) return;
   if (ev.mime === 'text/markdown') body.textContent = ev.data;
   else body.innerHTML = ev.data;
+  reportHeight();
 };
+
+// When embedded in an iframe (the landing page), tell the parent how tall the
+// content is so it can size the frame — a rendered chart can be taller than any
+// fixed guess. No-op when opened directly.
+function reportHeight() {
+  if (window.parent === window) return;
+  const h = Math.ceil(document.documentElement.scrollHeight);
+  window.parent.postMessage({ type: 'notebook:height', height: h }, '*');
+}
 
 function buildUI() {
   const META = JSON.parse(globalThis.__notebook_meta || '[]');
@@ -77,10 +87,12 @@ function buildUI() {
     cellEls[m.ID] = el;
   }
   status.textContent = 'ready — compiled Go, no server';
+  reportHeight();
   // UI is built and cell elements exist — now trigger the initial wave, so its
   // first render lands in a DOM element that's already there (no drop race).
   globalThis.notebookStart();
 }
+window.addEventListener('resize', reportHeight);
 function coerce(s){ const n=Number(s); return s.trim()!=='' && !Number.isNaN(n) ? n : s; }
 
 const go = new Go();
