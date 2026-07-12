@@ -15,15 +15,51 @@ const indexHTMLWASM = `<!doctype html>
 <meta charset="utf-8">
 <title>%[1]s — go-notebook (wasm)</title>
 <style>
-  body { font: 14px/1.5 -apple-system, system-ui, sans-serif; margin: 2rem; max-width: 820px; color: #1a1a2e; }
-  .controls { display: grid; grid-template-columns: max-content 1fr max-content; gap: .5rem 1rem; align-items: center; margin-bottom: 1.5rem; }
-  .controls label { font-weight: 600; }
-  .cell { margin: 1rem 0; padding: .5rem 0; border-top: 1px solid #eee; }
+  :root { --navy: #1b3a6b; --go: #00add8; --ink: #1a1a2e; --muted: #5b6472; --line: #e7ebf0; }
+  body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; margin: 2rem; max-width: 820px; color: var(--ink); }
+  .controls { display: grid; grid-template-columns: max-content 1fr max-content; gap: .75rem 1rem; align-items: center; margin-bottom: 1.5rem; }
+  .controls label { font-weight: 600; color: var(--navy); }
+  .cell { margin: 1rem 0; padding: .5rem 0; border-top: 1px solid var(--line); }
   .cell.blocked { opacity: .4; }
-  .cell .id { font: 11px monospace; color: #888; }
-  .val { font-variant-numeric: tabular-nums; }
-  input[type=range] { width: 100%%; }
-  #status { font: 12px monospace; color: #888; }
+  .cell .id { font: 11px monospace; color: var(--muted); }
+  .val { font-variant-numeric: tabular-nums; color: var(--navy); font-weight: 600; }
+  input[type=text] {
+    font: inherit; color: var(--ink); padding: .3rem .5rem;
+    border: 1px solid var(--line); border-radius: 7px; background: #fff;
+  }
+  input[type=text]:focus { outline: none; border-color: var(--go); }
+
+  /* Restrained custom range — the OS default accent is too loud. Thin neutral
+     track, white thumb ringed in the Go accent; palette matches the site. */
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%%; height: 22px; background: transparent; cursor: pointer;
+  }
+  input[type=range]:focus { outline: none; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 4px; border-radius: 2px; background: var(--line);
+  }
+  input[type=range]::-moz-range-track {
+    height: 4px; border-radius: 2px; background: var(--line);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; margin-top: -7px;
+    width: 18px; height: 18px; border-radius: 50%%;
+    background: #fff; border: 2px solid var(--go);
+    box-shadow: 0 1px 2px rgba(20,30,60,.18); transition: border-color .12s, box-shadow .12s;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px; border-radius: 50%%;
+    background: #fff; border: 2px solid var(--go);
+    box-shadow: 0 1px 2px rgba(20,30,60,.18); transition: border-color .12s, box-shadow .12s;
+  }
+  input[type=range]:hover::-webkit-slider-thumb { border-color: var(--navy); }
+  input[type=range]:hover::-moz-range-thumb { border-color: var(--navy); }
+  input[type=range]:active::-webkit-slider-thumb,
+  input[type=range]:focus::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(0,173,216,.18); }
+  input[type=range]:active::-moz-range-thumb,
+  input[type=range]:focus::-moz-range-thumb { box-shadow: 0 0 0 4px rgba(0,173,216,.18); }
+  #status { font: 12px monospace; color: var(--muted); }
 </style>
 </head>
 <body>
