@@ -84,4 +84,10 @@ type CellMeta struct {
 	// Directives are the flattened //notebook:k=v pairs. A bare directive
 	// token (e.g. "slider") is recorded with an empty value.
 	Directives map[string]string
+	// In lists the cells whose output this cell consumes — its upstream
+	// producers, derived from the wired parameters. Presentation-only: it lets
+	// the view draw the dependency graph. It is not used for execution (the
+	// engine wires by symbol, from the generated registry), and carries no Go
+	// types, so it stays on the transport-agnostic metadata boundary.
+	In []CellID `json:",omitempty"`
 }

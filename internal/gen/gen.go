@@ -176,10 +176,35 @@ func writeMeta(b *bytes.Buffer, g *graph.Graph) {
 	fmt.Fprintf(b, "var NotebookMeta = []engine.CellMeta{\n")
 	for _, id := range g.Order {
 		c := g.Cells[id]
-		fmt.Fprintf(b, "\t{ID: %q, Leaf: %q, Label: %q, Directives: %s},\n",
-			c.ID, leafSymbol(c), c.Label, directiveLiteral(c.Directives))
+		fmt.Fprintf(b, "\t{ID: %q, Leaf: %q, Label: %q, Directives: %s, In: %s},\n",
+			c.ID, leafSymbol(c), c.Label, directiveLiteral(c.Directives), upstreamLiteral(g, c))
 	}
 	fmt.Fprintf(b, "}\n")
+}
+
+// upstreamLiteral renders the cells this cell consumes — the producers of its
+// wired parameters — as a []engine.CellID literal, or "nil" when the cell has
+// no upstream (a leaf or a source cell). This is the dependency graph the view
+// draws; it is derived from the wiring, never declared. Duplicates are
+// collapsed and order follows the cell's parameters (stable output).
+func upstreamLiteral(g *graph.Graph, c *graph.Cell) string {
+	var ids []string
+	seen := map[graph.CellID]bool{}
+	for _, p := range c.Params {
+		if p.Kind != graph.Wired {
+			continue
+		}
+		src, ok := g.Producer[p.Name]
+		if !ok || src == c.ID || seen[src] {
+			continue
+		}
+		seen[src] = true
+		ids = append(ids, fmt.Sprintf("%q", src))
+	}
+	if len(ids) == 0 {
+		return "nil"
+	}
+	return "[]engine.CellID{" + strings.Join(ids, ", ") + "}"
 }
 
 // leafSymbol returns the symbol a leaf cell produces (its single named data

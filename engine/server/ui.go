@@ -44,10 +44,23 @@ const indexHTML = `<!doctype html>
   .cell .err { color: var(--err); font: 12px/1.4 monospace; white-space: pre-wrap; }
   .val { font-variant-numeric: tabular-nums; }
   input[type=range] { width: 100%; }
+  /* The dependency graph — the artifact. Which cell feeds which, colored by the
+     same live wave state as the cells below. */
+  .graph { border: 1px solid var(--line); border-radius: 10px; margin: 0 0 1.5rem; overflow-x: auto; }
+  .graph svg { display: block; }
+  .graph .node rect { fill: #fff; stroke: var(--stale); stroke-width: 1.5; rx: 6; }
+  .graph .node text { font: 11px monospace; fill: #1a1a2e; }
+  .graph .node.running rect { stroke: var(--run); stroke-width: 2.5; }
+  .graph .node.done    rect { stroke: var(--done); }
+  .graph .node.error   rect { stroke: var(--err); stroke-width: 2.5; }
+  .graph .node.blocked rect { stroke: var(--stale); stroke-dasharray: 3 3; }
+  .graph .node.leaf    rect { fill: #f3f8fc; }
+  .graph .edge { stroke: var(--line); stroke-width: 1.5; fill: none; }
 </style>
 </head>
 <body>
 <h1>notebook</h1>
+<div class="graph" id="graph"></div>
 <div class="controls" id="controls"></div>
 <div id="cells"></div>
 <script>
@@ -55,6 +68,7 @@ const META = /*__META__*/null;
 const cells = document.getElementById('cells');
 const controls = document.getElementById('controls');
 const cellEls = {};
+const graphNodes = {}; // cell id -> its <g class=node> in the graph view
 
 // Build a control for EVERY leaf (m.Leaf non-empty). Leaf-ness is decided by
 // the analyzer from the type, never a directive — so every input has a control
@@ -105,6 +119,77 @@ function setState(el, state) {
   el.classList.toggle('blocked', state === 'blocked');
 }
 
+// buildGraph draws the dependency graph from META[].In: cells laid out in
+// columns by dependency depth (longest path from a source), edges drawn as
+// curves from producer to consumer. Each node is a <g> we recolor on state.
+// Pure layout, no library — the graph IS the notebook, so it's worth drawing.
+function buildGraph() {
+  const byId = {}; META.forEach(m => byId[m.ID] = m);
+  // Depth = longest chain of producers (memoized; the graph is acyclic).
+  const depth = {}; const inFlight = {};
+  function depthOf(id) {
+    if (depth[id] !== undefined) return depth[id];
+    if (inFlight[id]) return 0; // guard (graph is acyclic, but be safe)
+    inFlight[id] = true;
+    const ins = (byId[id] && byId[id].In) || [];
+    let d = 0;
+    for (const p of ins) d = Math.max(d, depthOf(p) + 1);
+    inFlight[id] = false;
+    return depth[id] = d;
+  }
+  META.forEach(m => depthOf(m.ID));
+
+  // Group cells by column (depth); position within a column by order.
+  const cols = {};
+  META.forEach(m => { (cols[depth[m.ID]] ||= []).push(m.ID); });
+  const colKeys = Object.keys(cols).map(Number).sort((a,b)=>a-b);
+  const NW = 128, NH = 30, GX = 60, GY = 16, PAD = 16;
+  const pos = {};
+  let maxRows = 0;
+  colKeys.forEach((c, ci) => {
+    cols[c].forEach((id, ri) => {
+      pos[id] = { x: PAD + ci*(NW+GX), y: PAD + ri*(NH+GY) };
+    });
+    maxRows = Math.max(maxRows, cols[c].length);
+  });
+  const W = PAD*2 + colKeys.length*NW + (colKeys.length-1)*GX;
+  const H = PAD*2 + maxRows*NH + (maxRows-1)*GY;
+
+  const svgns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgns, 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  svg.setAttribute('width', W); svg.setAttribute('height', H);
+
+  // Edges first (under nodes).
+  META.forEach(m => {
+    for (const p of (m.In || [])) {
+      if (!pos[p] || !pos[m.ID]) continue;
+      const x1 = pos[p].x + NW, y1 = pos[p].y + NH/2;
+      const x2 = pos[m.ID].x,  y2 = pos[m.ID].y + NH/2;
+      const mx = (x1 + x2) / 2;
+      const path = document.createElementNS(svgns, 'path');
+      path.setAttribute('class', 'edge');
+      path.setAttribute('d', 'M'+x1+' '+y1+' C'+mx+' '+y1+' '+mx+' '+y2+' '+x2+' '+y2);
+      svg.appendChild(path);
+    }
+  });
+  // Nodes.
+  META.forEach(m => {
+    const g = document.createElementNS(svgns, 'g');
+    g.setAttribute('class', 'node' + (m.Leaf ? ' leaf' : ''));
+    g.setAttribute('transform', 'translate('+pos[m.ID].x+','+pos[m.ID].y+')');
+    const rect = document.createElementNS(svgns, 'rect');
+    rect.setAttribute('width', NW); rect.setAttribute('height', NH);
+    const text = document.createElementNS(svgns, 'text');
+    text.setAttribute('x', 8); text.setAttribute('y', NH/2 + 4);
+    text.textContent = m.ID.length > 16 ? m.ID.slice(0,15) + '…' : m.ID;
+    g.appendChild(rect); g.appendChild(text);
+    svg.appendChild(g);
+    graphNodes[m.ID] = g;
+  });
+  document.getElementById('graph').appendChild(svg);
+}
+
 // coerce turns a text-field string into a number when it looks numeric, else
 // leaves it a string; the server does the authoritative type coercion.
 function coerce(s) {
@@ -124,6 +209,7 @@ function render(ev) {
   const el = cellEls[ev.cell];
   if (!el) return;
   setState(el, ev.state);
+  if (graphNodes[ev.cell]) setState(graphNodes[ev.cell], ev.state); // same wave state on the graph
   const body = el.querySelector('.body');
   const errEl = el.querySelector('.err');
 
@@ -155,6 +241,8 @@ function render(ev) {
     body.textContent = ev.data;
   }
 }
+
+buildGraph();
 
 const es = new EventSource('/events');
 es.onmessage = (e) => { try { render(JSON.parse(e.data)); } catch (_) {} };
