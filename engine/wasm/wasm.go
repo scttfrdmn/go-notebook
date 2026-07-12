@@ -68,7 +68,14 @@ func Run(rt *engine.Runtime, meta []engine.CellMeta, set SetFunc) {
 	// the DOM element existed. notebookStart() closes that race: the client
 	// calls it after building the UI, and only then does the first wave paint.
 	js.Global().Set("notebookStart", js.FuncOf(func(_ js.Value, _ []js.Value) any {
-		go rt.RunAll(context.Background())
+		go func() {
+			rt.RunAll(context.Background())
+			// The initial wave ran every leaf's body for its default; those values
+			// are now in Finals under each leaf symbol. Publish them so the client
+			// can show each control's starting value instead of a blank readout.
+			// Finals is already public — no new engine surface.
+			publishLeaves(rt, meta)
+		}()
 		return nil
 	}))
 
@@ -102,6 +109,46 @@ func pump(sub <-chan engine.Event) {
 		if sink.Type() == js.TypeFunction {
 			sink.Invoke(js.ValueOf(obj))
 		}
+	}
+}
+
+// publishLeaves hands the client each leaf's current value, keyed by leaf
+// symbol, via globalThis.__notebook_leaves. The client reads it to seed each
+// control's initial position and readout — otherwise a slider sits at a browser
+// default and the readout is blank until first drag. Read from Finals (public),
+// so this adds no engine surface.
+func publishLeaves(rt *engine.Runtime, meta []engine.CellMeta) {
+	finals := rt.Finals()
+	vals := map[string]any{}
+	for _, m := range meta {
+		if m.Leaf == "" {
+			continue
+		}
+		if v, ok := finals[m.Leaf]; ok {
+			vals[string(m.Leaf)] = jsValue(v)
+		}
+	}
+	if b, err := json.Marshal(vals); err == nil {
+		js.Global().Set("__notebook_leaves", string(b))
+	}
+	if fn := js.Global().Get("__notebook_leaves_ready"); fn.Type() == js.TypeFunction {
+		fn.Invoke()
+	}
+}
+
+// jsValue reduces a leaf value to a JSON-friendly scalar. Leaf defaults are the
+// scalar controls (numbers, bools, strings); a named numeric type like PerHour
+// is an untyped number to JSON, which is exactly what the control wants.
+func jsValue(v any) any {
+	switch x := v.(type) {
+	case float32:
+		return float64(x)
+	case int:
+		return float64(x)
+	case int64:
+		return float64(x)
+	default:
+		return x
 	}
 }
 
