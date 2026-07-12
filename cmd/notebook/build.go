@@ -22,7 +22,8 @@ import (
 func cmdBuild(args []string) int {
 	fs := flag.NewFlagSet("build", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
-	out := fs.String("o", "", "output binary path (default ./<pkgname>)")
+	out := fs.String("o", "", "output path (binary, or a directory for --target=wasm)")
+	target := fs.String("target", "native", "build target: native | wasm")
 	timing := fs.Bool("timing", false, "print codegen + build wall time")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -47,6 +48,10 @@ func cmdBuild(args []string) int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "notebook build: %v\n", err)
 		return 1
+	}
+
+	if *target == "wasm" {
+		return buildWASM(res, moduleRoot, *out, *timing)
 	}
 
 	genStart := time.Now()

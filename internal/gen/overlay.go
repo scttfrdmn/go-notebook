@@ -24,11 +24,32 @@ const buildSubdir = ".notebook-build"
 // Nothing is written into the user's source tree — the whole point of the
 // overlay. The returned Overlay owns a temp dir the caller must Cleanup.
 func Build(g *graph.Graph, info analyze.PackageInfo, moduleRoot string) (*Overlay, error) {
-	reg, err := Registry(g, info)
+	mainSrc, err := MainPackage(g, info)
 	if err != nil {
 		return nil, err
 	}
-	mainSrc, err := MainPackage(g, info)
+	return buildWith(g, info, moduleRoot, mainSrc)
+}
+
+// BuildWASM is Build for the browser target: it synthesizes the same registry
+// but a syscall/js entry point (via [WASMMainPackage]) instead of the server
+// main. The engine, scheduler, head, and cache are byte-identical — only the
+// transport differs. Build with GOOS=js GOARCH=wasm against the returned
+// [Overlay.MainDir].
+func BuildWASM(g *graph.Graph, info analyze.PackageInfo, moduleRoot string) (*Overlay, error) {
+	mainSrc, err := WASMMainPackage(g, info)
+	if err != nil {
+		return nil, err
+	}
+	return buildWith(g, info, moduleRoot, mainSrc)
+}
+
+// buildWith is the shared codegen+overlay core: it lays down the registry (in
+// the notebook package) and the given main file (in a virtual build dir) and
+// returns the overlay. The main file's name carries its own build constraints
+// (main.go for the server, main_wasm.go for the //go:build js && wasm entry).
+func buildWith(g *graph.Graph, info analyze.PackageInfo, moduleRoot string, mainSrc GeneratedFile) (*Overlay, error) {
+	reg, err := Registry(g, info)
 	if err != nil {
 		return nil, err
 	}
@@ -49,12 +70,14 @@ func Build(g *graph.Graph, info analyze.PackageInfo, moduleRoot string) (*Overla
 	ov.replace[regVirtual] = regBacking
 
 	// The main package appears to live under <moduleRoot>/.notebook-build/main.
-	mainBacking := filepath.Join(tmp, "main.go")
+	// The file name carries the build constraints (main.go for the server,
+	// main_wasm.go for the //go:build js && wasm entry point).
+	mainBacking := filepath.Join(tmp, mainSrc.Name)
 	if err := os.WriteFile(mainBacking, mainSrc.Content, 0o600); err != nil {
 		ov.Cleanup()
 		return nil, fmt.Errorf("writing main backing file: %w", err)
 	}
-	mainVirtual := filepath.Join(moduleRoot, buildSubdir, "main", "main.go")
+	mainVirtual := filepath.Join(moduleRoot, buildSubdir, "main", mainSrc.Name)
 	ov.replace[mainVirtual] = mainBacking
 	ov.MainDir = filepath.Join(moduleRoot, buildSubdir, "main")
 

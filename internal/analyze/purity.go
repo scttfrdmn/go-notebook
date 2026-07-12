@@ -124,6 +124,15 @@ func LoadForPurity(dir string) (*packages.Package, error) {
 // it pure — but that precision buys only cache hits while risking the one error
 // that matters, so CHA is the correct choice, not a limitation to work around.
 func reachesImpure(cg *callgraph.Graph, fn *ssa.Function) bool {
+	return reaches(cg, fn, isImpureFunc)
+}
+
+// reaches reports whether fn transitively calls any function the predicate
+// flags. Package init functions are skipped (a package's init pulling in os,
+// as fmt's does, says nothing about a cell's own reachability). This is the
+// shared CHA-walk behind both purity and WASM-ability, which differ only in
+// which primitives count.
+func reaches(cg *callgraph.Graph, fn *ssa.Function, flag func(*ssa.Function) bool) bool {
 	root := cg.Nodes[fn]
 	if root == nil {
 		return false
@@ -142,7 +151,7 @@ func reachesImpure(cg *callgraph.Graph, fn *ssa.Function) bool {
 			if callee.Name() == "init" {
 				continue
 			}
-			if isImpureFunc(callee) {
+			if flag(callee) {
 				return true
 			}
 		}

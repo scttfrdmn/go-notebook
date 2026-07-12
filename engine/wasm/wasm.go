@@ -1,0 +1,112 @@
+//go:build js && wasm
+
+// Package wasm is the browser transport: it drives an [engine.Runtime] over the
+// syscall/js boundary instead of an HTTP/SSE server. It is the WASM sibling of
+// engine/server — the ONLY new thing the browser topology needs.
+//
+// Everything below the transport is unchanged: the same registry, engine,
+// scheduler, head, and cache the SSE path uses. This package subscribes to the
+// engine's Event channel and pushes each event into a JS callback, and it
+// registers a JS-callable function that funnels edits through the head's single
+// Set chokepoint. If anything here required changing engine's public API, that
+// would be a finding (the transport-independence claim would be false); it does
+// not.
+//
+// The JS contract (both directions are plain data — JS never sees a Go type):
+//
+//	globalThis.__notebook_meta   → JSON string of []CellMeta, set once at start
+//	globalThis.__notebook_event(ev)  ← called per cell update: {epoch,cell,state,mime,data,err}
+//	globalThis.notebookSet(leaf, value)  → JS calls this to edit a leaf
+package wasm
+
+import (
+	"context"
+	"encoding/json"
+	"syscall/js"
+
+	"github.com/scttfrdmn/go-notebook/engine"
+)
+
+// SetFunc coerces a raw JS leaf value to the leaf's static Go type and applies
+// it. Generated code supplies it (only codegen knows each leaf's type); a nil
+// SetFunc writes the raw value, which is fine when values are already typed.
+type SetFunc func(ctx context.Context, rt *engine.Runtime, leaf string, raw any)
+
+// Run wires a runtime to the browser and blocks forever (a wasm main must not
+// return). It publishes the cell metadata, starts pumping events to JS, runs an
+// initial wave so the page renders, and installs the JS-callable set function.
+func Run(rt *engine.Runtime, meta []engine.CellMeta, set SetFunc) {
+	if set == nil {
+		set = func(ctx context.Context, rt *engine.Runtime, leaf string, raw any) {
+			rt.Set(ctx, engine.LeafID(leaf), raw)
+		}
+	}
+
+	// Publish metadata once (labels, leaf symbols, directives) as JSON.
+	if b, err := json.Marshal(meta); err == nil {
+		js.Global().Set("__notebook_meta", string(b))
+	}
+
+	// Pump events → JS. A goroutine reads the engine's channel and calls the
+	// JS sink for each event; JS renders {cell, mime, data}.
+	go pump(rt.Subscribe())
+
+	// Install the edit entry point: JS calls notebookSet(leaf, value).
+	js.Global().Set("notebookSet", js.FuncOf(func(_ js.Value, args []js.Value) any {
+		if len(args) != 2 {
+			return nil
+		}
+		leaf := args[0].String()
+		raw := fromJS(args[1])
+		go set(context.Background(), rt, leaf, raw)
+		return nil
+	}))
+
+	// Signal readiness, then run the initial wave so the page has content.
+	js.Global().Set("__notebook_ready", js.ValueOf(true))
+	go rt.RunAll(context.Background())
+
+	select {} // block forever; the JS event loop drives us from here
+}
+
+// pump forwards engine events to the JS sink, one call per event.
+func pump(sub <-chan engine.Event) {
+	sink := js.Global().Get("__notebook_event")
+	for ev := range sub {
+		obj := map[string]any{
+			"epoch": float64(ev.Epoch),
+			"cell":  string(ev.Cell),
+			"state": ev.State.String(),
+		}
+		if ev.Out != nil {
+			obj["mime"] = ev.Out.MIME
+			obj["data"] = ev.Out.Data
+		}
+		if ev.Err != "" {
+			obj["err"] = ev.Err
+		}
+		// Re-fetch the sink each time in case JS installed it after start.
+		if !sink.Truthy() {
+			sink = js.Global().Get("__notebook_event")
+		}
+		if sink.Type() == js.TypeFunction {
+			sink.Invoke(js.ValueOf(obj))
+		}
+	}
+}
+
+// fromJS converts a JS value to the plain Go value the head stores. JS numbers
+// arrive as float64 and bools as bool — the same shapes the SSE /set path sees,
+// so the generated coercer treats them identically.
+func fromJS(v js.Value) any {
+	switch v.Type() {
+	case js.TypeNumber:
+		return v.Float()
+	case js.TypeBoolean:
+		return v.Bool()
+	case js.TypeString:
+		return v.String()
+	default:
+		return v.String()
+	}
+}

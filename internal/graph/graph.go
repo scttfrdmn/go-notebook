@@ -112,6 +112,10 @@ type Cell struct {
 	// (Bounds/Options/Reconcile) or, when parameterless, a scalar basic kind.
 	// The directive only refines how the control looks, never whether it is one.
 	IsLeaf bool `json:"isLeaf"`
+	// WASMable reports whether the cell can run under GOOS=js GOARCH=wasm — it
+	// transitively touches no net/os/cgo. Distinct from Pure (time and rand are
+	// impure but WASM-able); derived by [analyze.WASMability], never declared.
+	WASMable bool `json:"wasmable"`
 }
 
 // Graph is the whole notebook: its cells, the producer index that realizes the
