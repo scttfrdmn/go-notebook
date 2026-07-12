@@ -74,10 +74,20 @@ const controls = document.getElementById('controls');
 const status = document.getElementById('status');
 const cellEls = {};
 
+// Highest epoch rendered per cell. Each slider drag spawns a new wave; a slower
+// older wave can emit its result AFTER a newer one, which would snap the chart
+// back to a stale value. The engine already stamps every event with its epoch —
+// so we render an event only if it is at least as new as the last one shown for
+// that cell. Monotonic per cell; the newest wave always wins.
+const lastEpoch = {};
+
 // The wasm transport calls this per cell update.
 globalThis.__notebook_event = (ev) => {
   const el = cellEls[ev.cell];
   if (!el) return;
+  const seen = lastEpoch[ev.cell];
+  if (seen !== undefined && ev.epoch < seen) return; // stale wave, drop it
+  lastEpoch[ev.cell] = ev.epoch;
   el.classList.toggle('blocked', ev.state === 'blocked' || ev.state === 'error');
   const body = el.querySelector('.body');
   if (ev.state === 'error') { body.textContent = 'error: ' + (ev.err||''); return; }
@@ -97,6 +107,10 @@ function reportHeight() {
   window.parent.postMessage({ type: 'notebook:height', height: h }, '*');
 }
 
+// Leaf control refs, keyed by leaf symbol, so we can seed initial values once
+// the engine reports them (__notebook_leaves).
+const leafCtl = {};
+
 function buildUI() {
   const META = JSON.parse(globalThis.__notebook_meta || '[]');
   for (const m of META) {
@@ -115,6 +129,7 @@ function buildUI() {
         globalThis.notebookSet(m.Leaf, v);
       };
       controls.append(label, input, out);
+      leafCtl[m.Leaf] = { input, out };
     }
     const el = document.createElement('div');
     el.className = 'cell';
@@ -130,6 +145,24 @@ function buildUI() {
 }
 window.addEventListener('resize', reportHeight);
 function coerce(s){ const n=Number(s); return s.trim()!=='' && !Number.isNaN(n) ? n : s; }
+
+// Seed each control with its leaf's initial value, so a slider starts at its
+// real position and the readout is populated before any drag. The engine
+// publishes these after the first wave; it may call us before or after that, so
+// we both install the callback and try once immediately.
+function seedLeaves() {
+  const raw = globalThis.__notebook_leaves;
+  if (!raw) return;
+  const vals = JSON.parse(raw);
+  for (const leaf in vals) {
+    const ctl = leafCtl[leaf];
+    if (!ctl) continue;
+    const s = String(vals[leaf]);
+    ctl.input.value = s;
+    ctl.out.textContent = s;
+  }
+}
+globalThis.__notebook_leaves_ready = seedLeaves;
 
 const go = new Go();
 // instantiateStreaming needs Content-Type: application/wasm; if a host serves
