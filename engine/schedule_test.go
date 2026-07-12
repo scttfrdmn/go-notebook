@@ -110,6 +110,17 @@ func TestSupersede(t *testing.T) {
 	const edits = 100
 	var settled int64
 
+	// running closes when the first wave's sink cell begins — proving that wave
+	// is registered and in-flight. The sink then blocks on release, so the wave
+	// stays open while the later edits arrive; a superseded wave's ctx is
+	// cancelled and it bails. This makes overlap deterministic. With instant
+	// cells a wave could finish before the next concurrent edit bumped the epoch,
+	// so nothing was ever in-flight to supersede — a flake on fast runners that
+	// hoped goroutine scheduling would interleave. We no longer hope.
+	running := make(chan struct{})
+	release := make(chan struct{})
+	var once sync.Once
+
 	leaf := fnNode{
 		id: "double", in: []Symbol{"n"}, out: []Symbol{"d"},
 		run: func(_ context.Context, in Inputs) (Outputs, error) {
@@ -119,7 +130,13 @@ func TestSupersede(t *testing.T) {
 	// A terminal cell counts how many waves reach a committed StateDone.
 	sink := fnNode{
 		id: "sink", in: []Symbol{"d"}, out: []Symbol{"s"},
-		run: func(_ context.Context, in Inputs) (Outputs, error) {
+		run: func(ctx context.Context, in Inputs) (Outputs, error) {
+			once.Do(func() { close(running) })
+			select {
+			case <-release:
+			case <-ctx.Done(): // superseded: abandon promptly
+				return nil, ctx.Err()
+			}
 			return Outputs{"s": in["d"]}, nil
 		},
 	}
@@ -143,21 +160,29 @@ func TestSupersede(t *testing.T) {
 		close(done)
 	}()
 
-	var wg sync.WaitGroup
-	for i := 1; i <= edits; i++ {
-		wg.Add(1)
-		go func(n int) {
-			defer wg.Done()
-			rt.Set(context.Background(), "n", n)
-		}(i)
+	// Prime the pump: fire the first edit and wait until its sink cell is
+	// actually running, so its wave is registered and mid-compute.
+	go rt.Set(context.Background(), "n", 1)
+	<-running
+
+	// Now flood the rest. Each bumps the epoch (head.Set, synchronous at Set
+	// entry) and cancels older in-flight waves. We do NOT wg.Wait() here: the
+	// surviving wave's Set blocks on release, so waiting on it would deadlock.
+	// Instead gate release on the head epoch reaching `edits` — proof every edit
+	// has been applied and every supersession registered.
+	for i := 2; i <= edits; i++ {
+		go rt.Set(context.Background(), "n", i)
 	}
-	wg.Wait()
+	for head.Epoch() < Epoch(edits) {
+		time.Sleep(time.Millisecond)
+	}
+	close(release) // unblock the surviving wave
 
 	// Allow events to drain, then close the subscription.
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
-	// At least one settled; far fewer than `edits` (most superseded). The exact
-	// count is timing-dependent, but coalescing must happen.
+	// At least one settled; far fewer than `edits` (most superseded). Coalescing
+	// must happen — the primed overlap guarantees the precondition.
 	got := atomic.LoadInt64(&settled)
 	if got < 1 {
 		t.Fatalf("expected at least one settled wave, got %d", got)
