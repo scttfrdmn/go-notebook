@@ -18,12 +18,30 @@ const indexHTML = `<!doctype html>
 <meta charset="utf-8">
 <title>notebook</title>
 <style>
+  :root { --navy:#1b3a6b; --go:#00add8; --muted:#5b6472; --line:#e7ebf0;
+          --run:#f0a020; --err:#d0433b; --stale:#b8c0cc; --done:#3fa845; }
   body { font: 14px/1.5 -apple-system, system-ui, sans-serif; margin: 2rem; max-width: 820px; color: #1a1a2e; }
   .controls { display: grid; grid-template-columns: max-content 1fr max-content; gap: .5rem 1rem; align-items: center; margin-bottom: 1.5rem; }
   .controls label { font-weight: 600; }
-  .cell { margin: 1rem 0; padding: .5rem 0; border-top: 1px solid #eee; }
+  .cell { margin: 1rem 0; padding: .5rem 0 .5rem .6rem; border-top: 1px solid #eee;
+          border-left: 3px solid transparent; transition: border-color .15s, opacity .15s; }
   .cell.blocked { opacity: .4; }
+  /* Cell state, shown as a left rail + a dot by the id. Every wave paints the
+     dirty subgraph: running (amber) → done (green, then fades) → error (red);
+     blocked upstream dims; a superseded wave marks stale (grey). */
+  .cell.running { border-left-color: var(--run); }
+  .cell.error   { border-left-color: var(--err); }
+  .cell.done    { border-left-color: var(--done); }
+  .cell.stale   { border-left-color: var(--stale); }
   .cell .id { font: 11px monospace; color: #888; }
+  .cell .id .dot { display:inline-block; width:7px; height:7px; border-radius:50%;
+                   margin-right:5px; background:var(--stale); vertical-align:middle; }
+  .cell.running .id .dot { background: var(--run); }
+  .cell.done    .id .dot { background: var(--done); }
+  .cell.error   .id .dot { background: var(--err); }
+  .cell.blocked .id .dot { background: var(--stale); }
+  .cell.stale   .id .dot { background: var(--stale); }
+  .cell .err { color: var(--err); font: 12px/1.4 monospace; white-space: pre-wrap; }
   .val { font-variant-numeric: tabular-nums; }
   input[type=range] { width: 100%; }
 </style>
@@ -69,12 +87,22 @@ for (const m of META) {
     };
     controls.append(label, input, out);
   }
-  // A display element for every cell.
+  // A display element for every cell. The dot + left rail show its wave state.
   const el = document.createElement('div');
   el.className = 'cell';
-  el.innerHTML = '<div class="id">' + m.ID + '</div><div class="body"></div>';
+  el.innerHTML = '<div class="id"><span class="dot"></span>' + m.ID +
+                 '</div><div class="err" hidden></div><div class="body"></div>';
   cells.append(el);
   cellEls[m.ID] = el;
+}
+
+// setState applies exactly one wave-state class, so the left rail + dot reflect
+// the latest transition (running → done/error, blocked, stale).
+const STATES = ['running', 'done', 'error', 'blocked', 'stale'];
+function setState(el, state) {
+  el.classList.remove(...STATES);
+  if (STATES.includes(state)) el.classList.add(state);
+  el.classList.toggle('blocked', state === 'blocked');
 }
 
 // coerce turns a text-field string into a number when it looks numeric, else
@@ -95,10 +123,29 @@ function setLeaf(leaf, value) {
 function render(ev) {
   const el = cellEls[ev.cell];
   if (!el) return;
-  el.classList.toggle('blocked', ev.state === 'blocked' || ev.state === 'error');
+  setState(el, ev.state);
   const body = el.querySelector('.body');
-  if (ev.state === 'error') { body.textContent = 'error: ' + ev.err; return; }
-  if (ev.state === 'blocked') { body.textContent = 'blocked upstream'; return; }
+  const errEl = el.querySelector('.err');
+
+  // Runtime error (KC8c): the cell returned a non-nil error. Show what and,
+  // via the cell it's attached to, where. Keep the last good body dimmed behind.
+  if (ev.state === 'error') {
+    errEl.textContent = 'error: ' + (ev.err || '(no message)');
+    errEl.hidden = false;
+    return;
+  }
+  // Blocked upstream (KC8d): a producer failed, so this cell did not run.
+  if (ev.state === 'blocked') {
+    errEl.textContent = 'blocked — an upstream cell failed';
+    errEl.hidden = false;
+    return;
+  }
+  // running/stale carry no new output; leave the body as-is, the rail shows it.
+  if (ev.state === 'running' || ev.state === 'stale') return;
+
+  // done: a healthy result clears any prior error and updates the body.
+  errEl.hidden = true;
+  errEl.textContent = '';
   if (!ev.mime) return;
   // Only trusted rich blobs go in as HTML; a text/plain scalar readout and
   // markdown source are set as text, never injected.
