@@ -1,5 +1,9 @@
 # go-notebook
 
+[![CI](https://github.com/scttfrdmn/go-notebook/actions/workflows/ci.yml/badge.svg)](https://github.com/scttfrdmn/go-notebook/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/scttfrdmn/go-notebook)](https://goreportcard.com/report/github.com/scttfrdmn/go-notebook)
+[![Go Reference](https://pkg.go.dev/badge/github.com/scttfrdmn/go-notebook.svg)](https://pkg.go.dev/github.com/scttfrdmn/go-notebook)
+
 **A reactive notebook where the notebook *is* an ordinary Go package.**
 
 A cell is a top-level function with a doc comment. The dependency graph is a projection of the type checker's own def-use analysis. The result compiles to a single static binary — so a notebook is also a job:
@@ -64,6 +68,8 @@ Overlapping the rebuild with the running binary ([#22](https://github.com/scttfr
 **Two stories, both working.** The differentiated one is batch and cluster: the same file is a notebook, an `sbatch` job, and a callable model (`--headless --set --json`). The familiar one is interactive: edit source, see the chart move — at every notebook size measured. Neither is a consolation for the other.
 
 **Built so far:** `internal/graph` (plain-data IR, no `go/types`), `internal/analyze` (incremental type-checking `Session`, CHA-based purity), `internal/gen` (codegen + overlay), `engine` (head + epoch'd glitch-free scheduler + cache + capability probes), `engine/server` (SSE + edits; the only `net/http`). Deferred by design (seams cut, features skipped): `Prev[T]` folds, grips, SQL/`Rel[T]`, WASM. Progress is tracked in [GitHub issues](https://github.com/scttfrdmn/go-notebook/issues); kill-criteria numbers live on [#16](https://github.com/scttfrdmn/go-notebook/issues/16).
+
+**Quality bar.** CI enforces `gofmt`, `go vet`, `go test -race`, and `golangci-lint` (errcheck, staticcheck, revive, ineffassign, misspell, gocyclo ≤ 15, unconvert, gocritic) on every push — a Go Report Card A+. Library-package coverage (the example notebooks are fixtures, excluded) is held to a **≥ 75% floor** in CI; it currently sits at ~79%, with the core engine/graph/analyze/gen packages all above 82%.
 
 ## Documents
 

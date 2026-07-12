@@ -14,8 +14,7 @@ func mkCell(id string, line int, params, results [][2]string) *Cell {
 	}
 	for i, p := range params {
 		kind := Wired
-		switch p[1] {
-		case "context.Context":
+		if p[1] == "context.Context" {
 			kind = Injected
 		}
 		c.Params = append(c.Params, Param{

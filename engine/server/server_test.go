@@ -64,7 +64,7 @@ func testRuntime(t *testing.T) (*engine.Runtime, []engine.CellMeta) {
 		Leaves: []engine.LeafID{"n"},
 	}, head, engine.NewMemoStore())
 	meta := []engine.CellMeta{
-		{ID: "n", Label: "count", Directives: map[string]string{"slider": "", "min": "0", "max": "100"}},
+		{ID: "n", Leaf: "n", Label: "count", Directives: map[string]string{"slider": "", "min": "0", "max": "100"}},
 		{ID: "chart", Label: "chart"},
 	}
 	return rt, meta

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -24,43 +25,17 @@ import (
 //	--no-open            don't open a browser
 //	--timing             print build wall time to stderr
 func cmdRun(args []string) int {
-	var (
-		addr   = "127.0.0.1:8080"
-		noOpen bool
-		timing bool
-		target string
-	)
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch a {
-		case "--addr":
-			if i+1 >= len(args) {
-				fmt.Fprintln(os.Stderr, "notebook run: --addr needs an argument")
-				return 2
-			}
-			i++
-			addr = args[i]
-		case "--no-open":
-			noOpen = true
-		case "--timing":
-			timing = true
-		default:
-			if target != "" {
-				fmt.Fprintf(os.Stderr, "notebook run: unexpected extra argument %q\n", a)
-				return 2
-			}
-			target = a
-		}
-	}
-	if target == "" {
-		fmt.Fprintln(os.Stderr, "notebook run: need a directory or file")
+	fs := flag.NewFlagSet("run", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	addr := fs.String("addr", "127.0.0.1:8080", "listen address")
+	noOpen := fs.Bool("no-open", false, "don't open a browser")
+	timing := fs.Bool("timing", false, "print build/swap timing to stderr")
+	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-
-	dir, err := resolveDir(target)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "notebook run: %v\n", err)
-		return 1
+	dir, code := targetDir(fs, "run")
+	if code != 0 {
+		return code
 	}
 
 	res, err := analyze.LoadPackage(dir)
@@ -68,15 +43,7 @@ func cmdRun(args []string) int {
 		fmt.Fprintf(os.Stderr, "notebook run: %v\n", err)
 		return 1
 	}
-	var errCount int
-	for _, d := range res.Diagnostics {
-		fmt.Fprintln(os.Stderr, d.String())
-		if d.Severity == graph.Error {
-			errCount++
-		}
-	}
-	if errCount > 0 {
-		fmt.Fprintf(os.Stderr, "\nnotebook run: %d error(s); not running\n", errCount)
+	if reportDiagnostics(res.Diagnostics, "run") {
 		return 1
 	}
 
@@ -89,44 +56,11 @@ func cmdRun(args []string) int {
 	// Persist the head next to the notebook source so restarts restore sliders.
 	headPath := filepath.Join(dir, "notebook-head.json")
 
-	// build produces a fresh binary (analyze → codegen → go build) while the old
-	// one keeps serving. Returns the binary path and a cleanup for its overlay
-	// temp dir.
-	//
-	// NOTE: an earlier version "warmed" the new binary with a throwaway headless
-	// run to pay off the OS first-exec cost before the swap. Measured on lego,
-	// that was a net LOSS — warming runs a full wave (~460ms for lego), far more
-	// than the ~180ms first-exec it saves. Removed. The first-exec cost is paid
-	// at swap time, which is honest and cheaper than pre-warming.
-	build := func() (bin string, cleanup func(), err error) {
-		res, err := analyze.LoadPackage(dir)
-		if err != nil {
-			return "", nil, err
-		}
-		for _, d := range res.Diagnostics {
-			if d.Severity == graph.Error {
-				return "", nil, fmt.Errorf("%s", d.String())
-			}
-			fmt.Fprintln(os.Stderr, d.String())
-		}
-		overlay, err := gen.Build(res.Graph, res.Package, moduleRoot)
-		if err != nil {
-			return "", nil, err
-		}
-		bin = filepath.Join(overlay.TempDir(), "notebook-bin")
-		cmd := exec.Command("go", "build", "-overlay="+overlay.JSONPath, "-o", bin, overlay.MainDir)
-		cmd.Dir = moduleRoot
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			overlay.Cleanup()
-			return "", nil, fmt.Errorf("go build: %w", err)
-		}
-		return bin, overlay.Cleanup, nil
-	}
+	build := func() (string, func(), error) { return buildBinary(dir, moduleRoot) }
 
 	// launch starts a built binary serving on addr.
 	launch := func(bin string) (*exec.Cmd, error) {
-		nb := exec.Command(bin, "--addr", addr, "--head", headPath)
+		nb := exec.Command(bin, "--addr", *addr, "--head", headPath)
 		nb.Stdout = os.Stdout
 		nb.Stderr = os.Stderr
 		if err := nb.Start(); err != nil {
@@ -147,25 +81,37 @@ func cmdRun(args []string) int {
 		cleanup()
 		return 1
 	}
-	if timing {
+	if *timing {
 		fmt.Fprintf(os.Stderr, "startup: %v\n", time.Since(buildStart))
 	}
 
-	if !noOpen {
+	if !*noOpen {
 		time.Sleep(150 * time.Millisecond)
-		openBrowser("http://" + addr)
+		openBrowser("http://" + *addr)
 	}
 
-	// Watch the source and rebuild-on-save (os.Stat poll, 100ms, zero deps).
-	//
-	// The rebuild OVERLAPS the running binary (#22): on change we build AND warm
-	// the new binary while the old one keeps serving — the user stays
-	// interactive through the ~270ms build + ~180ms first-exec. Only once the
-	// new binary is ready do we kill the old and launch the new, so the
-	// user-visible latency is the swap (~a warm re-exec + reconnect), not
-	// build + first-exec + reconnect. The head is persisted, so the new process
-	// restores the sliders. This is what gives the edit loop margin at scale.
-	watch := watchFiles(res.Package.GoFiles)
+	return watchAndRebuild(res.Package.GoFiles, build, launch, proc, cleanup, *timing)
+}
+
+// watchAndRebuild serves the notebook and, on every source save, rebuilds the
+// binary while the old one keeps serving, then swaps to it. Blocks until
+// interrupted (SIGINT), returning the process exit code.
+//
+// The rebuild OVERLAPS the running binary (#22): building happens while the old
+// binary answers, so the notebook stays interactive during a rebuild instead of
+// going dark. It does not shrink time-to-reflect-an-edit — that is fundamentally
+// build + exec — but the old result stays live and responsive until the new one
+// is ready. The head is persisted, so the swapped-in process restores the
+// sliders. (os.Stat polling at 100ms, dependency-free.)
+func watchAndRebuild(
+	files []string,
+	build func() (string, func(), error),
+	launch func(string) (*exec.Cmd, error),
+	proc *exec.Cmd,
+	cleanup func(),
+	timing bool,
+) int {
+	watch := watchFiles(files)
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
 
@@ -177,39 +123,86 @@ func cmdRun(args []string) int {
 			return 0
 		case <-watch:
 			fmt.Fprintln(os.Stderr, "notebook run: change detected, rebuilding…")
-			// Build + warm the NEW binary while the OLD one keeps serving, so
-			// the notebook stays interactive (sliders still respond) during the
-			// rebuild rather than going dark. This does NOT shrink time-to-
-			// reflect-the-edit — that is fundamentally build + exec — but it
-			// keeps the old result live and responsive until the new one is
-			// ready.
-			buildT := time.Now()
-			newBin, newCleanup, err := build()
-			if err != nil {
-				// A broken edit shouldn't kill the loop or the running notebook;
-				// keep serving the old binary and wait for the next save.
-				fmt.Fprintf(os.Stderr, "notebook run: rebuild failed (still serving previous build): %v\n", err)
-				continue
+			newProc, newCleanup, ok := rebuildAndSwap(build, launch, proc, cleanup, timing)
+			if !ok {
+				continue // rebuild failed; keep serving the previous binary
 			}
-			buildDur := time.Since(buildT)
-			// Swap: stop the old, launch the new (already warm, ~fast re-exec).
-			swapT := time.Now()
-			_ = proc.Process.Kill()
-			_, _ = proc.Process.Wait()
-			cleanup()
-			newProc, err := launch(newBin)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "notebook run: relaunch failed: %v\n", err)
-				newCleanup()
-				return 1
+			if newProc == nil {
+				return 1 // relaunch failed; the old binary is already gone
 			}
 			proc, cleanup = newProc, newCleanup
-			if timing {
-				fmt.Fprintf(os.Stderr, "rebuild+warm: %v   swap: %v   (edit reflected in %v)\n",
-					buildDur, time.Since(swapT), time.Since(buildT))
-			}
 		}
 	}
+}
+
+// rebuildAndSwap builds a new binary (old one still serving), then stops the old
+// and launches the new. ok is false when the rebuild failed (old binary kept);
+// a nil proc with ok true means the relaunch failed after the old was stopped.
+func rebuildAndSwap(
+	build func() (string, func(), error),
+	launch func(string) (*exec.Cmd, error),
+	old *exec.Cmd,
+	oldCleanup func(),
+	timing bool,
+) (proc *exec.Cmd, cleanup func(), ok bool) {
+	buildT := time.Now()
+	newBin, newCleanup, err := build()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "notebook run: rebuild failed (still serving previous build): %v\n", err)
+		return nil, nil, false
+	}
+	buildDur := time.Since(buildT)
+
+	swapT := time.Now()
+	_ = old.Process.Kill()
+	_, _ = old.Process.Wait()
+	oldCleanup()
+	newProc, err := launch(newBin)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "notebook run: relaunch failed: %v\n", err)
+		newCleanup()
+		return nil, nil, true
+	}
+	if timing {
+		fmt.Fprintf(os.Stderr, "rebuild+warm: %v   swap: %v   (edit reflected in %v)\n",
+			buildDur, time.Since(swapT), time.Since(buildT))
+	}
+	return newProc, newCleanup, true
+}
+
+// buildBinary produces a fresh notebook binary: analyze → codegen → go build.
+// It returns the binary path and a cleanup for its overlay temp dir. Errors in
+// the notebook block the build; notices (deferred features) are printed.
+//
+// NOTE: an earlier version "warmed" the new binary with a throwaway headless run
+// to pay the OS first-exec cost before the swap. Measured on lego, that was a
+// net loss — warming runs a full wave (~460ms) for more than the ~180ms
+// first-exec it saved. Removed; first-exec is paid at swap time, which is
+// cheaper and honest.
+func buildBinary(dir, moduleRoot string) (bin string, cleanup func(), err error) {
+	res, err := analyze.LoadPackage(dir)
+	if err != nil {
+		return "", nil, err
+	}
+	for _, d := range res.Diagnostics {
+		if d.Severity == graph.Error {
+			return "", nil, fmt.Errorf("%s", d.String())
+		}
+		fmt.Fprintln(os.Stderr, d.String())
+	}
+	overlay, err := gen.Build(res.Graph, res.Package, moduleRoot)
+	if err != nil {
+		return "", nil, err
+	}
+	bin = filepath.Join(overlay.TempDir(), "notebook-bin")
+	cmd := exec.Command("go", "build", "-overlay="+overlay.JSONPath, "-o", bin, overlay.MainDir)
+	cmd.Dir = moduleRoot
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		overlay.Cleanup()
+		return "", nil, fmt.Errorf("go build: %w", err)
+	}
+	return bin, overlay.Cleanup, nil
 }
 
 // watchFiles polls the given files' mtimes every 100ms and sends on the

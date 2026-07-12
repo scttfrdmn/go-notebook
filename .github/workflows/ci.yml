@@ -19,11 +19,25 @@ jobs:
           go-version: "1.25"
           cache: true
 
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-clean:"; echo "$unformatted"; exit 1
+          fi
+
       - name: go vet
         run: go vet ./...
 
-      - name: go test -race
-        run: go test -race ./...
+      - name: go test -race + coverage
+        run: go test -race -coverprofile=coverage.out ./...
+
+      - name: coverage floor (library packages, examples excluded)
+        run: |
+          go test -coverprofile=cover.lib.out $(go list ./... | grep -v '/examples/') >/dev/null
+          total=$(go tool cover -func=cover.lib.out | awk '/^total:/ {print substr($3, 1, length($3)-1)}')
+          echo "library coverage: ${total}%"
+          awk -v t="$total" 'BEGIN { if (t+0 < 75.0) { print "FAIL: library coverage " t "% is below the 75% floor"; exit 1 } }'
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
