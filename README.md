@@ -1,8 +1,12 @@
-# go-notebook
+<p align="center">
+  <img src="docs/assets/hero.png" alt="go-notebook — reactive notebooks that compile. A cell is a function." width="820">
+</p>
 
-[![CI](https://github.com/scttfrdmn/go-notebook/actions/workflows/ci.yml/badge.svg)](https://github.com/scttfrdmn/go-notebook/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/scttfrdmn/go-notebook)](https://goreportcard.com/report/github.com/scttfrdmn/go-notebook)
-[![Go Reference](https://pkg.go.dev/badge/github.com/scttfrdmn/go-notebook.svg)](https://pkg.go.dev/github.com/scttfrdmn/go-notebook)
+<p align="center">
+  <a href="https://github.com/scttfrdmn/go-notebook/actions/workflows/ci.yml"><img src="https://github.com/scttfrdmn/go-notebook/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://goreportcard.com/report/github.com/scttfrdmn/go-notebook"><img src="https://goreportcard.com/badge/github.com/scttfrdmn/go-notebook" alt="Go Report Card"></a>
+  <a href="https://pkg.go.dev/github.com/scttfrdmn/go-notebook"><img src="https://pkg.go.dev/badge/github.com/scttfrdmn/go-notebook.svg" alt="Go Reference"></a>
+</p>
 
 **A reactive notebook where the notebook *is* an ordinary Go package.**
 
