@@ -66,6 +66,37 @@ func TestRegistryIsValidGo(t *testing.T) {
 	}
 }
 
+// TestMetaCarriesDependencyEdges confirms the graph view's data: each cell's
+// CellMeta.In lists the cells whose output it consumes, derived from the wiring
+// (§8 — assert the actual edges, not that a field exists). utilization(a, c)
+// reads a from offeredLoad and c from servers; a source leaf like arrivalRate
+// has no upstream.
+func TestMetaCarriesDependencyEdges(t *testing.T) {
+	root := moduleRoot(t)
+	res, err := analyze.LoadPackage(filepath.Join(root, "examples", "capacity"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg, err := Registry(res.Graph, res.Package)
+	if err != nil {
+		t.Fatalf("Registry: %v", err)
+	}
+	src := string(reg.Content)
+
+	// utilization consumes offeredLoad (a) and servers (c).
+	for _, want := range []string{
+		`{ID: "utilization", Leaf: "", Label: "Server utilization.", Directives: nil, In: []engine.CellID{"offeredLoad", "servers"}}`,
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("meta missing expected edge line:\n  want substring: %s", want)
+		}
+	}
+	// A source leaf has no upstream — In is nil, not an empty slice literal.
+	if !strings.Contains(src, `{ID: "arrivalRate", Leaf: "lambda", Label: "Incoming jobs per hour.", Directives: map[string]string{"max": "5000", "min": "0", "slider": "", "step": "50"}, In: nil}`) {
+		t.Errorf("a source leaf should have In: nil (no upstream)")
+	}
+}
+
 // TestBuildProducesBinaryAndLeavesTreeClean is the M2 done-condition: build the
 // capacity example to a binary, and assert the user's source directory is
 // untouched (no notebook_gen.go, no .notebook-build).
