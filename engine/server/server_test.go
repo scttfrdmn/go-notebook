@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -69,6 +70,9 @@ func testRuntime(t *testing.T) (*engine.Runtime, []engine.CellMeta) {
 	}
 	return rt, meta
 }
+
+// errBoom is a runtime failure a cell returns, to drive KC8's error surface.
+var errBoom = errors.New("boom: the cell failed at runtime")
 
 // fnNode mirrors the engine test helper (package-local copy for the server test).
 type fnNode struct {
@@ -138,6 +142,81 @@ func TestServerEditRepaints(t *testing.T) {
 				t.Errorf("chart data not SVG: %q", ev.Data)
 			}
 			return // repaint observed
+		}
+	}
+}
+
+// TestKC8RuntimeErrorAndBlockedReachTheWire drives KC8(c)/(d): a cell that
+// returns a non-nil error at runtime, and a cell blocked because its upstream
+// failed, both reach the SSE wire with the information the browser needs — an
+// "error" event carrying the message, and a "blocked" event for the downstream.
+// Observes the effect the UI depends on (§8), not merely that the wave ran.
+func TestKC8RuntimeErrorAndBlockedReachTheWire(t *testing.T) {
+	// n (leaf) -> bad (errors) -> down (blocked). Same shape as the engine's
+	// TestErrorBlocksDownstream, but exercised through the HTTP/SSE transport.
+	bad := fnNode{
+		id: "bad", in: []engine.Symbol{"n"}, out: []engine.Symbol{"b"},
+		run: func(_ context.Context, _ engine.Inputs) (engine.Outputs, error) {
+			return nil, errBoom
+		},
+	}
+	down := fnNode{
+		id: "down", in: []engine.Symbol{"b"}, out: []engine.Symbol{"d"},
+		run: func(_ context.Context, in engine.Inputs) (engine.Outputs, error) {
+			return engine.Outputs{"d": in["b"]}, nil
+		},
+	}
+	head := engine.NewHead()
+	head.Set("n", 1)
+	rt := engine.NewRuntime(engine.Config{
+		Nodes:  []engine.Node{bad, down},
+		Leaves: []engine.LeafID{"n"},
+		Levels: [][]engine.CellID{{"bad"}, {"down"}},
+	}, head, engine.NewMemoStore())
+	meta := []engine.CellMeta{{ID: "bad", Label: "bad"}, {ID: "down", Label: "down"}}
+
+	srv := httptest.NewServer(New(rt, meta, nil).Handler())
+	defer srv.Close()
+
+	req, _ := http.NewRequest("GET", srv.URL+"/events", nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// The stream replays a full wave on connect, so bad's error + down's blocked
+	// arrive without any edit.
+	var gotErr, gotBlocked bool
+	scanner := bufio.NewScanner(resp.Body)
+	deadline := time.After(3 * time.Second)
+	for !(gotErr && gotBlocked) {
+		select {
+		case <-deadline:
+			t.Fatalf("timed out; gotErr=%v gotBlocked=%v", gotErr, gotBlocked)
+		default:
+		}
+		if !scanner.Scan() {
+			t.Fatal("stream closed before error+blocked observed")
+		}
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		var ev wireEvent
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &ev); err != nil {
+			continue
+		}
+		if ev.Cell == "bad" && ev.State == "error" {
+			if !strings.Contains(ev.Err, "boom") {
+				t.Errorf("error event must carry the message; got Err=%q", ev.Err)
+			}
+			gotErr = true
+		}
+		if ev.Cell == "down" && ev.State == "blocked" {
+			gotBlocked = true
 		}
 	}
 }
