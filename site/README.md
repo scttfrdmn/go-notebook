@@ -19,6 +19,18 @@ open http://localhost:8080
 
 WebAssembly must be served over HTTP, not opened as `file://`.
 
+## Deploy (GitHub Pages)
+
+`.github/workflows/pages.yml` builds the demos and publishes `site/` as the
+Pages root on every push to `main` (the generated `demos/` never enters git —
+Pages rebuilds it). To turn it on: **Settings → Pages → Source: GitHub Actions**.
+For go-notebook.dev, add the domain there (it writes a `CNAME`) and point a DNS
+CNAME at `<user>.github.io`.
+
+Pages serves `.wasm` as `application/wasm`, so `WebAssembly.instantiateStreaming`
+works; the page also falls back to a non-streaming fetch if a host serves the
+wrong MIME, so it runs anywhere.
+
 ## What the page is for
 
 It answers one question: does the pitch survive a stranger with thirty seconds?

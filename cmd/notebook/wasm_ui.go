@@ -84,7 +84,17 @@ function buildUI() {
 function coerce(s){ const n=Number(s); return s.trim()!=='' && !Number.isNaN(n) ? n : s; }
 
 const go = new Go();
-WebAssembly.instantiateStreaming(fetch('notebook.wasm'), go.importObject).then((r) => {
+// instantiateStreaming needs Content-Type: application/wasm; if a host serves
+// the wrong MIME it hard-fails, so fall back to a plain fetch+arrayBuffer.
+async function instantiate() {
+  try {
+    return await WebAssembly.instantiateStreaming(fetch('notebook.wasm'), go.importObject);
+  } catch (_) {
+    const bytes = await (await fetch('notebook.wasm')).arrayBuffer();
+    return await WebAssembly.instantiate(bytes, go.importObject);
+  }
+}
+instantiate().then((r) => {
   go.run(r.instance);
   // Wait for the wasm main to publish metadata + set functions, then build UI.
   const wait = setInterval(() => {
