@@ -54,6 +54,8 @@
   .stat .l { color: var(--muted); font-size: .9rem; margin-top: .25rem; }
   .caveat { margin-top: 1.25rem; padding: .9rem 1.1rem; border-left: 3px solid var(--orange);
             background: #fff8f4; border-radius: 0 8px 8px 0; font-size: .95rem; }
+  .numbers .stand { font-size: 1.15rem; margin: 1.4rem 0 0; max-width: 64ch; }
+  .numbers .stand b { color: var(--navy); }
 
   .act { border-top: 1px solid var(--line); padding: 2rem 0 1rem; }
   .act h2 { color: var(--navy); font-size: 1.35rem; margin: 0 0 .5rem; }
@@ -134,7 +136,8 @@
       <div class="stat"><div class="n">~300 µs</div><div class="l">slider → repaint, in-browser (p50)</div></div>
       <div class="stat"><div class="n">0</div><div class="l">servers, kernels, or notebook files</div></div>
     </div>
-    <p class="caveat"><b>The honest caveat:</b> in the browser, <code>GOOS=js</code> is single-threaded. The scheduler's goroutine fan-out — the one place Go's concurrency pays a real dividend — is <b>absent</b> here; independent cells run serially. It's invisible on these demos and would matter on a compute-heavy notebook. Native builds (your laptop, an HPC node) do fan out across cores. For comparison: a Pyodide-based notebook ships 10 MB+ of interpreter before your code and cold-starts in seconds — because it ships an interpreter, and this ships a compiled program.</p>
+    <p class="stand">A Pyodide-based notebook ships 10 MB+ of interpreter before your code and cold-starts in seconds — <b>because it ships an interpreter, and this ships a compiled program.</b></p>
+    <p class="caveat"><b>The honest caveat:</b> in the browser, <code>GOOS=js</code> is single-threaded. The scheduler's goroutine fan-out — the one place Go's concurrency pays a real dividend — is <b>absent</b> here; independent cells run serially. It's invisible on these demos and would matter on a compute-heavy notebook. Native builds (your laptop, an HPC node) do fan out across cores.</p>
   </section>
 
   <!-- THE SECOND ACT: the differentiated thing, not the shiny thing. -->
