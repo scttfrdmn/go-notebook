@@ -16,3 +16,6 @@ notebook-head.json
 *.test
 *.out
 /dist/
+
+# Landing-page demo build output — regenerate with site/build.sh
+site/demos/

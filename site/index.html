@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>go-notebook — a cell is a function</title>
+<meta name="description" content="A reactive notebook that is an ordinary Go package. Drag a slider — it's compiled Go running in your browser, no server.">
+<meta property="og:title" content="go-notebook — reactive notebooks that compile">
+<meta property="og:description" content="A cell is a function. Drag a slider; it's compiled Go in your tab, no server. The same file runs as an sbatch job.">
+<meta property="og:image" content="assets/open-graph.png">
+<style>
+  :root {
+    --navy: #1b3a6b; --blue: #007ec6; --go: #00add8;
+    --ink: #1a1a2e; --muted: #5b6472; --line: #e7ebf0; --bg: #ffffff;
+    --code-bg: #0f1524; --code-fg: #e6ebf5; --green: #3fa845; --orange: #f26b21;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: var(--ink); background: var(--bg); margin: 0;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+  a { color: var(--blue); }
+  code, pre { font-family: "SF Mono", ui-monospace, "Cascadia Code", Menlo, monospace; }
+
+  header { padding: 3.5rem 0 1.5rem; }
+  header img { max-width: 560px; width: 100%; height: auto; display: block; }
+  .tag { color: var(--muted); font-size: 1.05rem; margin: .75rem 0 0; }
+
+  /* Demos come first — drag before you read. */
+  .demo { margin: 2.5rem 0 3.5rem; border-top: 1px solid var(--line); padding-top: 1.75rem; }
+  .demo h2 { font-size: 1.35rem; margin: 0 0 .25rem; color: var(--navy); }
+  .demo .sub { color: var(--muted); margin: 0 0 1rem; font-size: .98rem; }
+  .frame { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff;
+           box-shadow: 0 1px 3px rgba(20,30,60,.06); }
+  .frame iframe { width: 100%; height: 460px; border: 0; display: block; }
+
+  .reveal { margin-top: 1rem; }
+  .reveal .call { font-size: .95rem; color: var(--muted); margin: 0 0 .5rem; }
+  .reveal .call b { color: var(--ink); }
+  pre.src { background: var(--code-bg); color: var(--code-fg); border-radius: 10px; padding: 1rem 1.15rem;
+            overflow-x: auto; font-size: 13.5px; line-height: 1.55; margin: 0; }
+  pre.src .c { color: #7c89a4; }      /* comment */
+  pre.src .k { color: #6cb6ff; }      /* keyword */
+  pre.src .t { color: #7ee787; }      /* type */
+  pre.src .d { color: #f0b866; }      /* directive */
+
+  .numbers { border-top: 1px solid var(--line); padding: 2rem 0; }
+  .numbers h2 { color: var(--navy); font-size: 1.35rem; margin: 0 0 1rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
+  .stat { background: #f7f9fc; border: 1px solid var(--line); border-radius: 10px; padding: 1rem; }
+  .stat .n { font-size: 1.5rem; font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; }
+  .stat .l { color: var(--muted); font-size: .9rem; margin-top: .25rem; }
+  .caveat { margin-top: 1.25rem; padding: .9rem 1.1rem; border-left: 3px solid var(--orange);
+            background: #fff8f4; border-radius: 0 8px 8px 0; font-size: .95rem; }
+
+  .act { border-top: 1px solid var(--line); padding: 2rem 0 1rem; }
+  .act h2 { color: var(--navy); font-size: 1.35rem; margin: 0 0 .5rem; }
+  .act pre.term { background: var(--code-bg); color: var(--code-fg); border-radius: 10px;
+                  padding: 1rem 1.15rem; overflow-x: auto; font-size: 14px; margin: 1rem 0; }
+  .act pre.term .p { color: var(--green); } /* prompt */
+  .act pre.term .o { color: #7c89a4; }      /* comment/output */
+
+  footer { border-top: 1px solid var(--line); padding: 2rem 0 4rem; color: var(--muted); font-size: .9rem; }
+  footer a { text-decoration: none; }
+  .lede { font-size: 1.15rem; max-width: 62ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <img src="assets/logo.png" alt="go-notebook — a cell is a function">
+    <p class="tag">Reactive notebooks that compile. Drag something below — it's compiled Go running in your browser, no server.</p>
+  </header>
+
+  <!-- DEMOS FIRST. No prose above them. -->
+
+  <section class="demo">
+    <h2>Capacity — an M/M/c queue</h2>
+    <p class="sub">Drag the sliders. Every downstream value recomputes; the cost/latency curve moves.</p>
+    <div class="frame"><iframe src="demos/capacity/index.html" loading="lazy" title="capacity demo"></iframe></div>
+    <div class="reveal">
+      <p class="call">The thing you just dragged is this file. <b>No framework import. No <code>.ipynb</code>. Nothing from this project — just Go and the standard library.</b> A cell is a top-level function; the graph is its parameter names.</p>
+      <pre class="src"><span class="c">//go:notebook</span>
+<span class="k">package</span> capacity
+
+<span class="c">// Incoming jobs per hour.</span>
+<span class="d">//notebook:slider min=0 max=5000 step=50</span>
+<span class="k">func</span> arrivalRate() (lambda <span class="t">PerHour</span>) { <span class="k">return</span> 1200 }
+
+<span class="c">// Servers in the fleet.</span>
+<span class="d">//notebook:slider min=1 max=256</span>
+<span class="k">func</span> servers() (c <span class="t">int</span>) { <span class="k">return</span> 80 }
+
+<span class="c">// Offered load in Erlangs. `lambda` and `mu` wire in by name+type — that's the edge.</span>
+<span class="k">func</span> offeredLoad(lambda, mu <span class="t">PerHour</span>) (a <span class="t">Erlangs</span>) {
+    <span class="k">return</span> <span class="t">Erlangs</span>(<span class="t">float64</span>(lambda) / <span class="t">float64</span>(mu))
+}
+
+<span class="c">// Server utilization. `a` and `c` come from the cells above, by name.</span>
+<span class="k">func</span> utilization(a <span class="t">Erlangs</span>, c <span class="t">int</span>) (rho <span class="t">float64</span>) {
+    <span class="k">return</span> <span class="t">float64</span>(a) / <span class="t">float64</span>(c)
+}</pre>
+    </div>
+  </section>
+
+  <section class="demo">
+    <h2>Curve fit — drag the data</h2>
+    <p class="sub">Drag a point, or the polynomial degree. The least-squares fit follows, live.</p>
+    <div class="frame"><iframe src="demos/curvefit/index.html" loading="lazy" title="curvefit demo"></iframe></div>
+    <div class="reveal">
+      <p class="call">Dragging a control point is an edit to a leaf — <b>the renderer reads it, the runtime writes it, a write is not an edge.</b> No two-way binding to wire, because the cycle is unrepresentable.</p>
+    </div>
+  </section>
+
+  <section class="demo">
+    <h2>Bayesian regression — watch the posterior form</h2>
+    <p class="sub">Drag <code>n</code> up: the posterior over the line collapses onto the truth. Drag it back down — it re-widens, because nothing here is stateful.</p>
+    <div class="frame"><iframe src="demos/bayes/index.html" loading="lazy" title="bayes demo"></iframe></div>
+    <div class="reveal">
+      <p class="call">Scrubbing <code>n</code> backward works because <b>the posterior is a pure function of sufficient statistics</b> — sums, not a fold. A fold could only go forward. The type checker and the graph make that the natural way to write it.</p>
+    </div>
+  </section>
+
+  <!-- NUMBERS, including the one that doesn't flatter. -->
+
+  <section class="numbers">
+    <h2>The numbers — measured, including the ones that don't flatter</h2>
+    <div class="grid">
+      <div class="stat"><div class="n">~1 MB</div><div class="l">gzipped .wasm (whole notebook + engine)</div></div>
+      <div class="stat"><div class="n">~40 ms</div><div class="l">cold load to an interactive slider</div></div>
+      <div class="stat"><div class="n">~300 µs</div><div class="l">slider → repaint, in-browser (p50)</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">servers, kernels, or notebook files</div></div>
+    </div>
+    <p class="caveat"><b>The honest caveat:</b> in the browser, <code>GOOS=js</code> is single-threaded. The scheduler's goroutine fan-out — the one place Go's concurrency pays a real dividend — is <b>absent</b> here; independent cells run serially. It's invisible on these demos and would matter on a compute-heavy notebook. Native builds (your laptop, an HPC node) do fan out across cores. For comparison: a Pyodide-based notebook ships 10 MB+ of interpreter before your code and cold-starts in seconds — because it ships an interpreter, and this ships a compiled program.</p>
+  </section>
+
+  <!-- THE SECOND ACT: the differentiated thing, not the shiny thing. -->
+
+  <section class="act">
+    <h2>The same file is a job</h2>
+    <p class="lede">The demos above are the notebook compiled to WebAssembly. Compile it for your cluster instead and it's a single static binary — no Python environment to reconstitute, no kernel, no spawner. The artifact that produced the figure is the artifact you rerun in six months.</p>
+    <pre class="term"><span class="p">$</span> go tool notebook build ./capacity     <span class="o"># one static binary, no cgo</span>
+<span class="p">$</span> scp capacity hpc:~ && ssh hpc
+<span class="p">$</span> sbatch ./capacity --headless \
+      --set servers=120 --set lambda=1400 --json
+<span class="o">{"cost": 120.72, "meets": true, "wq": 4.1, ...}</span></pre>
+    <p>Interactive on your laptop, a slider in the browser, and a batch job on the cluster — <b>the same file</b>, distinguished only by where you put the compiler. That last part is the thing no interpreter-based notebook can say.</p>
+  </section>
+
+  <footer>
+    <p><a href="https://github.com/scttfrdmn/go-notebook">github.com/scttfrdmn/go-notebook</a> · Apache 2.0 · a cell is a function.</p>
+    <p>Built and measured, not promised: five kill criteria on the board, a glitch-free scheduler with a sabotage test guarding it, and every number here reproduced in CI. If something reads as too good, the source is one click away.</p>
+  </footer>
+
+</div>
+</body>
+</html>

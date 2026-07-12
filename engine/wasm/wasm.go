@@ -62,9 +62,19 @@ func Run(rt *engine.Runtime, meta []engine.CellMeta, set SetFunc) {
 		return nil
 	}))
 
-	// Signal readiness, then run the initial wave so the page has content.
+	// The initial wave runs only when the client says its cell elements exist —
+	// NOT on a timer. If we ran it on __notebook_ready, its events would race
+	// buildUI() and the first render (the initial chart) would be dropped before
+	// the DOM element existed. notebookStart() closes that race: the client
+	// calls it after building the UI, and only then does the first wave paint.
+	js.Global().Set("notebookStart", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		go rt.RunAll(context.Background())
+		return nil
+	}))
+
+	// Signal that meta + functions are installed; the client builds its UI and
+	// then calls notebookStart to trigger the first wave.
 	js.Global().Set("__notebook_ready", js.ValueOf(true))
-	go rt.RunAll(context.Background())
 
 	select {} // block forever; the JS event loop drives us from here
 }

@@ -77,6 +77,9 @@ function buildUI() {
     cellEls[m.ID] = el;
   }
   status.textContent = 'ready — compiled Go, no server';
+  // UI is built and cell elements exist — now trigger the initial wave, so its
+  // first render lands in a DOM element that's already there (no drop race).
+  globalThis.notebookStart();
 }
 function coerce(s){ const n=Number(s); return s.trim()!=='' && !Number.isNaN(n) ? n : s; }
 
