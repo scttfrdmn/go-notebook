@@ -47,8 +47,8 @@ func TestBothTransportsUseSharedClient(t *testing.T) {
 			t.Fatalf("%s: %v", c.name, err)
 		}
 		s := string(src)
-		if !strings.Contains(s, "webui.CSS") || !strings.Contains(s, "webui.JS") {
-			t.Errorf("%s (%s) must embed the shared webui.CSS/webui.JS, not its own client", c.name, c.path)
+		if !strings.Contains(s, "webui.Page") {
+			t.Errorf("%s (%s) must assemble its page via webui.Page, not hand-roll one", c.name, c.path)
 		}
 		if !strings.Contains(s, "NB.init") || !strings.Contains(s, "NB.render") {
 			t.Errorf("%s must drive the shared client via NB.init/NB.render", c.name)
