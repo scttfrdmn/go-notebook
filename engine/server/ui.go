@@ -100,10 +100,12 @@ function render(ev) {
   if (ev.state === 'error') { body.textContent = 'error: ' + ev.err; return; }
   if (ev.state === 'blocked') { body.textContent = 'blocked upstream'; return; }
   if (!ev.mime) return;
-  if (ev.mime === 'text/markdown') {
-    body.textContent = ev.data; // crude: show markdown source
+  // Only trusted rich blobs go in as HTML; a text/plain scalar readout and
+  // markdown source are set as text, never injected.
+  if (ev.mime === 'image/svg+xml' || ev.mime === 'text/html') {
+    body.innerHTML = ev.data;
   } else {
-    body.innerHTML = ev.data;   // svg and html blobs
+    body.textContent = ev.data;
   }
 }
 

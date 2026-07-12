@@ -44,6 +44,19 @@ func lastState(events []Event, id CellID) (State, bool) {
 	return st, found
 }
 
+// lastEvent returns the final event reported for a cell.
+func lastEvent(events []Event, id CellID) (Event, bool) {
+	var last Event
+	var found bool
+	for _, ev := range events {
+		if ev.Cell == id {
+			last = ev
+			found = true
+		}
+	}
+	return last, found
+}
+
 // TestErrorBlocksDownstream: a cell that returns an error blocks its downstream,
 // which report StateBlocked rather than being fed a wrong value. This is the
 // runtime tier of the same two-tier model the toolchain uses (a broken cell
