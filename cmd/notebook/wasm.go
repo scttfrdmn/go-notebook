@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/scttfrdmn/go-notebook/internal/analyze"
@@ -88,7 +89,9 @@ func writeHostFiles(outDir, name string) error {
 	if err := copyFile(shim, filepath.Join(outDir, "wasm_exec.js")); err != nil {
 		return fmt.Errorf("copying wasm_exec.js: %w", err)
 	}
-	html := fmt.Sprintf(indexHTMLWASM, name)
+	// Insert the name by replace, not Sprintf: the shared webui CSS/JS contain
+	// literal %, which a format verb would choke on.
+	html := strings.ReplaceAll(indexHTMLWASM, "__NB_NAME__", name)
 	if err := os.WriteFile(filepath.Join(outDir, "index.html"), []byte(html), 0o644); err != nil {
 		return fmt.Errorf("writing index.html: %w", err)
 	}
