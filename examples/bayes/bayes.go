@@ -280,12 +280,12 @@ type Handle struct {
 }
 
 type Chart struct {
-	Title                  string
-	XLo, XHi, YLo, YHi     float64
-	Field                  []Cell     // density grid
-	Lines                  [][2]Pt    // sampled regression lines
-	Grips                  []Handle   // draggable observations
-	Cross                  *Pt        // the truth
+	Title              string
+	XLo, XHi, YLo, YHi float64
+	Field              []Cell   // density grid
+	Lines              [][2]Pt  // sampled regression lines
+	Grips              []Handle // draggable observations
+	Cross              *Pt      // the truth
 }
 
 func (c Chart) Render() Rendered {

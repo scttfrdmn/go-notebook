@@ -28,18 +28,22 @@ import (
 // ---------------------------------------------------------------------------
 
 // Incoming jobs per hour.
+//
 //notebook:slider min=0 max=5000 step=50
 func arrivalRate() (lambda PerHour) { return 1200 }
 
 // Jobs completed per hour, per server.
+//
 //notebook:slider min=1 max=200 step=1
 func serviceRate() (mu PerHour) { return 20 }
 
 // Servers in the fleet.
+//
 //notebook:slider min=1 max=256
 func servers() (c int) { return 80 }
 
 // On-demand price per server-hour.
+//
 //notebook:slider min=0 max=5 step=0.001
 func hourlyPrice() (price USD) { return 1.006 }
 
@@ -102,6 +106,7 @@ func slaMet(pWait, target Probability) (meets bool) {
 // ---------------------------------------------------------------------------
 
 // Cost vs. latency as the fleet scales past its stability floor.
+//
 //notebook:height=320
 func capacityCurve(lambda, mu PerHour, price USD) (curve Chart) {
 	a := float64(lambda) / float64(mu)
@@ -116,10 +121,10 @@ func capacityCurve(lambda, mu PerHour, price USD) (curve Chart) {
 		costs = append(costs, float64(c)*float64(price))
 	}
 	return Chart{
-		Title:  "Cost (indigo) vs. queue wait (violet) as servers scale",
-		X:      xs,
-		Y1:     waits, // seconds
-		Y2:     costs, // $/hr
+		Title: "Cost (indigo) vs. queue wait (violet) as servers scale",
+		X:     xs,
+		Y1:    waits, // seconds
+		Y2:    costs, // $/hr
 	}
 }
 
@@ -230,5 +235,5 @@ type Chart struct {
 	Y1, Y2 []float64
 }
 
-func (ch Chart) Render() Rendered  { return Rendered{MIME: "image/svg+xml", Data: svg(ch)} }
+func (ch Chart) Render() Rendered   { return Rendered{MIME: "image/svg+xml", Data: svg(ch)} }
 func (m Markdown) Render() Rendered { return Rendered{MIME: "text/markdown", Data: string(m)} }

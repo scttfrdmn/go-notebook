@@ -228,9 +228,9 @@ type (
 type Prev[T any] struct{ Value T }
 
 type Sample struct {
-	Tick           Tick
-	Queue, Busy    int
-	Servers        int
+	Tick        Tick
+	Queue, Busy int
+	Servers     int
 }
 
 type Sim struct {

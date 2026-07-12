@@ -258,8 +258,8 @@ type (
 
 // The only two ways money and shares may meet. `shares * close` will not compile;
 // you have to say which conversion you meant.
-func (u USD) buy(p Price) Shares       { return Shares(float64(u) / float64(p)) }
-func (s Shares) valueAt(p Price) USD   { return USD(float64(s) * float64(p)) }
+func (u USD) buy(p Price) Shares     { return Shares(float64(u) / float64(p)) }
+func (s Shares) valueAt(p Price) USD { return USD(float64(s) * float64(p)) }
 
 type Lot struct {
 	Date   Date
