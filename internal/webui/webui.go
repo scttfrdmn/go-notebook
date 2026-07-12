@@ -16,6 +16,62 @@
 // client only paints their MIME-tagged output.
 package webui
 
+import "strings"
+
+// PageOpts parameterize the shared HTML shell for a transport. Title is the
+// <title> and the <h1>; Subtitle is optional muted text after the <h1> (the
+// wasm host uses "· running in your browser, no server"). Status, when true,
+// adds a <div id="status"> line (the wasm bootstrap writes into it). Glue is the
+// transport-specific <script> body appended after the shared client JS — it
+// calls NB.init(...) and wires events. Head is optional extra <head> markup
+// (e.g. the wasm host's <script src="wasm_exec.js">, placed before the client).
+type PageOpts struct {
+	Title     string
+	Subtitle  string
+	Status    bool
+	HeadExtra string
+	BodyPre   string // extra markup injected before the shared body (e.g. wasm status line)
+	Glue      string // transport <script> body, appended after the shared JS
+}
+
+// Page assembles the complete notebook HTML for a transport. It owns the shell —
+// <head> with the shared CSS, the graph/controls/cells body, the shared client
+// JS — so no transport hand-rolls the page. A transport supplies only its glue
+// (how META arrives, how edits are sent, how events are delivered). This is the
+// presentation that used to live as a const inside engine/server; moving it here
+// lets that package go back to being a transport that serves what it's handed.
+func Page(opts PageOpts) string {
+	var b strings.Builder
+	b.WriteString("<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n")
+	b.WriteString("<title>")
+	b.WriteString(opts.Title)
+	b.WriteString("</title>\n<style>")
+	b.WriteString(CSS)
+	b.WriteString("</style>\n")
+	b.WriteString(opts.HeadExtra)
+	b.WriteString("\n</head>\n<body>\n<h1>")
+	b.WriteString(opts.Title)
+	if opts.Subtitle != "" {
+		b.WriteString(` <span style="font-weight:400;color:#888">`)
+		b.WriteString(opts.Subtitle)
+		b.WriteString("</span>")
+	}
+	b.WriteString("</h1>\n")
+	if opts.Status {
+		b.WriteString(`<div id="status">loading…</div>` + "\n")
+	}
+	b.WriteString(opts.BodyPre)
+	b.WriteString(`<div class="graph" id="graph"></div>` + "\n")
+	b.WriteString(`<div class="controls" id="controls"></div>` + "\n")
+	b.WriteString(`<div id="cells"></div>` + "\n")
+	b.WriteString("<script>")
+	b.WriteString(JS)
+	b.WriteString("\n")
+	b.WriteString(opts.Glue)
+	b.WriteString("\n</script>\n</body>\n</html>\n")
+	return b.String()
+}
+
 // CSS is the shared stylesheet: palette, controls + custom slider, cell state
 // rail, the read-only source disclosure, and the dependency graph. Both clients
 // embed it verbatim. It contains literal % (none currently) — callers that

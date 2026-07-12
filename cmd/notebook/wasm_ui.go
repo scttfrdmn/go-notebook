@@ -2,34 +2,21 @@ package main
 
 import "github.com/scttfrdmn/go-notebook/internal/webui"
 
-// indexHTMLWASM is the browser host for a --target=wasm notebook. The client
-// itself — CSS, control/cell builder, dependency graph, event renderer — is
-// shared with the SSE server in internal/webui, so the two transports show the
-// SAME notebook. This file supplies only the WASM transport glue: bootstrap the
-// Go wasm runtime, take metadata from __notebook_meta, deliver events via
-// __notebook_event, edit leaves via notebookSet, seed initial values from
-// __notebook_leaves, and report iframe height for the landing page.
+// indexHTMLWASM is the browser host for a --target=wasm notebook. The page shell
+// and the client are assembled by internal/webui and shared with the SSE server,
+// so this supplies only the WASM transport glue: bootstrap the Go wasm runtime,
+// take metadata from __notebook_meta, deliver events via __notebook_event, edit
+// leaves via notebookSet, seed initial values from __notebook_leaves, and report
+// iframe height for the landing page.
 //
 // __NB_NAME__ is replaced with the notebook name (by string replace, not
-// Sprintf, because the shared CSS/JS contain literal %).
-const indexHTMLWASM = `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>__NB_NAME__ — go-notebook (wasm)</title>
-<style>` + webui.CSS + `</style>
-</head>
-<body>
-<h1>__NB_NAME__ <span style="font-weight:400;color:#888">· running in your browser, no server</span></h1>
-<div id="status">loading wasm…</div>
-<div class="graph" id="graph"></div>
-<div class="controls" id="controls"></div>
-<div id="cells"></div>
-<script src="wasm_exec.js"></script>
-<script>` + webui.JS + `
-
-// --- WASM transport glue ---------------------------------------------------
-
+// Sprintf, because the assembled page contains literal %).
+var indexHTMLWASM = webui.Page(webui.PageOpts{
+	Title:     "__NB_NAME__ — go-notebook (wasm)",
+	Subtitle:  "· running in your browser, no server",
+	Status:    true,
+	HeadExtra: `<script src="wasm_exec.js"></script>`,
+	Glue: `
 const status = document.getElementById('status');
 
 // When embedded in an iframe (the landing page), report content height so the
@@ -78,8 +65,5 @@ instantiate().then((r) => {
   const wait = setInterval(() => {
     if (globalThis.__notebook_ready) { clearInterval(wait); start(); }
   }, 5);
-}).catch((e) => { status.textContent = 'wasm load failed: ' + e; });
-</script>
-</body>
-</html>
-`
+}).catch((e) => { status.textContent = 'wasm load failed: ' + e; });`,
+})
