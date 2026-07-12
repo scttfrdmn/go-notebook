@@ -4,8 +4,9 @@
 
 <p align="center">
   <a href="https://github.com/scttfrdmn/go-notebook/actions/workflows/ci.yml"><img src="https://github.com/scttfrdmn/go-notebook/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://goreportcard.com/report/github.com/scttfrdmn/go-notebook"><img src="https://goreportcard.com/badge/github.com/scttfrdmn/go-notebook" alt="Go Report Card"></a>
   <a href="https://pkg.go.dev/github.com/scttfrdmn/go-notebook"><img src="https://pkg.go.dev/badge/github.com/scttfrdmn/go-notebook.svg" alt="Go Reference"></a>
+  <img src="https://img.shields.io/badge/go-1.25-00ADD8?logo=go&logoColor=white" alt="Go 1.25">
+  <img src="https://img.shields.io/badge/lint-golangci--lint-46a2f1" alt="golangci-lint">
 </p>
 
 **A reactive notebook where the notebook *is* an ordinary Go package.**
@@ -73,7 +74,7 @@ Overlapping the rebuild with the running binary ([#22](https://github.com/scttfr
 
 **Built so far:** `internal/graph` (plain-data IR, no `go/types`), `internal/analyze` (incremental type-checking `Session`, CHA-based purity), `internal/gen` (codegen + overlay), `engine` (head + epoch'd glitch-free scheduler + cache + capability probes), `engine/server` (SSE + edits; the only `net/http`). Deferred by design (seams cut, features skipped): `Prev[T]` folds, grips, SQL/`Rel[T]`, WASM. Progress is tracked in [GitHub issues](https://github.com/scttfrdmn/go-notebook/issues); kill-criteria numbers live on [#16](https://github.com/scttfrdmn/go-notebook/issues/16).
 
-**Quality bar.** CI enforces `gofmt`, `go vet`, `go test -race`, and `golangci-lint` (errcheck, staticcheck, revive, ineffassign, misspell, gocyclo ≤ 15, unconvert, gocritic) on every push — a Go Report Card A+. Library-package coverage (the example notebooks are fixtures, excluded) is held to a **≥ 75% floor** in CI; it currently sits at ~79%, with the core engine/graph/analyze/gen packages all above 82%.
+**Quality bar.** CI enforces `gofmt`, `go vet`, `go test -race`, and `golangci-lint` (errcheck, staticcheck, revive, ineffassign, misspell, gocyclo ≤ 15, unconvert, gocritic) on every push — the full set the retired Go Report Card used to grade, now checked in-tree so it stays honest without a third-party service. Library-package coverage (the example notebooks are fixtures, excluded) is held to a **≥ 75% floor** in CI; it currently sits at ~79%, with the core engine/graph/analyze/gen packages all above 82%.
 
 ## Documents
 
