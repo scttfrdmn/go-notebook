@@ -249,6 +249,8 @@ Superseding gives drag-coalescing for free: each wave carries a `Context` cancel
 
 **Cacheability is derived, not declared.** A cell that transitively calls `time.Now()`, an RNG, or does I/O is impure and therefore uncacheable. That's an ordinary `go/callgraph` query. *I briefly invented a `//notebook:nocache` directive for a benchmark cell and it was wrong* — a comment that changes whether the answer is correct violates the type-vs-comment rule. The toolchain already knew.
 
+**Purity is not the only verdict that callgraph pays for — and I conflated two of them.** When the WASM topology got built, "which notebooks can run client-side?" looked like the purity question already answered. It is not. **Purity → cacheability. Portability → deployability. Same callgraph machinery, orthogonal verdicts.** Purity disqualifies `time.Now` and an RNG because they break caching — but both run *fine* in a browser. Portability disqualifies `net`, `os`, and cgo because they have no client-side form — but a cell that calls `time.Now()` in a loop is impure yet perfectly WASM-able. So a cell has (at least) two independent derived properties, computed by the same `go/callgraph` walk with different disqualifying sets: `Pure` (no time/rand/IO → cacheable) and `WASMable` (no net/os/cgo → deployable to the browser). Treating "is it portable?" as "is it pure?" would have wrongly grounded every notebook that so much as reads a clock. The lesson is the general one: a cell is a bundle of *orthogonal* attestable properties over one call graph, not a single pure/impure axis. (Conservative-by-default holds for both: over-rejecting portability annoys; under-rejecting ships a `.wasm` that panics on `os.Open`.)
+
 **Transport** — the binary serves HTTP/WS. Renderers run **in Go, in-process**; the client receives `{cell, mime, data}` and is entirely ignorant of Go types.
 
 ### The one thing that genuinely doesn't work
@@ -282,9 +284,11 @@ Because the state is a `map[leaf]any` — a few floats — and everything else i
 | local | local | `go tool notebook run` — the laptop case |
 | local | remote | build, push, `sbatch` — the job case |
 | remote | remote | browser IDE + build service — the hosted case |
-| remote | browser | WASM — pure notebooks, no server at all |
+| remote | browser | WASM — *portable* notebooks (no net/os/cgo), no server at all |
 
 Same file, same engine, four topologies, distinguished only by **where you put a compiler**. And the build service is *boring* — a Go build cache and `go build`, stateless, a Lambda or a warm pod. The thing everyone assumes is the fatal cost of compile-first turns out to be the cheap cacheable part, while Jupyter's "free" interactivity costs a long-lived stateful kernel per user with a memory footprint and a babysitter.
+
+All four are now built and measured. The fourth — compute in the browser — was the real test, because the only reason it *should* work is the discipline that the engine never imports a transport: `engine/wasm` is a syscall/js sibling of `engine/server`, and standing it up required **zero changes to any existing engine public API** (the diff of every engine file is empty). capacity compiles to `GOOS=js GOARCH=wasm` at ~1 MB gzipped, cold-loads to an interactive slider in ~40 ms, and repaints in ~300 µs — an order of magnitude smaller than an interpreter-shipping stack (Pyodide alone is 10 MB+ before the notebook), because a compiled program is not an interpreter plus a program. **One honest caveat:** `GOOS=js` is single-threaded, so the goroutine fan-out — the parallel-branch dividend that is the whole point of the language choice — is *absent* in the browser. Waves run serially. Correct, just not parallel; invisible on capacity, real on anything compute-heavy.
 
 ### Headless
 
@@ -431,7 +435,7 @@ The niche is **systems, simulation, and cluster work** — queueing models, capa
 
 And every "how do we avoid X" turned out to be "you already avoided it three decisions ago." That is the opposite of the accretion pattern. **Fewer layers isn't a gap to be filled. It's the point.**
 
-**What it cost.** One new concept (`Prev` + `Tick`). Three corrections the ports forced (per-widget reconciliation; cacheability is derived, not declared; the edit log is real but only for stateful notebooks). One genuine wound (cgo, for SQL). No per-cell stdout.
+**What it cost.** One new concept (`Prev` + `Tick`). Three corrections the ports forced (per-widget reconciliation; cacheability is derived, not declared; the edit log is real but only for stateful notebooks) — plus a fourth the WASM build forced: purity and portability are *different* callgraph verdicts, not one (see above). One genuine wound (cgo, for SQL). No per-cell stdout, and no goroutine parallelism in the browser tier.
 
 Everything else compounded from a single sentence.
 
