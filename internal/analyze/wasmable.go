@@ -31,8 +31,16 @@ var nonPortablePackages = map[string]bool{
 	"net":      true, // sockets
 	"net/http": true, // real HTTP client/server
 	"os/exec":  true, // subprocesses
-	"syscall":  true, // raw host syscalls (the js shim is a different package)
 }
+
+// NOTE: syscall is deliberately NOT in the set. The analysis builds its call
+// graph from the NATIVE package load (LoadForPurity), and on native, benign
+// std functions reach syscall transitively — math/rand's global source seeds
+// through it, for instance. Under GOOS=js those paths are replaced by the wasm
+// runtime, so flagging syscall would false-positive perfectly WASM-able cells
+// (math/rand, time) as non-portable. The genuinely-disqualifying primitives —
+// the network, the filesystem, subprocesses — have no browser form regardless
+// of build, so keying on those is both sound and not fooled by the native SSA.
 
 // WASMability marks every cell in g with whether it can run under GOOS=js
 // GOARCH=wasm, from the call graph — not by hand, and not from the purity pass.
