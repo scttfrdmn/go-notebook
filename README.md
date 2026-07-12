@@ -4,9 +4,9 @@
 
 <p align="center">
   <a href="https://github.com/scttfrdmn/go-notebook/actions/workflows/ci.yml"><img src="https://github.com/scttfrdmn/go-notebook/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/scttfrdmn/go-notebook/actions/workflows/lint.yml"><img src="https://github.com/scttfrdmn/go-notebook/actions/workflows/lint.yml/badge.svg" alt="golangci-lint"></a>
   <a href="https://pkg.go.dev/github.com/scttfrdmn/go-notebook"><img src="https://pkg.go.dev/badge/github.com/scttfrdmn/go-notebook.svg" alt="Go Reference"></a>
   <img src="https://img.shields.io/badge/go-1.25-00ADD8?logo=go&logoColor=white" alt="Go 1.25">
-  <img src="https://img.shields.io/badge/lint-golangci--lint-46a2f1" alt="golangci-lint">
 </p>
 
 **A reactive notebook where the notebook *is* an ordinary Go package.**

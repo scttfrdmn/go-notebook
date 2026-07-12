@@ -39,7 +39,6 @@ jobs:
           echo "library coverage: ${total}%"
           awk -v t="$total" 'BEGIN { if (t+0 < 75.0) { print "FAIL: library coverage " t "% is below the 75% floor"; exit 1 } }'
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.12.2
+      # golangci-lint runs in its own workflow (.github/workflows/lint.yml) so it
+      # has a dedicated live badge — the honest replacement for the retired Go
+      # Report Card.

@@ -1,0 +1,27 @@
+name: lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A dedicated workflow so the golangci-lint status has its own live badge —
+# the honest replacement for the retired Go Report Card, whose own sunset notice
+# names golangci-lint as its successor. This runs the full Report-Card linter
+# set (errcheck, staticcheck, revive, ineffassign, misspell, gocyclo, unconvert,
+# gocritic) in our CI, not a third-party service.
+jobs:
+  golangci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
