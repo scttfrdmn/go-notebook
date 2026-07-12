@@ -192,7 +192,7 @@ func TestKC8RuntimeErrorAndBlockedReachTheWire(t *testing.T) {
 	var gotErr, gotBlocked bool
 	scanner := bufio.NewScanner(resp.Body)
 	deadline := time.After(3 * time.Second)
-	for !(gotErr && gotBlocked) {
+	for !gotErr || !gotBlocked {
 		select {
 		case <-deadline:
 			t.Fatalf("timed out; gotErr=%v gotBlocked=%v", gotErr, gotBlocked)
