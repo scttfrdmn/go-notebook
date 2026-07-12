@@ -9,7 +9,8 @@ from types.*
 |------|-----|
 | `logo.png` | Wordmark + mark on white. READMEs, docs, slides. |
 | `hero.png` | Wide banner (light) with tagline and the three claims. Top of the README. |
-| `open-graph.png` | Social/link-preview card (dark, 1731×909 ≈ 1.91:1). Set as the repo's **social preview** in Settings → General → Social preview. |
+| `open-graph.png` | Social/link-preview card (dark, 1280×672, ~200 KB). Set as the repo's **social preview** in Settings → General → Social preview. Sized and compressed to stay under GitHub's 1 MB cap; indexed palette, no visible loss on the flat illustration. |
+| `open-graph-full.png` | Full-resolution dark card (1731×909, ~1.5 MB). Archival source for print/other uses; too large for GitHub's social-preview upload. |
 | `icon.png` | Square app/repo icon (1254×1254), rounded card. Favicons, avatars, package listings. |
 
 The palette is the Go gopher blues (`#00ADD8` family) with the notebook's deep
