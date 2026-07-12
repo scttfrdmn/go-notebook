@@ -8,6 +8,25 @@ import (
 	"time"
 )
 
+// waitFor blocks until cond() is true, or fails the test after a deadline. It
+// polls the actual condition rather than sleeping a fixed duration: the test
+// then passes because the thing it names became true, not because time elapsed
+// (the §8 trap — a duration-sleep next to a concurrent scheduler passes by
+// waiting, not by observing, and its repair instinct is to bump the sleep). A
+// genuine hang fails loud here instead of being masked. The 5ms poll is a
+// liveness cap, not a correctness assumption: a slower machine just polls a few
+// more times.
+func waitFor(t *testing.T, cond func() bool, what string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for: %s", what)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 // collectEvents subscribes and returns a function that drains and returns all
 // events seen so far. Used to assert cell states within a wave.
 func collectEvents(rt *Runtime) (drain func() []Event) {
