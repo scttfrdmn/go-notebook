@@ -34,7 +34,7 @@
   .demo .sub { color: var(--muted); margin: 0 0 1rem; font-size: .98rem; }
   .frame { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff;
            box-shadow: 0 1px 3px rgba(20,30,60,.06); }
-  .frame iframe { width: 100%; height: 460px; border: 0; display: block; }
+  .frame iframe { width: 100%; height: 460px; border: 0; display: block; transition: height .15s ease; }
 
   .reveal { margin-top: 1rem; }
   .reveal .call { font-size: .95rem; color: var(--muted); margin: 0 0 .5rem; }
@@ -159,5 +159,17 @@
   </footer>
 
 </div>
+<script>
+  // Each demo iframe reports its rendered content height; size the frame to it
+  // so a chart is never below the fold. The demo posts {type,height}; match it
+  // to its iframe by event.source.
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || d.type !== 'notebook:height' || !d.height) return;
+    for (const f of document.querySelectorAll('.frame iframe')) {
+      if (f.contentWindow === e.source) { f.style.height = d.height + 'px'; break; }
+    }
+  });
+</script>
 </body>
 </html>
