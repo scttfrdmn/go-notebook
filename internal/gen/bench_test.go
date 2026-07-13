@@ -18,8 +18,20 @@ import (
 // The module and build caches are warmed by an initial build outside the timed
 // loop, so this is the steady-state edit-rebuild cost, not a cold first build.
 func BenchmarkKC4BuildWarm(b *testing.B) {
+	benchBuildGate(b, "capacity")
+}
+
+// BenchmarkKC4BuildWarmLego is the scale point (#73): lego is the largest
+// buildable notebook (575 lines, 16 cells vs capacity's 239/~15). The build
+// gate is the dominant, transport-independent term of the KC4 loop; measuring it
+// on the biggest notebook is what confirms the interactive tier holds at scale.
+func BenchmarkKC4BuildWarmLego(b *testing.B) {
+	benchBuildGate(b, "lego")
+}
+
+func benchBuildGate(b *testing.B, example string) {
 	root := benchModuleRoot(b)
-	dir := filepath.Join(root, "examples", "capacity")
+	dir := filepath.Join(root, "examples", example)
 
 	res, err := analyze.LoadPackage(dir)
 	if err != nil {
