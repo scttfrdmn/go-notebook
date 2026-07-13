@@ -68,6 +68,19 @@ func Registry(g *graph.Graph, info analyze.PackageInfo) (GeneratedFile, error) {
 
 	writeMeta(&b, g)
 
+	// Provenance: what produced this artifact (source hash + git + build time),
+	// emitted as engine.Provenance for the transports to display. Computed here
+	// from the package's files/repo; best-effort, so a missing repo or unreadable
+	// file yields a zero commit rather than failing the build. This is the one
+	// non-deterministic part of the registry (build time, git state) — deliberate,
+	// since provenance is precisely the build context.
+	prov, err := computeProvenance(info, timeNow())
+	if err != nil {
+		return GeneratedFile{}, fmt.Errorf("computing provenance: %w", err)
+	}
+	fmt.Fprintf(&b, "\n// NotebookProvenance records what produced this artifact.\n")
+	fmt.Fprintf(&b, "var NotebookProvenance = %s\n", provenanceLiteral(prov))
+
 	formatted, err := format.Source(b.Bytes())
 	if err != nil {
 		// Return the unformatted source in the error so failures are debuggable;

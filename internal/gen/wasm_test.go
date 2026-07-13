@@ -32,7 +32,8 @@ func TestWASMMainIsValidGo(t *testing.T) {
 	for _, want := range []string{
 		"//go:build js && wasm",
 		"engine/wasm",
-		"wasm.Run(",
+		"wasm.RunNotebook(",
+		"NotebookProvenance",
 		"NotebookCells",
 	} {
 		if !strings.Contains(src, want) {

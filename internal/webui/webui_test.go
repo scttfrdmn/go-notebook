@@ -13,9 +13,9 @@ import (
 // drops one, the transports would silently diverge — this fails first.
 func TestSharedClientContract(t *testing.T) {
 	for _, want := range []string{
-		"return { init, render, seedLeaves }", // the surface the transports call
-		"function buildGraph",                 // the dependency-graph view
-		"function render",                     // the event renderer
+		"return { init, render, seedLeaves, showProvenance }", // the surface the transports call
+		"function buildGraph", // the dependency-graph view
+		"function render",     // the event renderer
 		"const STATES = ['running', 'done', 'error', 'blocked', 'stale']",
 	} {
 		if !strings.Contains(JS, want) {

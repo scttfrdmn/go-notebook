@@ -95,3 +95,35 @@ type CellMeta struct {
 	// like the fields above; never parsed or executed.
 	Source string `json:",omitempty"`
 }
+
+// Provenance records what produced this artifact, so a frozen binary — served
+// months later from a login node, or a .wasm on a page — can say what it is. A
+// path is not a handle; this is the handle. It is presentation/identity data the
+// engine carries and NEVER reads: the scheduler, head, and cache are untouched
+// by it. Codegen fills it at build time; the transports display it. All fields
+// are best-effort — a notebook outside a git repo is a normal case, so SourceHash
+// alone (the content identity) is always present and the git fields may be empty.
+type Provenance struct {
+	// SourceHash is the content hash of the notebook source file(s) — the
+	// identity of what was built, independent of its path or filename.
+	SourceHash string `json:"sourceHash"`
+	// Commit and Dirty describe the git state, when a repo is present. Dirty
+	// means the working tree had uncommitted changes at build time.
+	Commit string `json:"commit,omitempty"`
+	Dirty  bool   `json:"dirty,omitempty"`
+	// BuiltAt is the build time (RFC3339).
+	BuiltAt string `json:"builtAt,omitempty"`
+	// GoVersion is the toolchain that compiled the artifact.
+	GoVersion string `json:"goVersion,omitempty"`
+}
+
+// Notebook is the presentation bundle a transport needs to render a notebook:
+// its executable cells, the per-cell metadata, and the build provenance. It is
+// the carrier that lets metadata grow (Meta, then Provenance) without churning
+// every transport signature. The engine does not execute Notebook itself — it
+// executes Cells via [Config]; Meta and Provenance are display-only.
+type Notebook struct {
+	Cells      []Node
+	Meta       []CellMeta
+	Provenance Provenance
+}

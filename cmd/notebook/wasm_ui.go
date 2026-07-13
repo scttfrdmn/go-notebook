@@ -38,9 +38,12 @@ globalThis.__notebook_leaves_ready = () => {
 
 function start() {
   const META = JSON.parse(globalThis.__notebook_meta || '[]');
+  let prov = null;
+  try { prov = JSON.parse(globalThis.__notebook_provenance || 'null'); } catch (_) {}
   NB.init(META, {
     onEdit: (leaf, value) => globalThis.notebookSet(leaf, value),
     afterRender: reportHeight,
+    provenance: prov,
   });
   status.textContent = 'ready — compiled Go, no server';
   reportHeight();

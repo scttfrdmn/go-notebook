@@ -26,6 +26,7 @@ import (
 type Server struct {
 	rt   *engine.Runtime
 	meta []engine.CellMeta
+	prov engine.Provenance
 	set  SetFunc
 	mux  *http.ServeMux
 }
@@ -39,14 +40,22 @@ type SetFunc func(ctx context.Context, leaf string, raw any)
 
 // New builds a server for a runtime, its cell metadata, and a type-aware leaf
 // setter. If set is nil, edits write the raw JSON value directly (fine for
-// tests whose leaves are already the right type).
+// tests whose leaves are already the right type). It carries no provenance;
+// use [NewNotebook] to display build identity.
 func New(rt *engine.Runtime, meta []engine.CellMeta, set SetFunc) *Server {
+	return NewNotebook(rt, meta, engine.Provenance{}, set)
+}
+
+// NewNotebook is [New] plus build provenance, shown on the page so a served
+// binary can say what it is. New delegates here with an empty Provenance, so the
+// older signature keeps working unchanged.
+func NewNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, set SetFunc) *Server {
 	if set == nil {
 		set = func(ctx context.Context, leaf string, raw any) {
 			rt.Set(ctx, engine.LeafID(leaf), raw)
 		}
 	}
-	s := &Server{rt: rt, meta: meta, set: set, mux: http.NewServeMux()}
+	s := &Server{rt: rt, meta: meta, prov: prov, set: set, mux: http.NewServeMux()}
 	s.mux.HandleFunc("/", s.handleIndex)
 	s.mux.HandleFunc("/events", s.handleEvents)
 	s.mux.HandleFunc("/set", s.handleSet)
@@ -154,17 +163,27 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	metaJSON, _ := json.Marshal(s.meta)
-	// The template contains literal % (CSS) and { } (JS), so substitute the one
-	// placeholder by string replace rather than a format verb.
+	provJSON, _ := json.Marshal(s.prov)
+	// The template contains literal % (CSS) and { } (JS), so substitute the
+	// placeholders by string replace rather than a format verb.
 	page := strings.Replace(indexHTML, metaPlaceholder, string(metaJSON), 1)
+	page = strings.Replace(page, provPlaceholder, string(provJSON), 1)
 	_, _ = fmt.Fprint(w, page)
 }
 
 // Serve starts an HTTP server on addr and blocks. Each client that connects to
 // the event stream triggers a full wave, so a freshly-opened page always shows
-// current state without a separate startup wave here.
+// current state without a separate startup wave here. It shows no provenance;
+// use [ServeNotebook] to display build identity.
 func Serve(ctx context.Context, addr string, rt *engine.Runtime, meta []engine.CellMeta, set SetFunc) error {
-	s := New(rt, meta, set)
+	return ServeNotebook(ctx, addr, rt, meta, engine.Provenance{}, set)
+}
+
+// ServeNotebook is [Serve] plus build provenance, shown on the page so a served
+// binary — e.g. one scp'd to a login node months ago — can say what it is. Serve
+// delegates here with an empty Provenance, so the older signature is unchanged.
+func ServeNotebook(ctx context.Context, addr string, rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, set SetFunc) error {
+	s := NewNotebook(rt, meta, prov, set)
 	srv := &http.Server{Addr: addr, Handler: s.Handler()}
 	go func() {
 		<-ctx.Done()

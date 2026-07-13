@@ -35,7 +35,16 @@ type SetFunc func(ctx context.Context, rt *engine.Runtime, leaf string, raw any)
 // Run wires a runtime to the browser and blocks forever (a wasm main must not
 // return). It publishes the cell metadata, starts pumping events to JS, runs an
 // initial wave so the page renders, and installs the JS-callable set function.
+// It publishes no provenance; use [RunNotebook] to show build identity.
 func Run(rt *engine.Runtime, meta []engine.CellMeta, set SetFunc) {
+	RunNotebook(rt, meta, engine.Provenance{}, set)
+}
+
+// RunNotebook is [Run] plus build provenance, published to JS as
+// __notebook_provenance so the page can show what produced this .wasm — the
+// content identity that a fixed URL cannot convey. Run delegates here with an
+// empty Provenance, so the older signature is unchanged.
+func RunNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, set SetFunc) {
 	if set == nil {
 		set = func(ctx context.Context, rt *engine.Runtime, leaf string, raw any) {
 			rt.Set(ctx, engine.LeafID(leaf), raw)
@@ -45,6 +54,10 @@ func Run(rt *engine.Runtime, meta []engine.CellMeta, set SetFunc) {
 	// Publish metadata once (labels, leaf symbols, directives) as JSON.
 	if b, err := json.Marshal(meta); err == nil {
 		js.Global().Set("__notebook_meta", string(b))
+	}
+	// Publish provenance for the page footer (best-effort; empty is fine).
+	if b, err := json.Marshal(prov); err == nil {
+		js.Global().Set("__notebook_provenance", string(b))
 	}
 
 	// Pump events → JS. A goroutine reads the engine's channel and calls the

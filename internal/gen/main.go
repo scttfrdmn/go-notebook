@@ -114,7 +114,7 @@ func wasmMainBody(alias string) string {
 	set := func(ctx context.Context, r *engine.Runtime, leaf string, raw any) {
 		setLeafValue(ctx, r, leaf, raw)
 	}
-	wasm.Run(rt, ` + alias + `.NotebookMeta, set)
+	wasm.RunNotebook(rt, ` + alias + `.NotebookMeta, ` + alias + `.NotebookProvenance, set)
 }
 `
 }
@@ -305,7 +305,7 @@ func mainBody(alias string) string {
 	set := func(c context.Context, leaf string, raw any) {
 		setLeafValue(c, rt, leaf, raw)
 	}
-	if err := server.Serve(ctx, *addr, rt, ` + alias + `.NotebookMeta, set); err != nil {
+	if err := server.ServeNotebook(ctx, *addr, rt, ` + alias + `.NotebookMeta, ` + alias + `.NotebookProvenance, set); err != nil {
 		log.Printf("server: %v", err)
 		os.Exit(1)
 	}
