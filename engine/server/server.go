@@ -59,6 +59,7 @@ func NewNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provena
 	s.mux.HandleFunc("/", s.handleIndex)
 	s.mux.HandleFunc("/events", s.handleEvents)
 	s.mux.HandleFunc("/set", s.handleSet)
+	s.mux.HandleFunc("/leaves", s.handleLeaves)
 	return s
 }
 
@@ -153,6 +154,35 @@ func (s *Server) handleSet(w http.ResponseWriter, r *http.Request) {
 	// rapid drags. The set func coerces the raw JSON value to the leaf's type.
 	go s.set(context.Background(), req.Leaf, req.Value)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleLeaves returns each leaf's current value keyed by leaf symbol, so the
+// client can seed every control's initial position and readout — otherwise a
+// slider sits at a browser default and the readout is blank until first drag
+// (the wasm host publishes the same via __notebook_leaves; this is the SSE
+// parallel). Values come from Finals (public), so this adds no engine surface.
+// A wave is run first if none has yet, so Finals is populated even before any
+// /events client connects.
+func (s *Server) handleLeaves(w http.ResponseWriter, r *http.Request) {
+	finals := s.rt.Finals()
+	if len(finals) == 0 {
+		// No wave has run yet (no /events client connected); run one so leaf
+		// defaults exist. RunAll reads the head snapshot and commits finals.
+		s.rt.RunAll(r.Context())
+		finals = s.rt.Finals()
+	}
+	vals := map[string]any{}
+	for _, m := range s.meta {
+		if m.Leaf == "" {
+			continue
+		}
+		if v, ok := finals[m.Leaf]; ok {
+			vals[string(m.Leaf)] = v
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache")
+	_ = json.NewEncoder(w).Encode(vals)
 }
 
 // handleIndex serves the single-page client.

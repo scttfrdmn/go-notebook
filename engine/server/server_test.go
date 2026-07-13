@@ -221,6 +221,52 @@ func TestKC8RuntimeErrorAndBlockedReachTheWire(t *testing.T) {
 	}
 }
 
+// TestLeavesSeedsInitialValues drives #43 bug 1: /leaves returns each leaf's
+// current value so the client can seed controls, and it works on a COLD server
+// (no /events client has connected, so no wave has run yet) — the endpoint runs
+// a wave to populate Finals. A leaf is a producing cell (servers → c), the real
+// shape; asserts the actual default reaches the wire (§8), not that a route
+// exists.
+func TestLeavesSeedsInitialValues(t *testing.T) {
+	// servers() (c int) { return 80 } — a real leaf: a parameterless cell that
+	// produces its own symbol, so its default lands in Finals.
+	servers := fnNode{
+		id: "servers", out: []engine.Symbol{"c"},
+		run: func(_ context.Context, _ engine.Inputs) (engine.Outputs, error) {
+			return engine.Outputs{"c": 80}, nil
+		},
+	}
+	head := engine.NewHead()
+	rt := engine.NewRuntime(engine.Config{
+		Nodes:  []engine.Node{servers},
+		Leaves: []engine.LeafID{"c"},
+		Levels: [][]engine.CellID{{"servers"}},
+	}, head, engine.NewMemoStore())
+	meta := []engine.CellMeta{{ID: "servers", Leaf: "c", Label: "servers"}}
+
+	srv := httptest.NewServer(New(rt, meta, nil).Handler())
+	defer srv.Close()
+
+	// Hit /leaves cold — no /events connection first, so no wave has run. The
+	// endpoint must still return the default (it runs a wave to populate Finals).
+	resp, err := http.Get(srv.URL + "/leaves")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var leaves map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&leaves); err != nil {
+		t.Fatalf("/leaves is not JSON: %v", err)
+	}
+	got, ok := leaves["c"]
+	if !ok {
+		t.Fatalf("/leaves must carry leaf c's default; got %v", leaves)
+	}
+	if v, _ := got.(float64); v != 80 {
+		t.Errorf("leaf c default = %v, want 80 (the control would otherwise be blank until first drag)", got)
+	}
+}
+
 // TestKC3RepaintLatency measures slider→repaint latency: from a leaf edit to
 // the downstream rendered event. It measures at the engine's event boundary
 // (the value the transport serializes), which is deterministic — an HTTP
