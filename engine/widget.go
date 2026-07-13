@@ -1,5 +1,7 @@
 package engine
 
+import "encoding/json"
+
 // Widget discovery is capability probing, never a type switch. Adding a new
 // control kind later (Multi, Select, Table, Draggable) means adding one probe
 // here, not editing a switch statement in several places. The registry grows
@@ -48,6 +50,66 @@ func AsBounded(v any) (Bounded, bool) {
 func AsReconciler(v any) (Reconciler, bool) {
 	r, ok := v.(Reconciler)
 	return r, ok
+}
+
+// CoerceWire homogenizes a decoded-JSON selection into the clean Go primitive a
+// widget's Reconcile expects, so a cell stays an ordinary Go function that never
+// touches wire shapes. It is the general form of the scalar coercer — the write
+// path is a human at human speed, so a little reflection here is free.
+//
+// A selection's Go type is not the widget's field type: a Multi[Theme]'s
+// selection is []string (labels — the client picks by Label(), and the
+// label→Theme mapping lives in the notebook's Reconcile, not here), a Range's is
+// []float64 (endpoints), a Select's is a string. JSON decodes those as []any and
+// json.Number; this collapses them to []string / []float64 / string / bool so a
+// Reconcile(saved any) can assert a concrete type. It never guesses a domain
+// type; it only removes the wire's any-boxing.
+//
+// ok is false when the value can't be homogenized to a single primitive shape
+// (a mixed []any) — a real client/leaf mismatch the caller must surface, never
+// pass through silently.
+func CoerceWire(decoded any) (any, bool) {
+	switch v := decoded.(type) {
+	case json.Number:
+		if f, err := v.Float64(); err == nil {
+			return f, true
+		}
+		return nil, false
+	case []any:
+		return coerceSlice(v)
+	default:
+		return decoded, true // string, bool, float64 — already primitive
+	}
+}
+
+// coerceSlice collapses a decoded []any into []string or []float64 when every
+// element shares a shape, else reports failure (a mixed array is a mismatch).
+// An empty selection is a valid []string (the common "nothing selected" case).
+func coerceSlice(in []any) (any, bool) {
+	if len(in) == 0 {
+		return []string{}, true
+	}
+	strs := make([]string, 0, len(in))
+	floats := make([]float64, 0, len(in))
+	for _, e := range in {
+		switch x := e.(type) {
+		case string:
+			strs = append(strs, x)
+		case json.Number:
+			if f, err := x.Float64(); err == nil {
+				floats = append(floats, f)
+			}
+		case float64:
+			floats = append(floats, x)
+		}
+	}
+	if len(strs) == len(in) {
+		return strs, true
+	}
+	if len(floats) == len(in) {
+		return floats, true
+	}
+	return nil, false // mixed or unrecognized element types
 }
 
 // WidgetView is a widget's STATE on the wire — never its appearance. It carries

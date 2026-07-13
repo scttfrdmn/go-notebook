@@ -145,7 +145,12 @@ func (s *Server) handleSet(w http.ResponseWriter, r *http.Request) {
 		Leaf  string `json:"leaf"`
 		Value any    `json:"value"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// UseNumber so a numeric selection stays a json.Number, not a float64 — the
+	// leaf coercer preserves int vs float (a Range[int] or an int64 id would be
+	// silently floated otherwise).
+	dec := json.NewDecoder(r.Body)
+	dec.UseNumber()
+	if err := dec.Decode(&req); err != nil {
 		http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
 		return
 	}

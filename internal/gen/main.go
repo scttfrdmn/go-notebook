@@ -87,6 +87,9 @@ func WASMMainPackage(g *graph.Graph, info analyze.PackageInfo) (GeneratedFile, e
 	if strings.Contains(bodyStr, "strconv.") {
 		fmt.Fprintf(&b, "\t%q\n", "strconv")
 	}
+	if strings.Contains(bodyStr, "log.") {
+		fmt.Fprintf(&b, "\t%q\n", "log")
+	}
 	fmt.Fprintf(&b, "\n\t%q\n\t%q\n\t%s %q\n)\n\n",
 		"github.com/scttfrdmn/go-notebook/engine",
 		"github.com/scttfrdmn/go-notebook/engine/wasm",
@@ -173,8 +176,16 @@ func (e *leafError) Error() string { return "unknown leaf: " + e.name }
 // safe. It mirrors setLeaf (the CLI's string parser) for the JSON-value path.
 func writeSetLeafValue(b *bytes.Buffer, g *graph.Graph, alias string) {
 	b.WriteString(`// setLeafValue coerces a raw JSON leaf value to its static type and writes it
-// through rt.Set (head chokepoint + version bump + wave).
+// through rt.Set (head chokepoint + version bump + wave). raw is normalized
+// first: json.Number → float64 and []any → []string/[]float64, so both the
+// scalar cases (which assert float64) and widget leaves see clean primitives.
 func setLeafValue(ctx context.Context, rt *engine.Runtime, name string, raw any) {
+	norm, ok := engine.CoerceWire(raw)
+	if !ok {
+		log.Printf("notebook: leaf %q: cannot coerce selection %v (%T)", name, raw, raw)
+		return
+	}
+	raw = norm
 	switch name {
 `)
 	for _, leaf := range leafSymbols(g) {
@@ -213,6 +224,10 @@ func writeCoerceCase(b *bytes.Buffer, alias string, leaf leafInfo) {
 		return
 `, name, qualified)
 	default:
+		// A widget leaf: raw is already homogenized (CoerceWire at entry) to
+		// []string / []float64 / string / bool — the clean primitive the
+		// notebook's Reconcile asserts. Set it; Reconcile does the domain
+		// resolution (label→Theme) itself. A cell never sees a wire shape.
 		fmt.Fprintf(b, `		rt.Set(ctx, %q, raw)
 		return
 `, name)
