@@ -177,6 +177,14 @@ const NB = (function () {
   let onEdit = function () {};
 
   function coerce(s) { const n = Number(s); return s.trim() !== '' && !Number.isNaN(n) ? n : s; }
+  // coerceScalar turns a text/plain readout ("false", "1200", "hi") into the JS
+  // value a control seeds from — so a checkbox reads true/false, not the truthy
+  // string "false". bool first (else Number("false") is NaN → string).
+  function coerceScalar(s) {
+    if (s === 'true') return true;
+    if (s === 'false') return false;
+    return coerce(s);
+  }
 
   // setState applies exactly one wave-state class (plus the blocked dim), so the
   // left rail / dot / graph node reflect the latest transition.
@@ -422,7 +430,17 @@ const NB = (function () {
       if (ctl && ctl.columns) renderTable(el, ctl, JSON.parse(ev.data)); // table body
       return;
     }
-    if (el.dataset.leaf) return; // a leaf's control IS its view; don't echo the body
+    // A scalar leaf (a plain bool/number/string — no WidgetView) initializes its
+    // control from its OWN event, the same path that updates it. This is why a
+    // checkbox shows its real default before any toggle: init and update are one
+    // path, not a separate seed channel that can be empty or race (the read-path
+    // analogue of the write-path silent default). Do this BEFORE the leaf-body
+    // suppression, since the control is the leaf's view.
+    if (el.dataset.leaf) {
+      const ctl = leafCtl[ev.cell];
+      if (ctl && ctl.seed && ev.mime === 'text/plain') ctl.seed(coerceScalar(ev.data));
+      return; // the control is the view; never echo the value as a body
+    }
     if (!ev.mime) return; // scalar with no view — leave hidden
     el.hidden = false;
     if (ev.mime === 'image/svg+xml' || ev.mime === 'text/html') body.innerHTML = ev.data;
