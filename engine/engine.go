@@ -94,6 +94,37 @@ type CellMeta struct {
 	// so the view can show "a cell is a function," read-only. Presentation-only,
 	// like the fields above; never parsed or executed.
 	Source string `json:",omitempty"`
+	// Widget is the STATIC control descriptor for a leaf: which kind of control
+	// to render, decided from the leaf's TYPE at codegen (a Multi[Theme] is
+	// always a multiselect). It is the dispatch key; the live state (current
+	// selection, options, bounds) rides the cell's value on the wire, not here.
+	// Empty for non-widget leaves (a scalar/Bounded slider). Presentation-only,
+	// like the fields above.
+	Widget *WidgetMeta `json:",omitempty"`
+}
+
+// WidgetMeta is the static, type-derived descriptor of a leaf's control: the
+// Kind that dispatches which control the client renders, plus — only for a
+// Table — the column schema, which is a property of the row type T (known at
+// codegen, not recoverable from the runtime value). Kind is static; the live
+// state (selection/options/bounds) travels with the value as a [WidgetView].
+type WidgetMeta struct {
+	// Kind is the control category: "range", "select", "multi", "bool",
+	// "draggable", "table". Derived from the leaf's result type.
+	Kind string `json:"kind"`
+	// Columns is the grid schema for a Table (its row type T's fields), empty
+	// for every other kind. A grid cannot be rendered from the runtime value
+	// alone — it needs the column names and types, which are T's, known only at
+	// codegen.
+	Columns []WidgetColumn `json:"columns,omitempty"`
+}
+
+// WidgetColumn is one column of a Table's row type: its field name and a coarse
+// type tag ("number", "string", "bool") the client renders an appropriate cell
+// editor from. Type-derived at codegen.
+type WidgetColumn struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
 // Provenance records what produced this artifact, so a frozen binary — served

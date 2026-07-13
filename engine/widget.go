@@ -49,3 +49,52 @@ func AsReconciler(v any) (Reconciler, bool) {
 	r, ok := v.(Reconciler)
 	return r, ok
 }
+
+// WidgetView is a widget's STATE on the wire — never its appearance. It carries
+// what the client needs to render an interactive control and to know what a
+// user's edit means: the current selection, the available choices/bounds, and
+// hard constraints. It carries nothing about how the control LOOKS — no label,
+// color, step, or layout. Kind (static, from the type, in CellMeta) decides
+// which control; a //notebook: directive refines it; this view carries neither.
+//
+// This is the input analogue of Rendered (which is output, a picture). A widget
+// is structured input state, so a Multi/Select/Range/Table value that is not
+// Renderable still reaches the client — through this, not as a blob.
+//
+// Each widget KIND builds its own view explicitly (see the notebook's widget
+// types). It is never a generic reflection of the widget struct: that would drag
+// a Draggable's unexported leaf token or a Table's arbitrary row type onto the
+// wire. Verbose-but-explicit is the point — the wire format is a decision.
+type WidgetView struct {
+	// Value is the current selection. Its permitted shapes are a CLOSED set —
+	// adding one is a decision, not a fill-in, because this is the one field the
+	// type does not constrain:
+	//   - a JSON scalar (number/string/bool) — Range picks a number, Select a label
+	//   - a []string of labels               — Multi's selected options
+	//   - a []T of rows                       — Table's editable rows
+	//   - a []Pt (or similar point list)      — Draggable's handle positions
+	// It must stay flat, JSON-encodable STATE. A nested object describing
+	// appearance or structure does not belong here; if a new widget needs a
+	// shape not listed above, add it here deliberately and update this comment.
+	Value any `json:"value"`
+	// Options are the choosable labels for Select/Multi (nil otherwise).
+	Options []string `json:"options,omitempty"`
+	// Lo/Hi are the numeric bounds for Range. Pointers so "no bounds" (nil) is
+	// distinct from a real [0,0] range — absent means absent, no separate flag.
+	Lo *float64 `json:"lo,omitempty"`
+	Hi *float64 `json:"hi,omitempty"`
+	// Max is a selection-count cap for Multi. Pointer so "no cap" (nil) is
+	// distinct from a cap of 0.
+	Max *int `json:"max,omitempty"`
+}
+
+// Viewable is the capability a widget value has when it can state its own view.
+// Probed structurally (like Renderable), because a notebook defines its OWN
+// widget types and imports nothing from this package — so the match is by method
+// shape across the zero-import boundary, not by a static interface.
+//
+// The method is WidgetView() WidgetView-shaped: no args, one struct result with
+// the field shape above. A widget states its view explicitly in this method.
+type Viewable interface {
+	WidgetView() WidgetView
+}
