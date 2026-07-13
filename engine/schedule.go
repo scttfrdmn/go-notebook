@@ -284,29 +284,46 @@ func (r *Runtime) Finals() map[Symbol]any {
 	return cp
 }
 
-// leafOverride reports whether a cell's output should be taken from the head
-// rather than computed. A leaf cell produces a symbol registered as a leaf; if
-// the wave's value space already holds that symbol (seeded from the head
-// snapshot), the head value wins and the cell body is skipped. Returns the
-// outputs to adopt and true when overridden.
-//
-// A leaf cell with no head value yet (never edited) is NOT overridden — it runs
-// its body to produce the default, which is exactly the schema/default role the
-// design assigns a leaf cell's body.
-func (r *Runtime) leafOverride(node Node, values map[Symbol]any) (Outputs, bool) {
+// leafSymbol returns a leaf cell's single output symbol and true, or ("",false)
+// if the node is not a single-output leaf.
+func (r *Runtime) leafSymbol(node Node) (Symbol, bool) {
 	outs := node.Out()
 	if len(outs) != 1 {
-		return nil, false // multi-output cells are not simple leaves
+		return "", false // multi-output cells are not simple leaves
 	}
 	sym := outs[0]
 	if !r.leaves[sym] {
-		return nil, false
+		return "", false
 	}
-	v, ok := values[sym]
-	if !ok {
-		return nil, false // no head value yet: run the body for the default
+	return sym, true
+}
+
+// reconcileLeaf implements the §4.3 leaf rule: the cell body computes the
+// SCHEMA; the head holds the user's SELECTION; the leaf's value is the schema
+// reconciled against the selection. This is the leaf path finally built — it was
+// under-specified since M5, and only a widget (whose schema and selection are
+// different things) revealed it. For a scalar leaf the two ARE the same thing,
+// so reconcile is the identity and a slider behaves exactly as before.
+//
+// One rule, applied uniformly — never special-cased by kind, because that is how
+// the single Head.Set chokepoint would quietly fork:
+//
+//   - schema not a Reconciler (a scalar, or a widget with no Reconcile) → the
+//     saved selection replaces the schema wholesale (identity: a slider's saved
+//     float IS its value).
+//   - schema is a Reconciler → schema.Reconcile(saved) merges them per widget
+//     kind (Range clamps, Multi filters, Select falls back, Draggable resets).
+//
+// schema is the freshly-run body output; saved is the head value for this leaf
+// (absent on first run — then the schema, i.e. the default, stands).
+func (r *Runtime) reconcileLeaf(schema any, saved any, hasSaved bool) any {
+	if !hasSaved {
+		return schema // never edited: the cell body's default stands
 	}
-	return Outputs{sym: v}, true
+	if rec, ok := AsReconciler(schema); ok {
+		return rec.Reconcile(saved)
+	}
+	return saved // scalar / non-reconciling widget: the selection is the value
 }
 
 // levelResult is one cell's outcome within a level.
@@ -338,16 +355,31 @@ func (r *Runtime) runLevel(ctx context.Context, epoch Epoch, level []CellID, val
 			continue
 		}
 
-		// Leaf override: a leaf cell's body is only the DEFAULT. When the head
-		// holds a value for the leaf's output symbol (a slider was moved, or
-		// --set was given), use that value and skip the body entirely. This is
-		// what makes a slider actually move the model: the edited value flows
-		// downstream instead of the cell's hardcoded default. The head value is
-		// already in `values` (seeded from the snapshot), so we just adopt it as
-		// this cell's output.
-		if out, ok := r.leafOverride(node, values); ok {
-			results[i] = levelResult{id: id, out: out}
+		// Leaf reconcile (§4.3): a leaf cell's body computes the SCHEMA; the head
+		// holds the user's SELECTION; the leaf's value is the schema reconciled
+		// against the selection. Run the body for the schema, then reconcile the
+		// head value in. For a scalar leaf (slider, --set) the schema and
+		// selection are the same thing, so reconcile is the identity and the
+		// edited value flows downstream exactly as before. For a widget they
+		// differ — the body's data-derived options/bounds are kept, the saved
+		// selection is clamped/filtered/reset into them.
+		//
+		// The saved selection is read from `values` (seeded from the head
+		// snapshot) BEFORE the body runs, since the body produces the same symbol.
+		if sym, ok := r.leafSymbol(node); ok {
+			saved, hasSaved := values[sym]
+			in := make(Inputs, len(node.In()))
+			for _, s := range node.In() {
+				in[s] = values[s]
+			}
 			r.emit(Event{Epoch: epoch, Cell: id, State: StateRunning})
+			res := r.runNode(ctx, node, in)
+			if res.err == nil {
+				if schema, ok := res.out[sym]; ok {
+					res.out = Outputs{sym: r.reconcileLeaf(schema, saved, hasSaved)}
+				}
+			}
+			results[i] = res
 			continue
 		}
 

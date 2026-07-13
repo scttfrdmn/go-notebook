@@ -120,6 +120,19 @@ const CSS = `
   input[type=range]:active::-webkit-slider-thumb, input[type=range]:focus::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(0,173,216,.18); }
   input[type=range]:active::-moz-range-thumb, input[type=range]:focus::-moz-range-thumb { box-shadow: 0 0 0 4px rgba(0,173,216,.18); }
   #status { font: 12px monospace; color: var(--muted); }
+  /* Widget controls — restrained, same palette. */
+  select { font: inherit; color: var(--ink); padding: .3rem .5rem; border: 1px solid var(--line);
+           border-radius: 7px; background: #fff; }
+  select:focus { outline: none; border-color: var(--go); }
+  .multi { display: flex; flex-wrap: wrap; gap: .3rem .8rem; }
+  .multi .check { font: 13px/1 -apple-system, system-ui, sans-serif; color: var(--ink);
+                  display: inline-flex; align-items: center; gap: .25rem; white-space: nowrap; }
+  .range2 { display: flex; flex-direction: column; gap: .2rem; }
+  table.grid { border-collapse: collapse; font: 12px/1.4 monospace; margin: .3rem 0; }
+  table.grid th { text-align: left; color: var(--muted); font-weight: 600; padding: .2rem .5rem; border-bottom: 1px solid var(--line); }
+  table.grid td { padding: .1rem .3rem; }
+  table.grid td input { width: 8rem; font: inherit; padding: .2rem .35rem; border: 1px solid var(--line); border-radius: 5px; }
+  table.grid td input:focus { outline: none; border-color: var(--go); }
   .cell details { margin-top: .4rem; }
   .cell details summary { font: 11px monospace; color: var(--muted); cursor: pointer; list-style: none; }
   .cell details summary::-webkit-details-marker { display: none; }
@@ -156,7 +169,8 @@ const JS = `
 const NB = (function () {
   const cellEls = {};       // cell id -> its .cell element
   const graphNodes = {};    // cell id -> its <g> in the graph
-  const leafCtl = {};       // leaf symbol -> {input, out} for seeding values
+  const leafCtl = {};       // cell ID -> control (events + render address by cell ID)
+  const leafByCell = {};    // leaf symbol -> control (edits + seeding address by symbol)
   const lastEpoch = {};     // cell id -> newest epoch rendered (drop stale waves)
   const STATES = ['running', 'done', 'error', 'blocked', 'stale'];
   let META = [];
@@ -176,26 +190,129 @@ const NB = (function () {
   // by the analyzer from the type; the directive only refines the control) and a
   // display element for every cell, with an optional read-only source
   // disclosure. A leaf's control IS its view, so its cell body is suppressed.
+  // buildControl makes the control for a leaf, dispatched on its static Kind.
+  // Returns { el, out, apply(view) } where apply updates the control from a live
+  // WidgetView (options/bounds/selection) each wave. emit(selection) is called
+  // on user edit with the SELECTION only. Kind is capability-derived at codegen;
+  // a directive would refine it, but the kind is the type's own say.
+  function buildControl(m, emit) {
+    const kind = (m.Widget && m.Widget.Kind) || '';
+    const out = document.createElement('span'); out.className = 'val';
+    const controls = document.getElementById('controls');
+
+    if (kind === 'select') {
+      const sel = document.createElement('select');
+      sel.onchange = () => emit(sel.value);
+      controls.append(sel, out);
+      return { el: sel, out, apply(v) {
+        setOptions(sel, v.options || []);
+        if (v.value != null) sel.value = String(v.value);
+        out.textContent = sel.value;
+      } };
+    }
+    if (kind === 'multi') {
+      const box = document.createElement('div'); box.className = 'multi';
+      controls.append(box, out);
+      let max = 0;
+      const emitSel = () => emit([...box.querySelectorAll('input:checked')].map(c => c.value));
+      return { el: box, out, apply(v) {
+        max = v.max || 0;
+        const sel = new Set((v.value || []).map(String));
+        renderChecks(box, v.options || [], sel, emitSel);
+        out.textContent = sel.size + (max ? ' / ' + max : '') + ' selected';
+      } };
+    }
+    if (kind === 'range') {
+      // Two-handle range: two sliders sharing the data-derived bounds.
+      const lo = document.createElement('input'); lo.type = 'range';
+      const hi = document.createElement('input'); hi.type = 'range';
+      const wrap = document.createElement('div'); wrap.className = 'range2';
+      wrap.append(lo, hi);
+      const emitSel = () => {
+        let a = Number(lo.value), b = Number(hi.value);
+        if (a > b) { const t = a; a = b; b = t; }
+        out.textContent = a + ' – ' + b;
+        emit([a, b]);
+      };
+      lo.oninput = emitSel; hi.oninput = emitSel;
+      controls.append(wrap, out);
+      return { el: wrap, out, apply(v) {
+        if (v.lo != null) { lo.min = hi.min = v.lo; }
+        if (v.hi != null) { lo.max = hi.max = v.hi; }
+        const sel = v.value || [];
+        if (sel.length === 2) { lo.value = sel[0]; hi.value = sel[1]; out.textContent = sel[0] + ' – ' + sel[1]; }
+      } };
+    }
+    if (kind === 'bool') {
+      const cb = document.createElement('input'); cb.type = 'checkbox';
+      cb.onchange = () => { out.textContent = cb.checked; emit(cb.checked); };
+      controls.append(cb, out);
+      return { el: cb, out, apply(v) { cb.checked = !!v.value; out.textContent = cb.checked; },
+               seed(val) { cb.checked = !!val; out.textContent = cb.checked; } };
+    }
+    if (kind === 'table') {
+      // A table renders in the cell body (it needs the column schema + rows), not
+      // as a compact control; a placeholder here, the grid is built on first view.
+      const note = document.createElement('span'); note.className = 'val';
+      note.textContent = '(edit rows below)';
+      controls.append(note, out);
+      return { el: note, out, emit, columns: (m.Widget && m.Widget.Columns) || [], apply() {} };
+    }
+    // Default rung: a scalar. Slider if directives give min/max, else a text box.
+    const d = m.Directives || {};
+    const input = document.createElement('input');
+    const ranged = ('slider' in d) || ('min' in d) || ('max' in d);
+    if (ranged) { input.type = 'range'; input.min = d.min ?? 0; input.max = d.max ?? 100; input.step = d.step ?? 1; }
+    else input.type = 'text';
+    input.oninput = () => { const val = input.type === 'range' ? Number(input.value) : coerce(input.value); out.textContent = input.value; emit(val); };
+    controls.append(input, out);
+    return { el: input, out, input, apply() {},
+             seed(val) { input.value = String(val); out.textContent = String(val); } };
+  }
+
+  function setOptions(sel, opts) {
+    if (sel.dataset.opts === JSON.stringify(opts)) return; // unchanged
+    sel.dataset.opts = JSON.stringify(opts);
+    const cur = sel.value;
+    sel.innerHTML = '';
+    for (const o of opts) { const e = document.createElement('option'); e.value = e.textContent = o; sel.append(e); }
+    if (opts.includes(cur)) sel.value = cur;
+  }
+  function renderChecks(box, opts, selected, onchange) {
+    if (box.dataset.opts === JSON.stringify(opts)) {
+      // options unchanged: just sync checked state
+      for (const cb of box.querySelectorAll('input')) cb.checked = selected.has(cb.value);
+      return;
+    }
+    box.dataset.opts = JSON.stringify(opts);
+    box.innerHTML = '';
+    for (const o of opts) {
+      const lbl = document.createElement('label'); lbl.className = 'check';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = o; cb.checked = selected.has(o);
+      cb.onchange = onchange;
+      lbl.append(cb, document.createTextNode(' ' + o));
+      box.append(lbl);
+    }
+  }
+
   function buildControlsAndCells() {
     const controls = document.getElementById('controls');
     const cells = document.getElementById('cells');
     for (const m of META) {
       if (m.Leaf) {
-        const d = m.Directives || {};
         const label = document.createElement('label');
         label.textContent = m.Label || m.ID;
-        const out = document.createElement('span'); out.className = 'val';
-        const input = document.createElement('input');
-        const ranged = ('slider' in d) || ('min' in d) || ('max' in d);
-        if (ranged) { input.type = 'range'; input.min = d.min ?? 0; input.max = d.max ?? 100; input.step = d.step ?? 1; }
-        else input.type = 'text';
-        input.oninput = () => {
-          const v = input.type === 'range' ? Number(input.value) : coerce(input.value);
-          out.textContent = input.value;
-          onEdit(m.Leaf, v);
-        };
-        controls.append(label, input, out);
-        leafCtl[m.Leaf] = { input, out };
+        controls.append(label);
+        // Dispatch on the leaf's static Kind (from CellMeta). The control edits
+        // the SELECTION only; onEdit(leaf, selection) is what crosses /set — never
+        // the options or bounds, which the cell recomputes each wave.
+        const ctl = buildControl(m, (sel) => onEdit(m.Leaf, sel));
+        // Keyed by CELL ID (what events + seeding address); leafSym lets edits
+        // and seeding map back to the leaf symbol. A leaf's control is addressed
+        // two ways — the cell it lives in (events) and the symbol it writes.
+        ctl.leafSym = m.Leaf;
+        leafCtl[m.ID] = ctl;
+        leafByCell[m.Leaf] = ctl;
       }
       const el = document.createElement('div');
       el.className = 'cell';
@@ -296,6 +413,15 @@ const NB = (function () {
     if (ev.state === 'blocked') { el.hidden = false; errEl.textContent = 'blocked — an upstream cell failed'; errEl.hidden = false; afterRender(); return; }
     if (ev.state === 'running' || ev.state === 'stale') return; // no new output
     errEl.hidden = true; errEl.textContent = '';
+    // A widget leaf's live state updates its control (fresh options/bounds after
+    // the cell recomputed the schema each wave). The control is the widget's
+    // view, so the cell body stays suppressed.
+    if (ev.mime === WIDGET_MIME) {
+      const ctl = leafCtl[ev.cell];
+      if (ctl && ctl.apply) { try { ctl.apply(JSON.parse(ev.data)); } catch (_) {} }
+      if (ctl && ctl.columns) renderTable(el, ctl, JSON.parse(ev.data)); // table body
+      return;
+    }
     if (el.dataset.leaf) return; // a leaf's control IS its view; don't echo the body
     if (!ev.mime) return; // scalar with no view — leave hidden
     el.hidden = false;
@@ -304,19 +430,53 @@ const NB = (function () {
     afterRender();
   }
 
+  const WIDGET_MIME = 'application/x-notebook-widget+json';
+
+  // renderTable draws a Table leaf's editable grid in its cell body (a table
+  // needs its column schema, which a compact control can't hold). Columns come
+  // from the static schema; rows from the live value. Editing a cell emits the
+  // full row set as the selection.
+  function renderTable(el, ctl, view) {
+    el.hidden = false;
+    const rows = Array.isArray(view.value) ? view.value : [];
+    const body = el.querySelector('.body');
+    const t = document.createElement('table'); t.className = 'grid';
+    const hr = document.createElement('tr');
+    for (const c of ctl.columns) { const th = document.createElement('th'); th.textContent = c.Name; hr.append(th); }
+    t.append(hr);
+    rows.forEach((row, ri) => {
+      const tr = document.createElement('tr');
+      for (const c of ctl.columns) {
+        const td = document.createElement('td');
+        const inp = document.createElement('input');
+        inp.value = row[c.Name] != null ? row[c.Name] : '';
+        inp.oninput = () => {
+          rows[ri][c.Name] = c.Type === 'number' ? Number(inp.value) : inp.value;
+          ctl.out.textContent = rows.length + ' rows';
+          // emit is closed over in buildControl; a table re-emits all rows.
+          if (ctl.emit) ctl.emit(rows);
+        };
+        td.append(inp); tr.append(td);
+      }
+      t.append(tr);
+    });
+    body.innerHTML = ''; body.append(t);
+    afterRender();
+  }
+
   // afterRender is a hook a transport can override (the wasm iframe reports its
   // height here). Default: nothing.
   let afterRender = function () {};
 
-  // seedLeaves sets each control to its leaf's initial value (from a {leaf:
-  // value} map), so a slider starts at its real position and the readout is
-  // populated before any drag.
+  // seedLeaves sets each SCALAR control to its leaf's initial value (from a
+  // {leaf: value} map), so a slider/checkbox starts at its real position before
+  // any edit. Widget leaves (multi/select/range/table) seed themselves from
+  // their first WidgetView event instead — their state is richer than a scalar
+  // and arrives on the stream. Only controls exposing seed() are scalar.
   function seedLeaves(vals) {
     for (const leaf in vals) {
-      const ctl = leafCtl[leaf];
-      if (!ctl) continue;
-      const s = String(vals[leaf]);
-      ctl.input.value = s; ctl.out.textContent = s;
+      const ctl = leafByCell[leaf]; // seeding addresses by leaf symbol
+      if (ctl && ctl.seed) ctl.seed(vals[leaf]);
     }
   }
 

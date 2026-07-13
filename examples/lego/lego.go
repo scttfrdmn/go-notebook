@@ -488,6 +488,28 @@ type Range[T Number] struct {
 
 func (r Range[T]) Bounds() (float64, float64) { return float64(r.Lo), float64(r.Hi) }
 
+// Reconcile CLAMPS the saved [from,to] selection into this fresh schema's
+// [Lo,Hi] bounds. When the data shifts the bounds under a live selection, the
+// selection is pulled to the nearest valid value rather than dropped — the
+// range's reconcile behavior in the per-widget taxonomy.
+func (r Range[T]) Reconcile(saved any) any {
+	sel, ok := saved.([]float64)
+	if !ok || len(sel) != 2 {
+		return r // selection unusable — the fresh default stands
+	}
+	clamp := func(v float64) T {
+		if v < float64(r.Lo) {
+			return r.Lo
+		}
+		if v > float64(r.Hi) {
+			return r.Hi
+		}
+		return T(v)
+	}
+	r.From, r.To = clamp(sel[0]), clamp(sel[1])
+	return r
+}
+
 // WidgetView states a Range's live state for the client: its current selection
 // [From,To] as the value, and its data-derived bounds. State only — no label,
 // color, or step; the client decides how a range looks.
@@ -509,6 +531,24 @@ type Select[T interface{ Label() string }] struct {
 
 func (s Select[T]) Options() []string { return labels(s.All) }
 
+// Reconcile FALLS BACK: if the saved choice's label still exists among the
+// fresh options, keep it; otherwise the schema's default (already in Value)
+// stands. A single choice can't be "partially" valid — it's either still an
+// option or it isn't. The select's behavior in the taxonomy.
+func (s Select[T]) Reconcile(saved any) any {
+	label, ok := saved.(string)
+	if !ok {
+		return s
+	}
+	for _, opt := range s.All {
+		if opt.Label() == label {
+			s.Value = opt
+			return s
+		}
+	}
+	return s // the saved choice vanished from the data — fall back to the default
+}
+
 // WidgetView states a Select's live state: the current choice's label and the
 // available option labels. The client selects by label; the runtime maps a
 // chosen label back to a T. State only.
@@ -523,6 +563,32 @@ type Multi[T interface{ Label() string }] struct {
 }
 
 func (m Multi[T]) Options() []string { return labels(m.All) }
+
+// Reconcile FILTERS: keep the saved selections whose options still exist in the
+// fresh schema, drop the ones whose data vanished. A multi-select degrades
+// gracefully — three themes chosen, one disappears from the data, the other two
+// stay selected. The multi's behavior in the taxonomy (contrast Draggable,
+// which resets wholesale because partial retention there is incoherent).
+func (m Multi[T]) Reconcile(saved any) any {
+	sel, ok := saved.([]string)
+	if !ok {
+		return m
+	}
+	valid := map[string]bool{}
+	for _, opt := range m.All {
+		valid[opt.Label()] = true
+	}
+	var kept []T
+	for _, opt := range m.All {
+		for _, s := range sel {
+			if opt.Label() == s && valid[s] {
+				kept = append(kept, opt)
+			}
+		}
+	}
+	m.Value = kept
+	return m
+}
 
 // WidgetView states a Multi's live state: the selected labels, the available
 // option labels, and the selection cap. State only — no appearance.
