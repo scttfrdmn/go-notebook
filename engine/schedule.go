@@ -376,6 +376,10 @@ func (r *Runtime) runLevel(ctx context.Context, epoch Epoch, level []CellID, val
 			res := r.runNode(ctx, node, in)
 			if res.err == nil {
 				if schema, ok := res.out[sym]; ok {
+					// Stamp the leaf identity onto the value BEFORE reconcile, so a
+					// draggable's grips (drawn downstream in a foreign cell) know which
+					// leaf they write. A no-op for widgets without the WithLeaf seam.
+					schema = StampLeaf(schema, string(sym))
 					res.out = Outputs{sym: r.reconcileLeaf(schema, saved, hasSaved)}
 				}
 			}

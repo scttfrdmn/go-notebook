@@ -108,23 +108,27 @@ type CellMeta struct {
 // Table — the column schema, which is a property of the row type T (known at
 // codegen, not recoverable from the runtime value). Kind is static; the live
 // state (selection/options/bounds) travels with the value as a [WidgetView].
+// The fields keep Go-cased JSON keys (no lowercase tags) so WidgetMeta matches
+// its CellMeta siblings (ID, Leaf, Source) in the metadata object the client
+// reads — m.Widget.Kind, m.Widget.Columns. (The live WidgetView cargo is a
+// separate, deliberately lowercase JSON payload; do not conflate the two.)
 type WidgetMeta struct {
 	// Kind is the control category: "range", "select", "multi", "bool",
 	// "draggable", "table". Derived from the leaf's result type.
-	Kind string `json:"kind"`
+	Kind string
 	// Columns is the grid schema for a Table (its row type T's fields), empty
 	// for every other kind. A grid cannot be rendered from the runtime value
 	// alone — it needs the column names and types, which are T's, known only at
 	// codegen.
-	Columns []WidgetColumn `json:"columns,omitempty"`
+	Columns []WidgetColumn `json:",omitempty"`
 }
 
 // WidgetColumn is one column of a Table's row type: its field name and a coarse
 // type tag ("number", "string", "bool") the client renders an appropriate cell
 // editor from. Type-derived at codegen.
 type WidgetColumn struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+	Name string
+	Type string
 }
 
 // Provenance records what produced this artifact, so a frozen binary — served
