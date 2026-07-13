@@ -67,3 +67,67 @@ func AsRendered(v any) (Rendered, bool) {
 	}
 	return Rendered{MIME: mime.String(), Data: data.String()}, true
 }
+
+// AsWidgetView probes v for the Viewable capability and returns its state view.
+// Like AsRendered, the probe is structural via reflection, because a notebook
+// defines its OWN widget types (e.g. lego.Multi) and imports nothing from this
+// package — so a static interface{ WidgetView() engine.WidgetView } could never
+// match WidgetView() lego.WidgetView across the two named types. The match is on
+// the method name, no args, and one struct result carrying the field shape of
+// [WidgetView]; the returned fields are copied by name so the notebook's own
+// WidgetView-shaped struct maps onto the engine's.
+func AsWidgetView(v any) (WidgetView, bool) {
+	if v == nil {
+		return WidgetView{}, false
+	}
+	m := reflect.ValueOf(v).MethodByName("WidgetView")
+	if !m.IsValid() {
+		return WidgetView{}, false
+	}
+	mt := m.Type()
+	if mt.NumIn() != 0 || mt.NumOut() != 1 {
+		return WidgetView{}, false
+	}
+	out := m.Call(nil)[0]
+	if out.Kind() != reflect.Struct {
+		return WidgetView{}, false
+	}
+	// Require at least the Value field to consider it a widget view; the rest are
+	// optional per kind.
+	vf := out.FieldByName("Value")
+	if !vf.IsValid() {
+		return WidgetView{}, false
+	}
+	wv := WidgetView{Value: vf.Interface()}
+	if f := out.FieldByName("Options"); f.IsValid() && f.Kind() == reflect.Slice {
+		if opts, ok := f.Interface().([]string); ok {
+			wv.Options = opts
+		}
+	}
+	wv.Lo = floatPtrField(out, "Lo")
+	wv.Hi = floatPtrField(out, "Hi")
+	wv.Max = intPtrField(out, "Max")
+	return wv, true
+}
+
+// floatPtrField reads a *float64 struct field by name (matching the notebook's
+// own WidgetView shape), nil if absent or nil. The notebook defines its own
+// WidgetView-shaped type, so the field is matched by name and pointer kind.
+func floatPtrField(s reflect.Value, name string) *float64 {
+	f := s.FieldByName(name)
+	if !f.IsValid() || f.Kind() != reflect.Pointer || f.IsNil() || !f.Elem().CanFloat() {
+		return nil
+	}
+	v := f.Elem().Float()
+	return &v
+}
+
+// intPtrField reads a *int struct field by name, nil if absent or nil.
+func intPtrField(s reflect.Value, name string) *int {
+	f := s.FieldByName(name)
+	if !f.IsValid() || f.Kind() != reflect.Pointer || f.IsNil() || !f.Elem().CanInt() {
+		return nil
+	}
+	v := int(f.Elem().Int())
+	return &v
+}

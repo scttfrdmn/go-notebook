@@ -488,6 +488,18 @@ type Range[T Number] struct {
 
 func (r Range[T]) Bounds() (float64, float64) { return float64(r.Lo), float64(r.Hi) }
 
+// WidgetView states a Range's live state for the client: its current selection
+// [From,To] as the value, and its data-derived bounds. State only — no label,
+// color, or step; the client decides how a range looks.
+func (r Range[T]) WidgetView() WidgetView {
+	lo, hi := float64(r.Lo), float64(r.Hi)
+	return WidgetView{
+		Value: []float64{float64(r.From), float64(r.To)},
+		Lo:    &lo,
+		Hi:    &hi,
+	}
+}
+
 // Select and Multi carry their own options, which is what lets a cell compute
 // them from data. Selections not present in All are dropped on reconcile.
 type Select[T interface{ Label() string }] struct {
@@ -497,6 +509,13 @@ type Select[T interface{ Label() string }] struct {
 
 func (s Select[T]) Options() []string { return labels(s.All) }
 
+// WidgetView states a Select's live state: the current choice's label and the
+// available option labels. The client selects by label; the runtime maps a
+// chosen label back to a T. State only.
+func (s Select[T]) WidgetView() WidgetView {
+	return WidgetView{Value: s.Value.Label(), Options: labels(s.All)}
+}
+
 type Multi[T interface{ Label() string }] struct {
 	All   []T
 	Value []T
@@ -504,6 +523,16 @@ type Multi[T interface{ Label() string }] struct {
 }
 
 func (m Multi[T]) Options() []string { return labels(m.All) }
+
+// WidgetView states a Multi's live state: the selected labels, the available
+// option labels, and the selection cap. State only — no appearance.
+func (m Multi[T]) WidgetView() WidgetView {
+	wv := WidgetView{Value: labels(m.Value), Options: labels(m.All)}
+	if m.Max > 0 {
+		wv.Max = &m.Max
+	}
+	return wv
+}
 
 func labels[T interface{ Label() string }](in []T) []string {
 	out := make([]string, len(in))
@@ -526,6 +555,17 @@ func (b Brush) contains(x, y float64) bool {
 // ---- Outputs. Anything with Render() Rendered draws as rich content. ----
 
 type Rendered struct{ MIME, Data string }
+
+// WidgetView is a widget's state on the wire — matched structurally by the
+// runtime (like Rendered), so the notebook defines its own and imports nothing.
+// State only: the current selection, the choices/bounds, hard constraints —
+// never appearance. Each widget kind fills the fields it uses.
+type WidgetView struct {
+	Value   any
+	Options []string
+	Lo, Hi  *float64
+	Max     *int
+}
 
 type Pt struct{ X, Y float64 }
 

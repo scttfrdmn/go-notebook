@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -72,6 +73,68 @@ func TestRenderableProbe(t *testing.T) {
 	}
 	if _, ok := AsRendered(42); ok {
 		t.Error("a plain int should not be Renderable")
+	}
+}
+
+// ownMulti defines its OWN WidgetView-shaped type and a WidgetView() method,
+// exactly as a notebook does — importing nothing from this package. It proves
+// AsWidgetView matches structurally across the zero-import boundary, like
+// AsRendered does for Rendered.
+type ownWidgetView struct {
+	Value   any
+	Options []string
+	Lo, Hi  *float64
+	Max     *int
+}
+type ownMulti struct{ sel, all []string }
+
+func (m ownMulti) WidgetView() ownWidgetView {
+	max := 5
+	return ownWidgetView{Value: m.sel, Options: m.all, Max: &max}
+}
+
+// TestWidgetViewProbe confirms a widget states its state across the boundary:
+// AsWidgetView reads a notebook's own WidgetView-shaped return by field name,
+// carries the selection + options, and rejects a non-widget value. State only —
+// there is no field for appearance to leak through.
+func TestWidgetViewProbe(t *testing.T) {
+	wv, ok := AsWidgetView(ownMulti{sel: []string{"a"}, all: []string{"a", "b", "c"}})
+	if !ok {
+		t.Fatal("ownMulti should be Viewable across the zero-import boundary")
+	}
+	got, _ := wv.Value.([]string)
+	if len(got) != 1 || got[0] != "a" {
+		t.Errorf("view Value = %v, want [a]", wv.Value)
+	}
+	if len(wv.Options) != 3 || wv.Max == nil || *wv.Max != 5 {
+		t.Errorf("view = %+v, want 3 options + Max 5", wv)
+	}
+	if _, ok := AsWidgetView(42); ok {
+		t.Error("a plain int is not a widget view")
+	}
+	if _, ok := AsWidgetView(markdown("# hi")); ok {
+		t.Error("a Renderable is not a widget view (different capability)")
+	}
+}
+
+// TestDoneEventEmitsWidget confirms the wire path: a cell producing a widget
+// value (Viewable, not Renderable, not scalar) reaches the client as an Out
+// with the widget MIME carrying the JSON state — where before it was nil (the
+// probe finding this round fixed). §8: assert the bytes on the seam.
+func TestDoneEventEmitsWidget(t *testing.T) {
+	rt := NewRuntime(Config{}, NewHead(), NewMemoStore())
+	ev := rt.doneEvent(1, levelResult{
+		id:  "picker",
+		out: Outputs{"themes": ownMulti{sel: []string{"City"}, all: []string{"City", "Duplo"}}},
+	})
+	if ev.Out == nil {
+		t.Fatal("a widget cell must reach the client, not be dropped to nil")
+	}
+	if ev.Out.MIME != WidgetMIME {
+		t.Errorf("MIME = %q, want %q", ev.Out.MIME, WidgetMIME)
+	}
+	if !strings.Contains(ev.Out.Data, `"City"`) || !strings.Contains(ev.Out.Data, `"options"`) {
+		t.Errorf("widget JSON missing selection/options: %s", ev.Out.Data)
 	}
 }
 

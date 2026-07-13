@@ -65,6 +65,22 @@ type Position struct {
 	Column   int    `json:"column"`
 }
 
+// WidgetMeta is the static, type-derived descriptor of a leaf's control: the
+// Kind the client dispatches on, plus a Table's column schema (a property of
+// the row type, known only at codegen). Mirrors engine.WidgetMeta; kept in the
+// IR as plain data so the graph stays free of go/types.
+type WidgetMeta struct {
+	Kind    string         `json:"kind"`
+	Columns []WidgetColumn `json:"columns,omitempty"`
+}
+
+// WidgetColumn is one column of a Table's row type: field name + coarse type
+// tag ("number"/"string"/"bool").
+type WidgetColumn struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
 // Param is a single cell parameter.
 type Param struct {
 	Name Symbol    `json:"name"`
@@ -117,6 +133,11 @@ type Cell struct {
 	// (Bounds/Options/Reconcile) or, when parameterless, a scalar basic kind.
 	// The directive only refines how the control looks, never whether it is one.
 	IsLeaf bool `json:"isLeaf"`
+	// Widget is the static, type-derived control descriptor for a leaf cell: the
+	// Kind that dispatches which control renders, plus a Table's column schema.
+	// Nil for non-widget leaves (a scalar/Bounded slider) and non-leaves.
+	// Plain data (no go/types) like the rest of the IR; the analyzer fills it.
+	Widget *WidgetMeta `json:"widget,omitempty"`
 	// WASMable reports whether the cell can run under GOOS=js GOARCH=wasm — it
 	// transitively touches no net/os/cgo. Distinct from Pure (time and rand are
 	// impure but WASM-able); derived by [analyze.WASMability], never declared.

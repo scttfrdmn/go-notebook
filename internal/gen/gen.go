@@ -189,10 +189,28 @@ func writeMeta(b *bytes.Buffer, g *graph.Graph) {
 	fmt.Fprintf(b, "var NotebookMeta = []engine.CellMeta{\n")
 	for _, id := range g.Order {
 		c := g.Cells[id]
-		fmt.Fprintf(b, "\t{ID: %q, Leaf: %q, Label: %q, Directives: %s, In: %s, Source: %q},\n",
-			c.ID, leafSymbol(c), c.Label, directiveLiteral(c.Directives), upstreamLiteral(g, c), c.Source)
+		fmt.Fprintf(b, "\t{ID: %q, Leaf: %q, Label: %q, Directives: %s, In: %s, Source: %q, Widget: %s},\n",
+			c.ID, leafSymbol(c), c.Label, directiveLiteral(c.Directives), upstreamLiteral(g, c), c.Source, widgetLiteral(c.Widget))
 	}
 	fmt.Fprintf(b, "}\n")
+}
+
+// widgetLiteral renders a cell's static control descriptor as an
+// *engine.WidgetMeta literal (Kind + any Table columns), or "nil" for a
+// non-widget leaf / non-leaf.
+func widgetLiteral(w *graph.WidgetMeta) string {
+	if w == nil {
+		return "nil"
+	}
+	var cols string
+	if len(w.Columns) > 0 {
+		parts := make([]string, len(w.Columns))
+		for i, c := range w.Columns {
+			parts[i] = fmt.Sprintf("{Name: %q, Type: %q}", c.Name, c.Type)
+		}
+		cols = ", Columns: []engine.WidgetColumn{" + strings.Join(parts, ", ") + "}"
+	}
+	return fmt.Sprintf("&engine.WidgetMeta{Kind: %q%s}", w.Kind, cols)
 }
 
 // upstreamLiteral renders the cells this cell consumes — the producers of its

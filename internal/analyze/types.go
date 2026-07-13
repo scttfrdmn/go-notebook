@@ -188,6 +188,10 @@ func buildCell(fset *token.FileSet, fn *ast.FuncDecl, fnObj *types.Func, q types
 		Pure:       false, // safe default; refined by RefinePurity, never on the hot path
 		IsLeaf:     isLeafCell(sig),
 	}
+	// A leaf's static control descriptor (Kind + Table columns), from its type.
+	if cell.IsLeaf {
+		cell.Widget = widgetMeta(leafResultType(sig))
+	}
 
 	var diags []graph.Diagnostic
 	if hasUnnamedData {

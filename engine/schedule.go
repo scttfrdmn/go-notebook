@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -444,13 +445,23 @@ func (r *Runtime) markStale(epoch Epoch, level []CellID) {
 // Out was always the display seam; scalars simply stop being nil.
 func (r *Runtime) doneEvent(epoch Epoch, res levelResult) Event {
 	ev := Event{Epoch: epoch, Cell: res.id, State: StateDone}
-	// A cell with a single output is the common view case. Prefer a Renderable;
-	// otherwise fall back to a scalar readout.
+	// A cell with a single output is the common view case. Order: a Renderable
+	// carries its rich picture; a widget carries its structured STATE (so a
+	// Multi/Select/Range value reaches the client, not nil); a bare scalar
+	// carries a text readout. Widget state travels in the existing Out.Data as
+	// JSON under a widget MIME — no new Event field, same capability-probe
+	// discipline as Rendered.
 	for _, v := range res.out {
 		if rendered, ok := AsRendered(v); ok {
 			rc := rendered
 			ev.Out = &rc
 			break
+		}
+		if wv, ok := AsWidgetView(v); ok {
+			if data, err := json.Marshal(wv); err == nil {
+				ev.Out = &Rendered{MIME: WidgetMIME, Data: string(data)}
+				break
+			}
 		}
 		if txt, ok := scalarReadout(v); ok {
 			ev.Out = &Rendered{MIME: "text/plain", Data: txt}
@@ -459,6 +470,10 @@ func (r *Runtime) doneEvent(epoch Epoch, res levelResult) Event {
 	}
 	return ev
 }
+
+// WidgetMIME tags an Out whose Data is a JSON [WidgetView] — the client
+// dispatches on the cell's static Kind (CellMeta) and reads this live state.
+const WidgetMIME = "application/x-notebook-widget+json"
 
 // scalarReadout formats v as a plain-text readout when it is a scalar — a basic
 // kind or a named type over one (PerHour, Seconds, Probability). Composite kinds
