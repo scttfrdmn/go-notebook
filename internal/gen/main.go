@@ -296,7 +296,7 @@ func mainBody(alias string) string {
 	if *headless || *asJSON {
 		rt.RunAll(ctx)
 		if *asJSON {
-			printJSON(rt.Finals())
+			printJSON(` + alias + `.NotebookProvenance, rt.Finals())
 		}
 		return
 	}
@@ -311,19 +311,26 @@ func mainBody(alias string) string {
 	}
 }
 
-// printJSON writes the final cell values as a stable JSON object. Each value is
-// encoded independently and a value that does not marshal (e.g. a float
-// Inf/NaN, which JSON cannot represent) is replaced with its fmt string, so
-// batch output never fails wholesale on one exotic value — a common case, since
-// an unstable queue legitimately produces an infinite wait.
-func printJSON(finals map[engine.Symbol]any) {
+// printJSON writes a self-identifying batch result: the provenance (what
+// produced this — source hash, commit) alongside the final cell values. An
+// sbatch result that names the notebook and the exact source/commit that
+// produced it is the reproducibility claim with teeth. The values live under a
+// "values" key so a cell can never collide with an identity field, and each
+// value is encoded independently — a value that does not marshal (a float
+// Inf/NaN, which JSON cannot represent) becomes its fmt string, so batch output
+// never fails wholesale on one exotic value (an unstable queue legitimately
+// produces an infinite wait).
+func printJSON(prov engine.Provenance, finals map[engine.Symbol]any) {
 	keys := make([]string, 0, len(finals))
 	for k := range finals {
 		keys = append(keys, string(k))
 	}
 	sort.Strings(keys)
 
+	provJSON, _ := json.Marshal(prov)
 	os.Stdout.WriteString("{\n")
+	fmt.Fprintf(os.Stdout, "  \"provenance\": %s,\n", provJSON)
+	os.Stdout.WriteString("  \"values\": {\n")
 	for i, k := range keys {
 		enc, err := json.Marshal(finals[engine.Symbol(k)])
 		if err != nil {
@@ -334,9 +341,9 @@ func printJSON(finals map[engine.Symbol]any) {
 		if i == len(keys)-1 {
 			comma = ""
 		}
-		fmt.Fprintf(os.Stdout, "  %s: %s%s\n", key, enc, comma)
+		fmt.Fprintf(os.Stdout, "    %s: %s%s\n", key, enc, comma)
 	}
-	os.Stdout.WriteString("}\n")
+	os.Stdout.WriteString("  }\n}\n")
 }
 
 // multiFlag collects repeated --set flags.

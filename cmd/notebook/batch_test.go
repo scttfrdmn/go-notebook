@@ -33,16 +33,53 @@ func TestBatchHeadlessSetJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	var got map[string]any
-	if err := json.Unmarshal(out, &got); err != nil {
-		t.Fatalf("output is not JSON: %v\n%s", err, out)
-	}
-	if c, _ := got["c"].(float64); c != 120 {
-		t.Errorf("c = %v, want 120 (the --set override should flow)", got["c"])
+	vals := jsonValues(t, out)
+	if c, _ := vals["c"].(float64); c != 120 {
+		t.Errorf("c = %v, want 120 (the --set override should flow)", vals["c"])
 	}
 	// cost = 120 * 1.006 = 120.72
-	if cost, _ := got["cost"].(float64); cost < 120 || cost > 121 {
-		t.Errorf("cost = %v, want ~120.72 (override must flow downstream)", got["cost"])
+	if cost, _ := vals["cost"].(float64); cost < 120 || cost > 121 {
+		t.Errorf("cost = %v, want ~120.72 (override must flow downstream)", vals["cost"])
+	}
+}
+
+// TestBatchJSONIsSelfIdentifying is KC12: a headless --json run names what
+// produced it — the source hash and commit — alongside the values, so an sbatch
+// result is reproducible without external bookkeeping. Driven on the real
+// built binary (§8).
+func TestBatchJSONIsSelfIdentifying(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds a binary; skipped in -short mode")
+	}
+	root := repoRoot(t)
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "capnb")
+	if code := cmdBuild([]string{"-o", bin, filepath.Join(root, "examples", "capacity")}); code != 0 {
+		t.Fatalf("build returned %d", code)
+	}
+	out, err := exec.Command(bin, "--headless", "--json", "--head", filepath.Join(tmp, "h.json")).Output()
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	var doc struct {
+		Provenance struct {
+			SourceHash string `json:"sourceHash"`
+			Commit     string `json:"commit"`
+			GoVersion  string `json:"goVersion"`
+		} `json:"provenance"`
+		Values map[string]any `json:"values"`
+	}
+	if err := json.Unmarshal(out, &doc); err != nil {
+		t.Fatalf("output is not the expected envelope: %v\n%s", err, out)
+	}
+	if doc.Provenance.SourceHash == "" {
+		t.Error("--json must carry the source hash (the notebook's content identity)")
+	}
+	if doc.Provenance.GoVersion == "" {
+		t.Error("--json provenance should carry the Go version")
+	}
+	if len(doc.Values) == 0 {
+		t.Error("--json must still carry the cell values under \"values\"")
 	}
 }
 
@@ -98,11 +135,7 @@ func TestLeafPropertyEndToEnd(t *testing.T) {
 		if err != nil {
 			t.Fatalf("run %v: %v", sets, err)
 		}
-		var m map[string]any
-		if err := json.Unmarshal(out, &m); err != nil {
-			t.Fatalf("bad JSON for %v: %v", sets, err)
-		}
-		return m
+		return jsonValues(t, out)
 	}
 
 	base := run() // defaults
@@ -120,6 +153,19 @@ func TestLeafPropertyEndToEnd(t *testing.T) {
 			t.Errorf("leaf %q set to %s changed NO downstream value — inert control", leaf, val)
 		}
 	}
+}
+
+// jsonValues parses the batch --json envelope and returns its "values" submap
+// (the cell results), failing the test if the shape is wrong.
+func jsonValues(t *testing.T, out []byte) map[string]any {
+	t.Helper()
+	var doc struct {
+		Values map[string]any `json:"values"`
+	}
+	if err := json.Unmarshal(out, &doc); err != nil {
+		t.Fatalf("output is not the expected {provenance, values} envelope: %v\n%s", err, out)
+	}
+	return doc.Values
 }
 
 // sameAllValues reports whether two result maps have identical values for all
