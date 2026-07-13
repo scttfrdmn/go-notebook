@@ -443,12 +443,73 @@ const NB = (function () {
     }
     if (!ev.mime) return; // scalar with no view — leave hidden
     el.hidden = false;
-    if (ev.mime === 'image/svg+xml' || ev.mime === 'text/html') body.innerHTML = ev.data;
-    else body.textContent = ev.data; // text/plain readout, markdown source — never injected
+    if (ev.mime === 'image/svg+xml' || ev.mime === 'text/html') {
+      body.innerHTML = ev.data;
+      bindGrips(body); // a Renderable may draw data-grip handles for a foreign leaf
+    } else body.textContent = ev.data; // text/plain readout, markdown source — never injected
     afterRender();
   }
 
   const WIDGET_MIME = 'application/x-notebook-widget+json';
+
+  // bindGrips wires pointer-drag on any data-grip="leaf:index" handle in a
+  // rendered SVG. A grip is drawn by a cell that doesn't own its leaf (editor
+  // draws handles for the ctrl leaf), so the leaf identity travels in the
+  // attribute — the runtime stamped it, the notebook never wrote it. Dragging
+  // emits the WHOLE point set for that leaf as the selection (continuous, one
+  // Set per move; the scheduler already coalesces rapid waves), so the drag goes
+  // through the same Head.Set chokepoint as a slider — the renderer reads, the
+  // runtime writes, no cycle.
+  function bindGrips(body) {
+    const svg = body.querySelector('svg');
+    if (!svg) return;
+    const handles = [...svg.querySelectorAll('[data-grip]')];
+    if (!handles.length) return;
+    // Group handles by leaf; the drag emits that leaf's full [{x,y}] set.
+    const byLeaf = {};
+    for (const h of handles) {
+      const [leaf, idx] = h.getAttribute('data-grip').split(':');
+      (byLeaf[leaf] ||= []).push({ el: h, i: +idx });
+    }
+    for (const leaf in byLeaf) {
+      const grips = byLeaf[leaf].sort((a, b) => a.i - b.i);
+      // Emit a FLAT [x0,y0,x1,y1,...] — the coercer homogenizes to []float64 and
+      // the notebook's Reconcile pairs them back into its own point type (the
+      // label/value gap again: the wire carries primitives, the notebook owns
+      // the domain shape).
+      const pts = () => grips.flatMap(g => { const p = svgPoint(svg, g.el); return [p.X, p.Y]; });
+      for (const g of grips) {
+        g.el.style.cursor = 'grab';
+        g.el.onpointerdown = (e) => {
+          e.preventDefault(); g.el.setPointerCapture(e.pointerId); g.el.style.cursor = 'grabbing';
+          const move = (ev2) => {
+            const p = clientToSvgData(svg, ev2.clientX, ev2.clientY);
+            g.el.setAttribute('cx', svgX(svg, p.x)); g.el.setAttribute('cy', svgY(svg, p.y));
+            onEdit(leaf, pts()); // continuous: whole point set, every move
+          };
+          const up = () => { g.el.style.cursor = 'grab'; g.el.onpointermove = null; g.el.onpointerup = null; };
+          g.el.onpointermove = move; g.el.onpointerup = up;
+        };
+      }
+    }
+  }
+  // The chart draws in a 0..1 data space mapped to the SVG viewBox with a pad;
+  // these invert that mapping. Kept simple: pad and range match the notebook's
+  // Chart.Render (the demo uses pad=40 over a 720x420 viewBox, data 0..1).
+  function svgBox(svg) { const vb = svg.viewBox.baseVal; return vb && vb.width ? vb : { width: 720, height: 420 }; }
+  const PAD = 40;
+  function svgX(svg, dx) { const b = svgBox(svg); return (PAD + dx * (b.width - 2 * PAD)).toFixed(1); }
+  function svgY(svg, dy) { const b = svgBox(svg); return (b.height - PAD - dy * (b.height - 2 * PAD)).toFixed(1); }
+  function svgPoint(svg, el) {
+    const b = svgBox(svg);
+    const cx = +el.getAttribute('cx'), cy = +el.getAttribute('cy');
+    return { X: (cx - PAD) / (b.width - 2 * PAD), Y: (b.height - PAD - cy) / (b.height - 2 * PAD) };
+  }
+  function clientToSvgData(svg, clientX, clientY) {
+    const r = svg.getBoundingClientRect(), b = svgBox(svg);
+    const vx = (clientX - r.left) / r.width * b.width, vy = (clientY - r.top) / r.height * b.height;
+    return { x: (vx - PAD) / (b.width - 2 * PAD), y: (b.height - PAD - vy) / (b.height - 2 * PAD) };
+  }
 
   // renderTable draws a Table leaf's editable grid in its cell body (a table
   // needs its column schema, which a compact control can't hold). Columns come

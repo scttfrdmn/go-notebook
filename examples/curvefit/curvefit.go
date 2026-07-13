@@ -39,6 +39,7 @@ package curvefit
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 )
 
@@ -260,23 +261,60 @@ func clone2(m [][]float64) [][]float64 {
 
 type Pt struct{ X, Y float64 }
 
-// Draggable is a leaf you can manipulate directly on a chart.
-//
-// The `at` token is stamped by the runtime when it materializes this leaf, so a Grip
-// carries the leaf's identity WITHOUT a string. Copy a Draggable into a chart and the
-// grips still point at the right leaf, because the identity rides along with the value.
+// Draggable is a leaf you can manipulate directly on a chart. Its grips are
+// drawn by a DIFFERENT cell (editor draws handles for these control points), so
+// the leaf's identity must ride WITH the value across that cell boundary — that
+// is what Grip(i) carries. The identity is stamped by the runtime, never by the
+// author: WithLeaf is a runtime seam (the runtime writes leaf identity; the
+// notebook reads it via Grip).
 type Draggable[T any] struct {
 	Value []T
-	at    leafToken // unexported: set by the runtime, never by the notebook author
+	leaf  string // the leaf symbol, stamped by the runtime via WithLeaf
 }
 
-func (d Draggable[T]) Grip(i int) Ref { return Ref{leaf: d.at, index: i} }
+// WithLeaf is the runtime stamping seam (value semantics — returns a copy). The
+// runtime calls it when it materializes this leaf; a notebook calling it is a
+// smell.
+func (d Draggable[T]) WithLeaf(sym string) Draggable[T] { d.leaf = sym; return d }
 
-type leafToken uint64
+// Grip is a typed reference to element i of THIS leaf — no string in the author's
+// code; the symbol appears only at the wire (Ref marshals to "leaf:index").
+func (d Draggable[T]) Grip(i int) Ref { return Ref{Leaf: d.leaf, Index: i} }
+
+// Reconcile RESETS the control points on an arity change: point #3 of a quintic
+// is not point #3 of a septic, so partial retention is incoherent. When the
+// saved selection has the same count as the fresh schema, adopt it; otherwise
+// the fresh default stands. This is the draggable's place in the taxonomy.
+func (d Draggable[T]) Reconcile(saved any) any {
+	// The selection arrives as a flat [x0,y0,x1,y1,...] — the wire carries
+	// primitives; this notebook owns the point shape and pairs them back.
+	flat, ok := saved.([]float64)
+	if !ok || len(flat) != 2*len(d.Value) {
+		return d // arity changed (or unusable) → reset to the fresh schema
+	}
+	out := make([]T, len(d.Value))
+	for i := range out {
+		if p, ok := any(Pt{X: flat[2*i], Y: flat[2*i+1]}).(T); ok {
+			out[i] = p
+		}
+	}
+	d.Value = out
+	return d
+}
+
+// WidgetView states the Draggable's live state: its point positions as the
+// selection. State only — the chart (a Render) draws them; this carries the data.
+func (d Draggable[T]) WidgetView() WidgetView { return WidgetView{Value: d.Value} }
 
 type Ref struct {
-	leaf  leafToken
-	index int
+	Leaf  string
+	Index int
+}
+
+// MarshalText renders a grip ref as "leaf:index" for the SVG data-grip attribute
+// — the wire form the client parses to route a drag to the right leaf.
+func (r Ref) MarshalText() ([]byte, error) {
+	return []byte(r.Leaf + ":" + itoa(r.Index)), nil
 }
 
 // Handle is a declarative request: "draw a grip here; dragging it writes to that leaf."
@@ -325,15 +363,29 @@ func (c Chart) Render() Rendered {
 		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="2.5" fill="#0f172a" fill-opacity="0.45"/>`,
 			sx(p.X), sy(p.Y))
 	}
-	// Grips. data-grip is how the runtime finds them; the notebook never wrote it.
+	// Grips. data-grip = "leaf:index" is how the client routes a drag to the leaf
+	// this handle writes; the notebook never wrote the leaf symbol (the runtime
+	// stamped it, Grip carries it, MarshalText renders it here).
 	for _, g := range c.Grips {
+		ref, _ := g.Ref.MarshalText()
 		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="7" fill="#fff" stroke="#c026d3" `+
 			`stroke-width="2.5" data-grip=%q style="cursor:grab"/>`,
-			sx(g.At.X), sy(g.At.Y), g.Ref)
+			sx(g.At.X), sy(g.At.Y), string(ref))
 	}
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }
+
+// WidgetView is a widget's state on the wire — matched structurally by the
+// runtime (like Rendered). State only; each kind fills what it uses.
+type WidgetView struct {
+	Value   any
+	Options []string
+	Lo, Hi  *float64
+	Max     *int
+}
+
+func itoa(n int) string { return strconv.Itoa(n) }
 
 type Rendered struct{ MIME, Data string }
 

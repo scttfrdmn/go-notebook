@@ -1,6 +1,9 @@
 package engine
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"reflect"
+)
 
 // Widget discovery is capability probing, never a type switch. Adding a new
 // control kind later (Multi, Select, Table, Draggable) means adding one probe
@@ -50,6 +53,32 @@ func AsBounded(v any) (Bounded, bool) {
 func AsReconciler(v any) (Reconciler, bool) {
 	r, ok := v.(Reconciler)
 	return r, ok
+}
+
+// StampLeaf stamps a draggable widget with the leaf symbol it belongs to, if the
+// value exposes the runtime seam WithLeaf(string) → same-type. It is the
+// write-direction twin of the read probes (Render/Bounds/WidgetView): the
+// notebook exposes a method of an agreed shape, the runtime calls it, and the
+// runtime never names the widget's type. A grip is drawn by a cell that does not
+// own its leaf (curvefit's editor draws handles for the ctrl leaf), so the
+// leaf's identity must ride WITH the value across that cell boundary — this is
+// how it gets there. WithLeaf has value semantics (returns a copy), so the
+// stamped value flows downstream as an ordinary value with no hidden mutation.
+//
+// If v has no WithLeaf seam (every non-draggable widget), v is returned
+// unchanged. The seam is for the RUNTIME only; a notebook that calls it is a
+// smell (the runtime writes leaf identity, the notebook reads it via Grip).
+func StampLeaf(v any, sym string) any {
+	m := reflect.ValueOf(v).MethodByName("WithLeaf")
+	if !m.IsValid() {
+		return v
+	}
+	mt := m.Type()
+	if mt.NumIn() != 1 || mt.NumOut() != 1 ||
+		mt.In(0).Kind() != reflect.String || mt.Out(0) != reflect.TypeOf(v) {
+		return v // wrong shape — not the stamping seam
+	}
+	return m.Call([]reflect.Value{reflect.ValueOf(sym)})[0].Interface()
 }
 
 // CoerceWire homogenizes a decoded-JSON selection into the clean Go primitive a
