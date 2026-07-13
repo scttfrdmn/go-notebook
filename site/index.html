@@ -46,6 +46,10 @@
   pre.src .t { color: #7ee787; }      /* type */
   pre.src .d { color: #f0b866; }      /* directive */
 
+  .thesis { border-top: 1px solid var(--line); padding: 2rem 0; }
+  .thesis h2 { color: var(--navy); font-size: 1.35rem; margin: 0 0 .75rem; }
+  .thesis p { max-width: 64ch; }
+  .thesis .key { color: var(--ink); font-weight: 600; }
   .numbers { border-top: 1px solid var(--line); padding: 2rem 0; }
   .numbers h2 { color: var(--navy); font-size: 1.35rem; margin: 0 0 1rem; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
@@ -74,14 +78,14 @@
 
   <header>
     <img src="assets/logo.png" alt="go-notebook — a cell is a function">
-    <p class="tag">Reactive notebooks that compile. Drag something below — it's compiled Go running in your browser, no server.</p>
+    <p class="tag">Reactive notebooks that compile. Drag a slider below and watch the wave move through the dependency graph at the top of each demo — that graph is derived by the Go type checker, and it's compiled Go running in your browser, no server.</p>
   </header>
 
   <!-- DEMOS FIRST. No prose above them. -->
 
   <section class="demo">
     <h2>Capacity — an M/M/c queue</h2>
-    <p class="sub">Drag the sliders. Every downstream value recomputes; the cost/latency curve moves.</p>
+    <p class="sub">The boxes at the top are the cells; the lines are which feeds which. Drag a slider and watch the wave light up the graph — amber as each cell recomputes, then settling — before the cost/latency curve below even moves. <b>The graph isn't a diagram of the notebook; it is the notebook.</b></p>
     <div class="frame"><iframe src="demos/capacity/index.html" loading="lazy" title="capacity demo"></iframe></div>
     <div class="reveal">
       <p class="call">The thing you just dragged is this file. <b>No framework import. No <code>.ipynb</code>. Nothing from this project — just Go and the standard library.</b> A cell is a top-level function; the graph is its parameter names.</p>
@@ -124,6 +128,14 @@
     <div class="reveal">
       <p class="call">Scrubbing <code>n</code> backward works because <b>the posterior is a pure function of sufficient statistics</b> — sums, not a fold. A fold could only go forward. The type checker and the graph make that the natural way to write it.</p>
     </div>
+  </section>
+
+  <!-- THE THESIS: the graph is the artifact. Named, after you've already seen it move. -->
+
+  <section class="thesis">
+    <h2>The graph is the whole point</h2>
+    <p>Every notebook has a dependency graph — which cell feeds which. In Jupyter it's implicit and you maintain it in your head; in most reactive notebooks it's a side panel bolted on for explainability. <span class="key">Here it's derived by the Go type checker from nothing but your function signatures</span> — a cell's named result feeds any cell that takes a parameter of the same name and type — so it can't drift from the code, because it <em>is</em> the code.</p>
+    <p>That's why the demos lead with it, and why watching a wave propagate through it is the best debugger in the system: <span class="key">you can see exactly what recomputes and in what order</span>, live, with no server and no instrumentation. No other notebook can show you this, because in every other notebook the graph is incidental. It's the artifact.</p>
   </section>
 
   <!-- NUMBERS, including the one that doesn't flatter. -->
