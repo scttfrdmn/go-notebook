@@ -41,7 +41,7 @@ coverage:
 # than silently skipping (a skipped check is how the gate drifts).
 lint:
 	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run ./...; echo "ok lint"; \
+		golangci-lint run ./... && echo "ok lint"; \
 	else \
 		echo "WARNING: golangci-lint not installed — CI still runs it (pin $(GOLANGCI_VERSION)). Install: https://golangci-lint.run/welcome/install/"; \
 		exit 1; \

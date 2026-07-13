@@ -64,6 +64,7 @@ func Page(opts PageOpts) string {
 	b.WriteString(`<div class="graph" id="graph"></div>` + "\n")
 	b.WriteString(`<div class="controls" id="controls"></div>` + "\n")
 	b.WriteString(`<div id="cells"></div>` + "\n")
+	b.WriteString(`<footer id="provenance"></footer>` + "\n")
 	b.WriteString("<script>")
 	b.WriteString(JS)
 	b.WriteString("\n")
@@ -136,6 +137,11 @@ const CSS = `
   .graph .node.blocked rect { stroke: var(--stale); stroke-dasharray: 3 3; }
   .graph .node.leaf    rect { fill: #f3f8fc; }
   .graph .edge { stroke: var(--line); stroke-width: 1.5; fill: none; }
+  /* Provenance — what produced this artifact. Unobtrusive, no network call.
+     A path is not a handle; this is the handle, shown. */
+  #provenance { margin-top: 2rem; padding-top: .75rem; border-top: 1px solid var(--line);
+                font: 11px/1.5 monospace; color: var(--muted); }
+  #provenance .dirty { color: var(--err); font-weight: 600; }
 `
 
 // JS is the shared render engine. It defines a global NB object with the whole
@@ -314,16 +320,39 @@ const NB = (function () {
     }
   }
 
+  // showProvenance renders the build identity in the footer: what produced this
+  // artifact, unobtrusively, with no network call. A path is not a handle — this
+  // shows the handle. Absent fields (a notebook outside a git repo) are simply
+  // omitted; the source hash is always present.
+  function showProvenance(p) {
+    if (!p || !p.sourceHash) return;
+    const foot = document.getElementById('provenance');
+    if (!foot) return;
+    const short = (s) => (s || '').slice(0, 12);
+    const parts = ['built from source ' + short(p.sourceHash)];
+    if (p.commit) parts.push('commit ' + short(p.commit) + (p.dirty ? ' +dirty' : ''));
+    if (p.builtAt) parts.push(p.builtAt);
+    if (p.goVersion) parts.push(p.goVersion);
+    foot.textContent = parts.join(' · ');
+    if (p.dirty) {
+      const tag = document.createElement('span');
+      tag.className = 'dirty'; tag.textContent = '  (built from uncommitted changes)';
+      foot.appendChild(tag);
+    }
+  }
+
   // init builds the whole UI from META. opts.onEdit(leaf, value) is called on a
-  // control edit; opts.afterRender runs after each render (optional).
+  // control edit; opts.afterRender runs after each render (optional);
+  // opts.provenance is the build identity to show in the footer (optional).
   function init(meta, opts) {
     META = meta || [];
     onEdit = (opts && opts.onEdit) || function () {};
     if (opts && opts.afterRender) afterRender = opts.afterRender;
     buildGraph();
     buildControlsAndCells();
+    if (opts && opts.provenance) showProvenance(opts.provenance);
   }
 
-  return { init, render, seedLeaves };
+  return { init, render, seedLeaves, showProvenance };
 })();
 `
