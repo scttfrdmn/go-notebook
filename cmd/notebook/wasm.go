@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
@@ -52,9 +53,15 @@ func buildWASM(res analyze.Analysis, moduleRoot, out string, timing bool) int {
 	}
 	defer overlay.Cleanup()
 
-	wasmPath := filepath.Join(outDir, "notebook.wasm")
-	absWASM, _ := filepath.Abs(wasmPath)
-	cmd := exec.Command("go", "build", "-overlay="+overlay.JSONPath, "-o", absWASM, overlay.MainDir)
+	// Build to a temp path, then rename to notebook-<hash>.wasm where the hash is
+	// of the COMPILED BYTES (the true artifact identity — the thing actually
+	// served). A content-addressed filename gives an immutable URL: GitHub Pages
+	// serves .wasm with max-age=600 and no revalidation, so a fixed name is served
+	// stale for 10 min after a redeploy; a different name for different bytes
+	// cannot be. A path is not a handle; the filename now IS the handle.
+	tmpWASM := filepath.Join(outDir, ".notebook.wasm.tmp")
+	absTmp, _ := filepath.Abs(tmpWASM)
+	cmd := exec.Command("go", "build", "-overlay="+overlay.JSONPath, "-o", absTmp, overlay.MainDir)
 	cmd.Dir = moduleRoot
 	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	cmd.Stderr = os.Stderr
@@ -65,7 +72,18 @@ func buildWASM(res analyze.Analysis, moduleRoot, out string, timing bool) int {
 	}
 	buildElapsed := time.Since(buildStart)
 
-	if err := writeHostFiles(outDir, res.Package.Name); err != nil {
+	wasmName, err := contentAddress(absTmp)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "notebook build: %v\n", err)
+		return 1
+	}
+	absWASM := filepath.Join(outDir, wasmName)
+	if err := os.Rename(absTmp, absWASM); err != nil {
+		fmt.Fprintf(os.Stderr, "notebook build: %v\n", err)
+		return 1
+	}
+
+	if err := writeHostFiles(outDir, res.Package.Name, wasmName); err != nil {
 		fmt.Fprintf(os.Stderr, "notebook build: %v\n", err)
 		return 1
 	}
@@ -79,9 +97,22 @@ func buildWASM(res analyze.Analysis, moduleRoot, out string, timing bool) int {
 	return 0
 }
 
+// contentAddress returns the content-addressed filename for a built wasm file:
+// notebook-<sha256[:12]>.wasm, hashing the compiled bytes. The bytes are the
+// artifact's true identity, so the filename changes iff the served program does.
+func contentAddress(path string) (string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("hashing wasm: %w", err)
+	}
+	sum := sha256.Sum256(b)
+	return fmt.Sprintf("notebook-%x.wasm", sum[:6]), nil
+}
+
 // writeHostFiles copies Go's wasm_exec.js (the JS runtime shim, version-matched
-// to the toolchain) and writes index.html next to the .wasm.
-func writeHostFiles(outDir, name string) error {
+// to the toolchain) and writes index.html next to the .wasm. wasmName is the
+// content-addressed filename the page must fetch.
+func writeHostFiles(outDir, name, wasmName string) error {
 	shim, err := wasmExecPath()
 	if err != nil {
 		return err
@@ -89,9 +120,10 @@ func writeHostFiles(outDir, name string) error {
 	if err := copyFile(shim, filepath.Join(outDir, "wasm_exec.js")); err != nil {
 		return fmt.Errorf("copying wasm_exec.js: %w", err)
 	}
-	// Insert the name by replace, not Sprintf: the shared webui CSS/JS contain
-	// literal %, which a format verb would choke on.
+	// Insert the name + content-addressed wasm filename by replace, not Sprintf:
+	// the shared webui CSS/JS contain literal %, which a format verb would choke on.
 	html := strings.ReplaceAll(indexHTMLWASM, "__NB_NAME__", name)
+	html = strings.ReplaceAll(html, "__NB_WASM__", wasmName)
 	if err := os.WriteFile(filepath.Join(outDir, "index.html"), []byte(html), 0o644); err != nil {
 		return fmt.Errorf("writing index.html: %w", err)
 	}

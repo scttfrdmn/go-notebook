@@ -57,9 +57,9 @@ const go = new Go();
 // the wrong MIME it hard-fails, so fall back to a plain fetch+arrayBuffer.
 async function instantiate() {
   try {
-    return await WebAssembly.instantiateStreaming(fetch('notebook.wasm'), go.importObject);
+    return await WebAssembly.instantiateStreaming(fetch('__NB_WASM__'), go.importObject);
   } catch (_) {
-    const bytes = await (await fetch('notebook.wasm')).arrayBuffer();
+    const bytes = await (await fetch('__NB_WASM__')).arrayBuffer();
     return await WebAssembly.instantiate(bytes, go.importObject);
   }
 }
