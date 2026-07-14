@@ -46,11 +46,13 @@
 package portfolio
 
 import (
+	"embed"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -78,7 +80,7 @@ func holdings() (lots Table[Lot]) {
 func prices(lots Table[Lot]) (bars Prices, err error) {
 	bars = Prices{}
 	for _, t := range tickers(lots.Value) {
-		series, err := fetchDaily(t)
+		series, err := dailyCloses(t)
 		if err != nil {
 			return nil, fmt.Errorf("portfolio: %s: %w", t, err)
 		}
@@ -182,6 +184,77 @@ portfolio is worth whatever those shares are worth now.`
 // ===========================================================================
 // Data
 // ===========================================================================
+
+// dailyCloses is the source seam for a ticker's price series. It has two paths
+// that answer the same shape (Bars) so that `prices` stays a RETURNED value —
+// the whole point of this notebook — and only the SOURCE changes underneath it:
+//
+//   - LIVE (default): fetchDaily hits Stooq. This is the honest path. "This
+//     notebook fetches real prices" is a claim, and a fixture masquerading as
+//     live would turn that claim into a lie — so the live path is what runs
+//     unless you explicitly ask otherwise, and when Stooq is down it ERRORS.
+//     It does not silently fall back to the fixture; a silent substitution is
+//     exactly the failure this project is named after (the system produced a
+//     thing, and the thing that reached you wasn't the thing it claimed).
+//
+//   - FIXTURE (PORTFOLIO_PRICES=fixture): reads checked-in monthly closes from
+//     prices.csv. This is the REPRODUCIBLE path — deterministic, offline, and
+//     what CI and `notebook run` verification use, because a corpus notebook's
+//     interactivity can't be gated on a third party's bot detector (Stooq began
+//     serving a JS bot-challenge page instead of CSV; see #96).
+//
+// The split is the compute/view seam in a new place: deterministic for the path
+// that must reproduce, live for the path that must stay honest. Two different
+// requirements that were always wearing the same fetch call.
+func dailyCloses(t Ticker) (Bars, error) {
+	if strings.EqualFold(os.Getenv("PORTFOLIO_PRICES"), "fixture") {
+		return fixtureDaily(t)
+	}
+	return fetchDaily(t)
+}
+
+//go:embed prices.csv
+var fixtureCSV embed.FS
+
+// fixtureDaily serves a ticker's closes from the checked-in prices.csv — a
+// coarse (monthly) but real-shaped series, enough to drive the graph to real
+// numbers offline. It errors on an unknown ticker rather than returning an
+// empty series, mirroring fetchDaily: a missing ticker is a fault, not a
+// silent zero (the same discipline the whole notebook is about).
+func fixtureDaily(t Ticker) (Bars, error) {
+	f, err := fixtureCSV.Open("prices.csv")
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	rec, err := csv.NewReader(f).ReadAll()
+	if err != nil || len(rec) < 2 {
+		return nil, fmt.Errorf("no fixture price data for %s", t)
+	}
+	want := Ticker(strings.ToUpper(string(t)))
+
+	var out Bars
+	for _, r := range rec[1:] { // Ticker,Date,Close
+		if Ticker(strings.ToUpper(r[0])) != want {
+			continue
+		}
+		d, err := time.Parse("2006-01-02", r[1])
+		if err != nil {
+			continue
+		}
+		close, err := strconv.ParseFloat(r[2], 64)
+		if err != nil {
+			continue
+		}
+		out = append(out, Bar{Date: Date(d), Close: Price(close)})
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no fixture price data for %s", t)
+	}
+	slices.SortFunc(out, func(a, b Bar) int { return a.Date.cmp(b.Date) })
+	return out, nil
+}
 
 // fetchDaily pulls daily closes from Stooq, which serves plain CSV and needs no key.
 // Note that the ticker is an ARGUMENT to the URL. It has to be — the function's return
