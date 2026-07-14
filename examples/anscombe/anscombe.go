@@ -33,32 +33,36 @@ import (
 // datasaurus is a hand-traced dinosaur silhouette in the [0,100] window — the seed
 // the notebook opens with. It has no special statistics; it is here because a
 // recognizable shape makes "drag it into a line and the numbers hold" land harder
-// than a blob would. It's a T-rex facing left: head and open jaw upper-left, two
-// legs planted at the bottom, tail sweeping up to the right. Points are ordered
-// around the outline (head → front leg → back leg → tail → back → eye) plus a few
-// interior body points, so the cloud reads as a creature, not scatter.
+// than a blob would. It's a sauropod (long-necked, Brontosaurus-shaped) facing
+// left: a small head upper-left, a long neck sloping down to a horizontal body,
+// two legs planted at the bottom, and a tail sweeping off to the right. The points
+// only plot as dots, so the shape has to read from the dots alone — the features
+// are laid out to be legible: a head cluster, a diagonal neck, two leg columns, a
+// body band, and a tapering tail.
+// The raised tail is deliberate: a high head at the left and a low tail at the
+// right would give a strong negative correlation, which would undercut the whole
+// point (near-zero r, unmistakable shape). Sweeping the tail up to balance the
+// head brings the correlation to about -0.2 — small enough to read as "no linear
+// trend" while the picture is plainly a dinosaur. (Verified in the test.)
 var datasaurus = []Pt{
-	// head and open jaw (upper left)
-	{24, 88}, {14, 82}, {18, 78}, {24, 76}, {30, 72},
-	// chest and belly, front
-	{34, 64}, {36, 54}, {38, 44},
-	// front leg and foot
-	{40, 32}, {38, 20}, {40, 10}, {46, 10}, {46, 22}, {48, 34},
-	// crotch
-	{52, 38},
-	// back leg and foot
-	{56, 44}, {54, 32}, {56, 20}, {58, 10}, {64, 10}, {64, 22}, {62, 34},
-	// belly, back
-	{60, 42},
-	// tail underside, sweeping up to the right
-	{66, 48}, {72, 54}, {78, 60}, {84, 66}, {90, 72},
-	// tail top, coming back along the spine toward the head
-	{84, 72}, {78, 70}, {72, 72}, {66, 74}, {60, 76}, {54, 78},
-	{48, 80}, {42, 82}, {36, 84}, {30, 86},
-	// the eye
-	{22, 84},
-	// interior body points, so it fills as a solid animal
-	{44, 60}, {50, 58}, {40, 52}, {52, 50}, {46, 48},
+	// head (small, upper-left) and eye
+	{12, 86}, {8, 83}, {13, 80}, {16, 84},
+	{12, 84}, // eye
+	// neck — a diagonal line of dots sloping down from the head to the body
+	{19, 77}, {24, 71}, {29, 65}, {34, 59},
+	// back / spine — the top of the body, left to right, gently rising
+	{40, 60}, {47, 62}, {54, 63}, {61, 64},
+	// tail — sweeping UP and to the right (upper edge, then back along the lower)
+	{68, 66}, {75, 70}, {82, 74}, {89, 78},
+	{86, 74}, {79, 70}, {72, 66},
+	// belly — the underside of the body, right to left
+	{64, 54}, {56, 53}, {48, 53}, {41, 53},
+	// front leg — a column of dots down to a foot
+	{39, 47}, {38, 35}, {37, 22}, {42, 20}, {43, 34}, {44, 47},
+	// back leg — a second column
+	{59, 48}, {58, 36}, {57, 24}, {62, 22}, {63, 35}, {64, 48},
+	// a few interior body dots so it fills as a solid animal, not an outline
+	{46, 57}, {53, 58}, {50, 54}, {58, 57}, {44, 56},
 }
 
 // ---------------------------------------------------------------------------
