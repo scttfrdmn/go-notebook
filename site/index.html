@@ -36,6 +36,28 @@
            box-shadow: 0 1px 3px rgba(20,30,60,.06); }
   .frame iframe { width: 100%; height: 460px; border: 0; display: block; transition: height .15s ease; }
 
+  /* The corpus — one tile per notebook. */
+  .corpus { border-top: 1px solid var(--line); padding: 2rem 0 1rem; }
+  .corpus h2 { color: var(--navy); font-size: 1.35rem; margin: 0 0 .3rem; }
+  .corpus .lead { color: var(--muted); margin: 0 0 1.5rem; max-width: 64ch; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
+  .tile { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px;
+          padding: 1rem 1.1rem; background: #fff; box-shadow: 0 1px 3px rgba(20,30,60,.05);
+          text-decoration: none; color: inherit; transition: border-color .12s, box-shadow .12s, transform .12s; }
+  a.tile:hover { border-color: var(--go); box-shadow: 0 3px 10px rgba(20,30,60,.10); transform: translateY(-1px); }
+  .tile .top { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+  .tile h3 { font-size: 1.05rem; margin: 0; color: var(--navy); }
+  .tile .what { color: var(--ink); font-size: .93rem; margin: .4rem 0 .7rem; line-height: 1.45; flex: 1; }
+  .tile .foot { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
+  .badge { font: 600 11px/1 -apple-system, system-ui, sans-serif; padding: .28rem .5rem; border-radius: 20px;
+           letter-spacing: .02em; white-space: nowrap; }
+  .badge.live { background: #e7f7ea; color: #237a2b; }
+  .badge.batch { background: #eef1f6; color: #5b6472; }
+  .tag { display: inline-block; font: 500 11px/1 "SF Mono", ui-monospace, monospace; color: var(--blue);
+         background: #eff6fc; padding: .28rem .5rem; border-radius: 6px; }
+  .tile .go { font-size: .85rem; color: var(--go); font-weight: 600; margin-top: .55rem; }
+  a.tile .go::after { content: " →"; }
+
   .reveal { margin-top: 1rem; }
   .reveal .call { font-size: .95rem; color: var(--muted); margin: 0 0 .5rem; }
   .reveal .call b { color: var(--ink); }
@@ -78,10 +100,10 @@
 
   <header>
     <img src="assets/logo.png" alt="go-notebook — a cell is a function">
-    <p class="tag">Reactive notebooks that compile. Drag a slider below and watch the wave move through the dependency graph at the top of each demo — that graph is derived by the Go type checker, and it's compiled Go running in your browser, no server.</p>
+    <p class="tag">Reactive notebooks that compile. Drag a slider below and watch the wave move through the dependency graph at the top of the demo — that graph is derived by the Go type checker, and it's compiled Go running in your browser, no server. Then browse the corpus: nine notebooks, three you can drag right here.</p>
   </header>
 
-  <!-- DEMOS FIRST. No prose above them. -->
+  <!-- ONE DEMO FIRST. Drag before you read a single word of prose. -->
 
   <section class="demo">
     <h2>Capacity — an M/M/c queue</h2>
@@ -112,22 +134,79 @@
     </div>
   </section>
 
-  <section class="demo">
-    <h2>Curve fit — drag the data</h2>
-    <p class="sub">Drag a point, or the polynomial degree. The least-squares fit follows, live.</p>
-    <div class="frame"><iframe src="demos/curvefit/index.html" loading="lazy" title="curvefit demo"></iframe></div>
-    <div class="reveal">
-      <p class="call">Dragging a control point is an edit to a leaf — <b>the renderer reads it, the runtime writes it, a write is not an edge.</b> No two-way binding to wire, because the cycle is unrepresentable.</p>
-    </div>
-  </section>
+  <!-- THE CORPUS. One tile per notebook. Live tiles run in your browser;
+       batch tiles are the same file, built for a cluster instead. -->
 
-  <section class="demo">
-    <h2>Bayesian regression — watch the posterior form</h2>
-    <p class="sub">Drag <code>n</code> up: the posterior over the line collapses onto the truth. Drag it back down — it re-widens, because nothing here is stateful.</p>
-    <div class="frame"><iframe src="demos/bayes/index.html" loading="lazy" title="bayes demo"></iframe></div>
-    <div class="reveal">
-      <p class="call">Scrubbing <code>n</code> backward works because <b>the posterior is a pure function of sufficient statistics</b> — sums, not a fold. A fold could only go forward. The type checker and the graph make that the natural way to write it.</p>
+  <section class="corpus">
+    <h2>The corpus — nine notebooks, one shape</h2>
+    <p class="lead">Every notebook is a plain Go package. Three run right here in your browser as WebAssembly; the rest are the same file built as a static binary for a cluster — a notebook is browser-portable only if it touches no <code>net</code>, <code>os</code>, or cgo, and the toolchain derives that from the call graph. Most of these were ported from marimo's gallery, and porting them found real bugs.</p>
+    <div class="tiles">
+
+      <a class="tile" href="demos/capacity/index.html">
+        <div class="top"><h3>capacity</h3><span class="tag">graph</span></div>
+        <p class="what">An M/M/c fleet-capacity model. Drag arrival rate and server count; watch cost and latency curves recompute through the derived graph.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <span class="go">Open demo</span>
+      </a>
+
+      <a class="tile" href="demos/curvefit/index.html">
+        <div class="top"><h3>curvefit</h3><span class="tag">grips</span></div>
+        <p class="what">Least-squares fitting by hand. Drag a data point or the polynomial degree; the fit follows live. The design's falsification test for direct manipulation.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <span class="go">Open demo</span>
+      </a>
+
+      <a class="tile" href="demos/bayes/index.html">
+        <div class="top"><h3>bayes</h3><span class="tag">purity</span></div>
+        <p class="what">Bayesian linear regression (Bishop §3.3). Add data and the posterior collapses onto the truth; scrub back and it re-widens — because it's a pure function of sums, not a fold.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <span class="go">Open demo</span>
+      </a>
+
+      <a class="tile" href="https://github.com/scttfrdmn/go-notebook/blob/main/examples/queue/queue.go">
+        <div class="top"><h3>queue</h3><span class="tag">Prev[T]</span></div>
+        <p class="what">A queue you can watch fill and drain over time. The one notebook that needed a genuinely new concept — <code>Prev[T]</code> + a clock — because a DAG of pure functions can't accumulate.</p>
+        <div class="foot"><span class="badge batch">cluster / batch</span></div>
+        <span class="go">Read the source</span>
+      </a>
+
+      <a class="tile" href="https://github.com/scttfrdmn/go-notebook/blob/main/examples/taxi/taxi.go">
+        <div class="top"><h3>taxi</h3><span class="tag">Rel[T]</span></div>
+        <p class="what">42M taxi trips as a queueing system, out-of-core. A content-addressed handle streams the rows; only the 24-row result crosses into Go. Change the file, the handle changes, everything downstream knows.</p>
+        <div class="foot"><span class="badge batch">cluster / batch</span></div>
+        <span class="go">Read the source</span>
+      </a>
+
+      <a class="tile" href="https://github.com/scttfrdmn/go-notebook/blob/main/examples/portfolio/portfolio.go">
+        <div class="top"><h3>portfolio</h3><span class="tag">found a bug</span></div>
+        <p class="what">A port of marimo's portfolio dashboard — whose original downloads Microsoft's history for <em>every</em> ticker and caches it under the wrong name. Value-flow eliminates the bug: there's no filename to go stale behind your back.</p>
+        <div class="foot"><span class="badge batch">cluster / batch</span></div>
+        <span class="go">Read the source</span>
+      </a>
+
+      <a class="tile" href="https://github.com/scttfrdmn/go-notebook/blob/main/examples/seam/seam.go">
+        <div class="top"><h3>seam</h3><span class="tag">found a bug</span></div>
+        <p class="what">Seam carving, ported from marimo's caching demo. The original's cache was hiding a broken graph — it shaves the left edge every time instead of the minimum-energy seam. Hoisting the edge that shouldn't exist removes the need for the cache.</p>
+        <div class="foot"><span class="badge batch">cluster / batch</span></div>
+        <span class="go">Read the source</span>
+      </a>
+
+      <a class="tile" href="https://github.com/scttfrdmn/go-notebook/blob/main/examples/lego/lego.go">
+        <div class="top"><h3>lego</h3><span class="tag">found a bug</span></div>
+        <p class="what">A port of marimo's Lego price dashboard. The original multiplies price by an already-inflation-adjusted price — dollars × dollars. A unit type makes it a compile error.</p>
+        <div class="foot"><span class="badge batch">cluster / batch</span></div>
+        <span class="go">Read the source</span>
+      </a>
+
+      <a class="tile" href="https://github.com/scttfrdmn/go-notebook/blob/main/examples/mandelbrot/mandelbrot.go">
+        <div class="top"><h3>mandelbrot</h3><span class="tag">grips</span></div>
+        <p class="what">A pannable, zoomable set. The renderer draws the image; a drag on it writes the viewport leaf. Absolute controls recompute — the reason a zoom UI has a back button and a slider doesn't.</p>
+        <div class="foot"><span class="badge batch">cluster / batch</span></div>
+        <span class="go">Read the source</span>
+      </a>
+
     </div>
+    <p class="lead" style="margin-top:1.25rem">Every batch tile is one <code>go tool notebook build</code> away from being a live tile — the split is a property of what the code touches, not two different systems. <a href="https://github.com/scttfrdmn/go-notebook/tree/main/examples">All nine, in full →</a></p>
   </section>
 
   <!-- THE THESIS: the graph is the artifact. Named, after you've already seen it move. -->
