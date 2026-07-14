@@ -86,6 +86,11 @@ const CSS = `
   .controls label { font-weight: 600; color: var(--navy); }
   .cell { margin: 1rem 0; padding: .5rem 0 .5rem .6rem; border-top: 1px solid #eee;
           border-left: 3px solid transparent; transition: border-color .15s, opacity .15s; }
+  /* Cells sharing a //notebook:row=<name> directive lay side by side; each flexes
+     equally and clamps to a min width so charts don't crush, wrapping to stacked on
+     a narrow viewport. min-width:0 lets a flex child shrink below its content. */
+  .cellrow { display: flex; flex-wrap: wrap; gap: 0 1.5rem; align-items: flex-start; }
+  .cellrow > .cell { flex: 1 1 320px; min-width: 0; }
   .cell.blocked { opacity: .4; }
   .cell.running { border-left-color: var(--run); }
   .cell.error   { border-left-color: var(--err); }
@@ -320,6 +325,21 @@ const NB = (function () {
   function buildControlsAndCells() {
     const controls = document.getElementById('controls');
     const cells = document.getElementById('cells');
+    // A //notebook:row=<name> directive lays consecutive same-named cells side by
+    // side. We open a .cellrow flex container on the first cell of a run and append
+    // siblings into it; a different (or absent) row value closes it. Grouping only
+    // CONSECUTIVE cells keeps two separate row=panels blocks from merging.
+    let rowEl = null, rowName = null;
+    const rowOf = (m) => (m.Directives && m.Directives.row) || null;
+    const container = (m) => {
+      const r = rowOf(m);
+      if (r && r === rowName) return rowEl;      // continue the open row
+      if (r) {                                    // start a new row
+        rowEl = document.createElement('div'); rowEl.className = 'cellrow';
+        rowName = r; cells.append(rowEl); return rowEl;
+      }
+      rowEl = null; rowName = null; return cells; // no row → stack directly
+    };
     for (const m of META) {
       if (m.Leaf) {
         const label = document.createElement('label');
@@ -349,7 +369,7 @@ const NB = (function () {
         pre.textContent = m.Source; // code, set as text — never injected as HTML
         det.append(sum, pre); el.append(det);
       }
-      cells.append(el);
+      container(m).append(el);
       cellEls[m.ID] = el;
     }
   }
