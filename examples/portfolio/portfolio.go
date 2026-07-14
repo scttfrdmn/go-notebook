@@ -47,6 +47,7 @@ package portfolio
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
@@ -148,12 +149,12 @@ func valueChart(series []Snapshot) (plot Chart) {
 // Returns over time.
 //
 //notebook:height=220
-func returnChart(series []Snapshot) (plot Chart) {
-	plot = Chart{Title: "total return", Unit: "%", Zero: true}
+func returnChart(series []Snapshot) (returns Chart) {
+	returns = Chart{Title: "total return", Unit: "%", Zero: true}
 	for _, s := range series {
-		plot.A = append(plot.A, float64(s.Return)*100)
+		returns.A = append(returns.A, float64(s.Return)*100)
 	}
-	return plot
+	return returns
 }
 
 // Where you stand.
@@ -298,6 +299,23 @@ func (b Bars) onOrBefore(d Date) (Bar, bool) {
 func (d Date) Before(o Date) bool { return time.Time(d).Before(time.Time(o)) }
 func (d Date) After(o Date) bool  { return time.Time(d).After(time.Time(o)) }
 func (d Date) String() string     { return time.Time(d).Format("2006-01-02") }
+
+// MarshalJSON / UnmarshalJSON put a Date on the wire as the plain "2006-01-02"
+// string the grid shows and the user types — NOT time.Time's default RFC3339
+// timestamp, which the editable cell would neither display nor accept. This is
+// what lets a Table[Lot] row round-trip through the coercer and Reconcile: the
+// client sends {"Date":"2021-02-01",...}, Reconcile's json.Unmarshal decodes it
+// back to a Date, and an edit to the date column survives.
+func (d Date) MarshalJSON() ([]byte, error) { return json.Marshal(d.String()) }
+
+func (d *Date) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	*d = day(s)
+	return nil
+}
 func (d Date) cmp(o Date) int {
 	switch {
 	case d.Before(o):
@@ -323,10 +341,60 @@ type Snapshot struct {
 
 // ---- Widgets ----
 
+// WidgetView is a widget's state on the wire — the notebook's own copy of the
+// shape the runtime probes for (no import of this project; the match is by field
+// shape). A Table only ever sets Value (its rows); the other fields exist so the
+// struct matches the probe's shape across the zero-import boundary.
+type WidgetView struct {
+	Value   any
+	Options []string
+	Lo, Hi  *float64
+	Max     *int
+}
+
 // Table is an editable grid. Same leaf discipline as every other widget: the cell
 // supplies the starting rows, the head holds your edits.
 type Table[T any] struct {
 	Value []T
+}
+
+// WidgetView states a Table's live state for the client: its rows, as the value.
+// The client draws a grid from the static column schema (the row type's fields,
+// derived at codegen) and fills it from these rows; editing a cell re-emits the
+// whole row set. State only — the rows ARE the state a table holds, and its
+// columns are appearance the client already knows from the type.
+func (t Table[T]) WidgetView() WidgetView {
+	return WidgetView{Value: t.Value}
+}
+
+// Reconcile REBUILDS the rows from the saved selection, resetting to the cell's
+// default rows when the selection can't be decoded. This is the Table's entry in
+// the per-widget reconcile taxonomy, and it's a deliberately different shape from
+// the others: a Table[T]'s schema is its COLUMNS, and columns are the row type T
+// — fixed at compile time, so they cannot shift under a live selection the way a
+// Range's data-derived bounds can. There is no "a column appeared" case to clamp
+// or filter against within a session. So reconcile guards the ONE thing that can
+// go wrong: the wire→T boundary. The selection arrives as []map[string]any (rows
+// the user typed); we round-trip it through each field's own JSON codec into []T,
+// which keeps the rows if they decode and RESETS to the default rows if they
+// don't. "A row survives a field-type change" is incoherent in the same way
+// "control point #3 of a quintic is control point #3 of a septic" was — a reset,
+// not partial retention, is the coherent answer.
+func (t Table[T]) Reconcile(saved any) any {
+	rows, ok := saved.([]map[string]any)
+	if !ok {
+		return t // selection isn't a row set — the cell's default rows stand
+	}
+	b, err := json.Marshal(rows)
+	if err != nil {
+		return t
+	}
+	var out []T
+	if err := json.Unmarshal(b, &out); err != nil {
+		return t // a row didn't fit the row type — reset, never keep stale rows
+	}
+	t.Value = out
+	return t
 }
 
 // ---- Outputs ----

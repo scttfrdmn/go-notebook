@@ -81,64 +81,108 @@ func StampLeaf(v any, sym string) any {
 	return m.Call([]reflect.Value{reflect.ValueOf(sym)})[0].Interface()
 }
 
-// CoerceWire homogenizes a decoded-JSON selection into the clean Go primitive a
+// CoerceWire homogenizes a decoded-JSON selection into the clean Go value a
 // widget's Reconcile expects, so a cell stays an ordinary Go function that never
 // touches wire shapes. It is the general form of the scalar coercer — the write
-// path is a human at human speed, so a little reflection here is free.
+// path is a human at human speed, so a little recursion here is free.
 //
 // A selection's Go type is not the widget's field type: a Multi[Theme]'s
 // selection is []string (labels — the client picks by Label(), and the
 // label→Theme mapping lives in the notebook's Reconcile, not here), a Range's is
-// []float64 (endpoints), a Select's is a string. JSON decodes those as []any and
-// json.Number; this collapses them to []string / []float64 / string / bool so a
-// Reconcile(saved any) can assert a concrete type. It never guesses a domain
-// type; it only removes the wire's any-boxing.
+// []float64 (endpoints), a Select's is a string, a Table[Lot]'s is []map (rows,
+// as objects — the map→Lot mapping lives in the notebook's Reconcile too). JSON
+// decodes those as []any / map[string]any / json.Number; this strips the wire's
+// any-boxing and json.Number down to []string / []float64 / []map[string]any /
+// string / bool, recursing through slices and maps so a Reconcile(saved any) can
+// assert a concrete shape. It NEVER guesses a domain type (it can't — engine
+// knows nothing of Lot); it only removes the wire encoding.
 //
-// ok is false when the value can't be homogenized to a single primitive shape
-// (a mixed []any) — a real client/leaf mismatch the caller must surface, never
-// pass through silently.
+// ok is false when a value can't be homogenized — a null, a mixed scalar array,
+// or a shape the wire vocabulary doesn't cover. This is the load-bearing
+// discipline: a shape the coercer doesn't understand is a real client/leaf
+// mismatch that MUST surface (the caller logs and refuses the set), NEVER a
+// silent drop. A silent drop is precisely the bug that killed the grip write and
+// shipped it to production; a coercer that discards what it doesn't recognize is
+// a factory for that bug. So there is no passthrough default: every branch is
+// either a known shape or an explicit failure.
 func CoerceWire(decoded any) (any, bool) {
 	switch v := decoded.(type) {
+	case nil:
+		return nil, false // a null selection is a mismatch, surfaced not dropped
 	case json.Number:
 		if f, err := v.Float64(); err == nil {
 			return f, true
 		}
 		return nil, false
+	case string, bool, float64:
+		return v, true // already a clean primitive
 	case []any:
 		return coerceSlice(v)
+	case map[string]any:
+		return coerceMap(v)
 	default:
-		return decoded, true // string, bool, float64 — already primitive
+		// An unrecognized Go shape (not producible by encoding/json, but a
+		// non-JSON caller could pass one) must surface, never pass silently.
+		return nil, false
 	}
 }
 
-// coerceSlice collapses a decoded []any into []string or []float64 when every
-// element shares a shape, else reports failure (a mixed array is a mismatch).
-// An empty selection is a valid []string (the common "nothing selected" case).
+// coerceSlice recurses into each element, then classifies the slice by the wire
+// vocabulary: a uniform []string (Multi labels), []float64 (Range/Draggable
+// endpoints), or []map[string]any (a Table's row set). A mixed scalar array — the
+// one thing that is a genuine client/leaf mismatch — fails. An empty selection is
+// a valid []string (the common "nothing selected" case). Any element that itself
+// fails to coerce fails the whole slice, so nothing is silently dropped.
 func coerceSlice(in []any) (any, bool) {
 	if len(in) == 0 {
 		return []string{}, true
 	}
+	elems := make([]any, len(in))
+	for i, e := range in {
+		c, ok := CoerceWire(e)
+		if !ok {
+			return nil, false
+		}
+		elems[i] = c
+	}
 	strs := make([]string, 0, len(in))
 	floats := make([]float64, 0, len(in))
-	for _, e := range in {
+	maps := make([]map[string]any, 0, len(in))
+	for _, e := range elems {
 		switch x := e.(type) {
 		case string:
 			strs = append(strs, x)
-		case json.Number:
-			if f, err := x.Float64(); err == nil {
-				floats = append(floats, f)
-			}
 		case float64:
 			floats = append(floats, x)
+		case map[string]any:
+			maps = append(maps, x)
 		}
 	}
-	if len(strs) == len(in) {
+	switch {
+	case len(strs) == len(in):
 		return strs, true
-	}
-	if len(floats) == len(in) {
+	case len(floats) == len(in):
 		return floats, true
+	case len(maps) == len(in):
+		return maps, true // a Table's rows — the notebook's Reconcile maps them to T
 	}
-	return nil, false // mixed or unrecognized element types
+	return nil, false // mixed scalar kinds, or an unhandled element shape
+}
+
+// coerceMap recurses into each value of a decoded JSON object (a Table row), so
+// json.Number becomes float64 and nested shapes are cleaned. The keys are the
+// row type's field names; the notebook's Reconcile reads the fields it knows and
+// builds its own T. A value that fails to coerce fails the whole row.
+func coerceMap(in map[string]any) (map[string]any, bool) {
+	out := make(map[string]any, len(in))
+	for k, e := range in {
+		c, ok := CoerceWire(e)
+		if !ok {
+			return nil, false
+		}
+		out[k] = c
+	}
+	return out, true
 }
 
 // WidgetView is a widget's STATE on the wire — never its appearance. It carries

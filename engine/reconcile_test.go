@@ -7,10 +7,13 @@ import (
 )
 
 // TestCoerceWire pins the write-path coercer: decoded JSON selections (the
-// shapes a control POSTs) homogenize to the clean Go primitive a notebook's
-// Reconcile asserts — []string / []float64 / string / bool — and a mixed array
-// fails visibly (never a silent passthrough, the bug that made reconcile
-// no-op). json.Number is preserved as a number. §8: assert the coerced shape.
+// shapes a control POSTs) homogenize to the clean Go value a notebook's
+// Reconcile asserts — []string / []float64 / []map[string]any / string / bool —
+// recursing through slices and rows. A shape it doesn't understand (nil, a mixed
+// scalar array, an unparseable number) fails VISIBLY (ok=false), never a silent
+// passthrough — that silent drop is the bug that made reconcile no-op and killed
+// the grip write. json.Number is stripped to float64 at every depth. §8: assert
+// the coerced shape AND that the fail-loud cases actually fail.
 func TestCoerceWire(t *testing.T) {
 	num := func(s string) json.Number { return json.Number(s) }
 	cases := []struct {
@@ -26,6 +29,30 @@ func TestCoerceWire(t *testing.T) {
 		{"scalar number", num("1200"), 1200.0, true},
 		{"empty selection", []any{}, []string{}, true},
 		{"mixed array fails", []any{"a", num("1")}, nil, false},
+		// A Table's row set: []map, json.Number stripped to float64 inside each
+		// row. The notebook's Reconcile maps the cleaned rows to its own T.
+		{
+			"table row set",
+			[]any{
+				map[string]any{"Ticker": "AAPL", "Amount": num("1000")},
+				map[string]any{"Ticker": "MSFT", "Amount": num("500")},
+			},
+			[]map[string]any{
+				{"Ticker": "AAPL", "Amount": 1000.0},
+				{"Ticker": "MSFT", "Amount": 500.0},
+			},
+			true,
+		},
+		// A lone row object (not wrapped in a slice) cleans to a map[string]any.
+		{"single row object", map[string]any{"Amount": num("42")}, map[string]any{"Amount": 42.0}, true},
+		// FAIL-LOUD cases: shapes the coercer doesn't understand must surface as
+		// ok=false, never a silent drop (the bug that killed the grip write). A
+		// null, a NaN-producing number, and a row set with a mixed-kind field.
+		{"nil fails", nil, nil, false},
+		{"unparseable number fails", num("not-a-number"), nil, false},
+		{"row with mixed-kind array field fails", []any{
+			map[string]any{"vals": []any{"a", num("1")}},
+		}, nil, false},
 	}
 	for _, c := range cases {
 		got, ok := CoerceWire(c.in)
@@ -121,11 +148,28 @@ func (d dragW) Reconcile(saved any) any {
 	return d
 }
 
+// tableW rebuilds its rows from a saved []map[string]any (edited rows), resetting
+// to the fresh schema's rows when the selection isn't a usable row set. The fifth
+// taxonomy kind: a table's columns are static, so reconcile guards the wire→row
+// boundary, not a shifting schema.
+type tableW struct{ rows []map[string]any }
+
+func (tb tableW) Reconcile(saved any) any {
+	rows, ok := saved.([]map[string]any)
+	if !ok {
+		return tb // not a row set → the fresh rows stand
+	}
+	tb.rows = rows
+	return tb
+}
+
 // TestReconcileTaxonomy drives KC14: each widget kind reconciles a saved
 // selection against a freshly-computed schema in its OWN way, and a scalar is
 // the identity. §8 — assert the reconciled value, the effect the taxonomy
 // names, not merely that reconcile ran. This is the correction curvefit forced:
-// a universal reconcile rule is wrong; four kinds, four behaviors.
+// a universal reconcile rule is wrong. The taxonomy is closed at five kinds:
+// Range clamps, Multi filters, Select falls back, Draggable resets, Table
+// rebuilds — five behaviors, one per kind.
 func TestReconcileTaxonomy(t *testing.T) {
 	rt := NewRuntime(Config{}, NewHead(), NewMemoStore())
 
@@ -162,6 +206,18 @@ func TestReconcileTaxonomy(t *testing.T) {
 	got = rt.reconcileLeaf(dragW{points: []float64{1, 2, 3}}, []float64{9, 8, 7}, true)
 	if d := got.(dragW); !reflect.DeepEqual(d.points, []float64{9, 8, 7}) {
 		t.Errorf("draggable keep: points = %v, want the edited [9 8 7]", d.points)
+	}
+
+	// Table REBUILDS from the edited row set (the fifth kind).
+	got = rt.reconcileLeaf(tableW{rows: []map[string]any{{"Amount": 1.0}}},
+		[]map[string]any{{"Amount": 5.0}, {"Amount": 6.0}}, true)
+	if tb := got.(tableW); !reflect.DeepEqual(tb.rows, []map[string]any{{"Amount": 5.0}, {"Amount": 6.0}}) {
+		t.Errorf("table rebuild: rows = %v, want the edited 2-row set", tb.rows)
+	}
+	// Table RESETS when the selection isn't a row set.
+	got = rt.reconcileLeaf(tableW{rows: []map[string]any{{"Amount": 1.0}}}, "garbage", true)
+	if tb := got.(tableW); !reflect.DeepEqual(tb.rows, []map[string]any{{"Amount": 1.0}}) {
+		t.Errorf("table reset: rows = %v, want the fresh default row", tb.rows)
 	}
 
 	// Scalar is the IDENTITY: no Reconcile method → the saved selection is the

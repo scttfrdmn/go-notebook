@@ -131,11 +131,15 @@ func priceRange(rows []Set) (prices Range[USD]) {
 }
 ```
 
-The cell computes the **schema** (bounds, options). The head holds the **selection**. Reconciliation is **per-widget-kind**, not universal — a correction the ports forced:
+The cell computes the **schema** (bounds, options, columns). The head holds the **selection**. Reconciliation is **per-widget-kind**, not universal — a correction the ports forced. The taxonomy is closed at five kinds, one behavior each:
 
-- `Range` → **clamp** into the new bounds
-- `Multi` → **filter** out options that no longer exist
+- `Range` → **clamp** the saved endpoints into the new bounds
+- `Multi` → **filter** out selected options that no longer exist
+- `Select` → **fall back** to the default when the chosen option is gone (a single choice can't be *partially* valid — it is still an option or it isn't)
 - `Draggable` → **reset** on arity change (control point #3 of a quintic is not control point #3 of a septic)
+- `Table` → **rebuild** the rows from the selection, **reset** if they don't fit the row type
+
+`Table` is the one that closes the taxonomy, and it is a deliberately different shape from the other four — worth stating why. A `Table[T]`'s schema is its *columns*, and the columns are the row type `T`, fixed at compile time. So unlike a `Range`'s data-derived bounds, a table's schema **cannot shift under a live selection** — there is no "a column appeared" case to clamp or filter against within a session. What reconcile guards instead is the wire→`T` boundary: the selection arrives as edited row objects, and reconcile round-trips them through the row type's own JSON codec into `[]T`, keeping the rows if they decode and resetting to the cell's defaults if they don't. "A row survives a field-type change" is incoherent in the same way the Draggable arity case is — a reset, not partial retention, is the coherent answer.
 
 This is already better than the original it was ported from: marimo *reconstructs* `price_range` whenever `subset` changes, so picking a new theme resets your price filter. Here it clamps.
 
