@@ -16,6 +16,7 @@ on:
       - "examples/turing/**"
       - "examples/surface/**"
       - "examples/gpulife/**"
+      - "examples/percolation/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
