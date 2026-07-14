@@ -266,6 +266,20 @@ const NB = (function () {
       controls.append(note, out);
       return { el: note, out, emit, columns: (m.Widget && m.Widget.Columns) || [], apply() {} };
     }
+    if (kind === 'draggable') {
+      // A draggable leaf has no compact control: you edit it by dragging its grips
+      // on the chart it's drawn in (a foreign cell draws the handles; the runtime
+      // writes the leaf). So the strip shows a non-editable note, not a text input —
+      // without this it fell through to the scalar rung and rendered a []point as
+      // the literal "[object Object]". apply() reports the live point count.
+      const note = document.createElement('span'); note.className = 'val';
+      note.textContent = '(drag on the chart)';
+      controls.append(note, out);
+      return { el: note, out, apply(v) {
+        const n = Array.isArray(v && v.value) ? v.value.length : 0;
+        note.textContent = n ? '(drag on the chart · ' + n + ' points)' : '(drag on the chart)';
+      } };
+    }
     // Default rung: a scalar. Slider if directives give min/max, else a text box.
     const d = m.Directives || {};
     const input = document.createElement('input');
