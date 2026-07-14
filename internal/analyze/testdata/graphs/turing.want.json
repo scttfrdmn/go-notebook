@@ -1,0 +1,149 @@
+{
+  "order": [
+    "feedMilli",
+    "killMilli",
+    "steps",
+    "field",
+    "regime",
+    "intro"
+  ],
+  "helpers": [
+    "simulate",
+    "step",
+    "classify",
+    "milli",
+    "pad3",
+    "palette",
+    "lerp"
+  ],
+  "producer": {
+    "f": "feedMilli",
+    "grid": "field",
+    "k": "killMilli",
+    "md": "intro",
+    "n": "steps",
+    "where": "regime"
+  },
+  "cells": {
+    "feedMilli": {
+      "label": "Feed rate F — how fast the activator is replenished.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "90",
+        "min": "10",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "f",
+          "type": "int"
+        }
+      ]
+    },
+    "field": {
+      "label": "The pattern after n steps of Gray-Scott from a fixed seeded soup.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "440"
+      },
+      "params": [
+        {
+          "name": "f",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "k",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "grid",
+          "type": "Field"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Turing patterns from two numbers.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "killMilli": {
+      "label": "Kill rate k — how fast the inhibitor is removed.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "75",
+        "min": "45",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "k",
+          "type": "int"
+        }
+      ]
+    },
+    "regime": {
+      "label": "Which regime the two numbers land in — a plain-language readout, so the sliders\nhave a legend.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "f",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "k",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "where",
+          "type": "Readout"
+        }
+      ]
+    },
+    "steps": {
+      "label": "Steps to simulate.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "8000",
+        "min": "500",
+        "slider": "",
+        "step": "500"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    }
+  }
+}
