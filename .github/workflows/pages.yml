@@ -15,6 +15,7 @@ on:
       - "examples/nbody/**"
       - "examples/turing/**"
       - "examples/surface/**"
+      - "examples/gpulife/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"

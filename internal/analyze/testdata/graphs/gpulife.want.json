@@ -1,0 +1,138 @@
+{
+  "order": [
+    "size",
+    "density",
+    "seed",
+    "initial",
+    "scene",
+    "intro"
+  ],
+  "helpers": [
+    "escapeAttr"
+  ],
+  "producer": {
+    "gpu": "scene",
+    "grid": "initial",
+    "md": "intro",
+    "n": "size",
+    "pct": "density",
+    "s": "seed"
+  },
+  "cells": {
+    "density": {
+      "label": "Initial live density, in percent.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "60",
+        "min": "5",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "pct",
+          "type": "int"
+        }
+      ]
+    },
+    "initial": {
+      "label": "The initial grid: n×n cells, each alive with probability ~pct/100, chosen by a\ndeterministic LCG keyed on the seed.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "pct",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "s",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "grid",
+          "type": "Life"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Life on the GPU — the parallel dividend, back in the tab.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "scene": {
+      "label": "Life, on the GPU.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "560"
+      },
+      "params": [
+        {
+          "name": "grid",
+          "type": "Life",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "gpu",
+          "type": "Scene"
+        }
+      ]
+    },
+    "seed": {
+      "label": "Seed for the initial pattern.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "999",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "s",
+          "type": "int"
+        }
+      ]
+    },
+    "size": {
+      "label": "Grid size — the world is n×n cells.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "512",
+        "min": "64",
+        "slider": "",
+        "step": "64"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    }
+  }
+}
