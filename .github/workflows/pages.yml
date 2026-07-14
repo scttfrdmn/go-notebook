@@ -18,6 +18,7 @@ on:
       - "examples/gpulife/**"
       - "examples/percolation/**"
       - "examples/lotka/**"
+      - "examples/clt/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
