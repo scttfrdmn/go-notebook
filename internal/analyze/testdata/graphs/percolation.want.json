@@ -1,0 +1,192 @@
+{
+  "order": [
+    "size",
+    "probabilityPct",
+    "seed",
+    "grid",
+    "clusters",
+    "view",
+    "stats",
+    "intro"
+  ],
+  "helpers": [
+    "newUF",
+    "itoa",
+    "pad2",
+    "pctOf",
+    "clusterColor"
+  ],
+  "producer": {
+    "field": "grid",
+    "labeled": "clusters",
+    "md": "intro",
+    "n": "size",
+    "pct": "probabilityPct",
+    "picture": "view",
+    "report": "stats",
+    "s": "seed"
+  },
+  "cells": {
+    "clusters": {
+      "label": "Connected components of the open cells (4-connectivity), by union-find, plus which\ncomponent — if any — spans top edge to bottom edge.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "field",
+          "type": "Grid",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "labeled",
+          "type": "Clusters"
+        }
+      ]
+    },
+    "grid": {
+      "label": "The open/blocked grid: n×n cells, each open with probability ~pct/100, chosen by\na deterministic LCG keyed on the seed.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "pct",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "s",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "field",
+          "type": "Grid"
+        }
+      ]
+    },
+    "intro": {
+      "label": "A phase transition you can scrub.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "probabilityPct": {
+      "label": "Occupation probability, in percent — the scrub axis.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "80",
+        "min": "30",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "pct",
+          "type": "int"
+        }
+      ]
+    },
+    "seed": {
+      "label": "Seed for the random fill.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "999",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "s",
+          "type": "int"
+        }
+      ]
+    },
+    "size": {
+      "label": "Grid size — the world is n×n cells.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "160",
+        "min": "32",
+        "slider": "",
+        "step": "8"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    },
+    "stats": {
+      "label": "The numbers under the picture: where p sits relative to the critical threshold,\nhow many clusters there are, the largest, and the verdict — does it span?",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "field",
+          "type": "Grid",
+          "kind": "wired"
+        },
+        {
+          "name": "labeled",
+          "type": "Clusters",
+          "kind": "wired"
+        },
+        {
+          "name": "pct",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "view": {
+      "label": "The grid.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "440"
+      },
+      "params": [
+        {
+          "name": "labeled",
+          "type": "Clusters",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "picture",
+          "type": "Picture"
+        }
+      ]
+    }
+  }
+}
