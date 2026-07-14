@@ -1,0 +1,142 @@
+{
+  "order": [
+    "resolution",
+    "amplitudeTenths",
+    "frequency",
+    "surface",
+    "scene",
+    "intro"
+  ],
+  "helpers": [
+    "hypot",
+    "falloff",
+    "sqrt",
+    "sin",
+    "escapeAttr"
+  ],
+  "producer": {
+    "amp": "amplitudeTenths",
+    "field": "surface",
+    "freq": "frequency",
+    "gpu": "scene",
+    "md": "intro",
+    "res": "resolution"
+  },
+  "cells": {
+    "amplitudeTenths": {
+      "label": "Amplitude of the surface, in tenths (12 → 1.2).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "20",
+        "min": "2",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "amp",
+          "type": "int"
+        }
+      ]
+    },
+    "frequency": {
+      "label": "Spatial frequency — how many ripples across the sheet.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "8",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "freq",
+          "type": "int"
+        }
+      ]
+    },
+    "intro": {
+      "label": "A 3D surface on the GPU — and the framework boundary, drawn explicitly.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "resolution": {
+      "label": "Grid resolution — the surface is res×res samples.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "64",
+        "min": "16",
+        "slider": "",
+        "step": "4"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "res",
+          "type": "int"
+        }
+      ]
+    },
+    "scene": {
+      "label": "The surface, on the GPU.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "480"
+      },
+      "params": [
+        {
+          "name": "field",
+          "type": "Heightfield",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "gpu",
+          "type": "Scene"
+        }
+      ]
+    },
+    "surface": {
+      "label": "The heightfield z = f(x, y) over a res×res grid on [-1,1]².",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "res",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "amp",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "freq",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "field",
+          "type": "Heightfield"
+        }
+      ]
+    }
+  }
+}
