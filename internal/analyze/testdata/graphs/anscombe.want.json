@@ -1,0 +1,132 @@
+{
+  "order": [
+    "points",
+    "stats",
+    "fitLine",
+    "scatter",
+    "summary",
+    "intro"
+  ],
+  "helpers": [
+    "describe",
+    "f3",
+    "f2"
+  ],
+  "producer": {
+    "data": "points",
+    "fit": "fitLine",
+    "md": "intro",
+    "numbers": "summary",
+    "plot": "scatter",
+    "summary": "stats"
+  },
+  "cells": {
+    "fitLine": {
+      "label": "The least-squares line — one more thing that stays put while the picture changes.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "data",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "fit",
+          "type": "[]Pt"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Summary statistics lie.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "points": {
+      "label": "The dataset.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "height": "460"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "data",
+          "type": "Draggable[Pt]"
+        }
+      ]
+    },
+    "scatter": {
+      "label": "Drag the points.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "460"
+      },
+      "params": [
+        {
+          "name": "data",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "fit",
+          "type": "[]Pt",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "plot",
+          "type": "Chart"
+        }
+      ]
+    },
+    "stats": {
+      "label": "Summary statistics — the numbers a report would show, and the numbers that lie.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "data",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "summary",
+          "type": "Stats"
+        }
+      ]
+    },
+    "summary": {
+      "label": "The summary, as a report would print it.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "summary",
+          "type": "Stats",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "numbers",
+          "type": "Readout"
+        }
+      ]
+    }
+  }
+}

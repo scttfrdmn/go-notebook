@@ -11,6 +11,7 @@ on:
       - "examples/capacity/**"
       - "examples/curvefit/**"
       - "examples/bayes/**"
+      - "examples/anscombe/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
