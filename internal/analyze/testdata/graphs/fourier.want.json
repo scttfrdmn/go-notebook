@@ -1,0 +1,166 @@
+{
+  "order": [
+    "shape",
+    "termCount",
+    "spectrum",
+    "reconstruction",
+    "view",
+    "readout",
+    "intro"
+  ],
+  "helpers": [
+    "expi",
+    "cabs",
+    "lowestFreqs",
+    "wrap",
+    "resample",
+    "star",
+    "pct"
+  ],
+  "producer": {
+    "md": "intro",
+    "n": "termCount",
+    "outline": "shape",
+    "plot": "view",
+    "recon": "reconstruction",
+    "report": "readout",
+    "spec": "spectrum"
+  },
+  "cells": {
+    "intro": {
+      "label": "Fourier epicycles — draw a shape, watch circles trace it back.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "readout": {
+      "label": "The numbers: circles in use, and the fraction of the shape's spectral energy those\ncircles capture — it climbs toward 100% as you add terms.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "spec",
+          "type": "Spectrum",
+          "kind": "wired"
+        },
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "reconstruction": {
+      "label": "The reconstruction from the lowest `n` frequencies, plus the epicycle chain frozen\nat one phase.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "spec",
+          "type": "Spectrum",
+          "kind": "wired"
+        },
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "recon",
+          "type": "Recon"
+        }
+      ]
+    },
+    "shape": {
+      "label": "The outline.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "height": "480"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "outline",
+          "type": "Draggable[Pt]"
+        }
+      ]
+    },
+    "spectrum": {
+      "label": "The spectrum: resample the polygon to `samples` points around its perimeter, treat\neach as a complex number x+iy, and take the discrete Fourier transform.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "outline",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "spec",
+          "type": "Spectrum"
+        }
+      ]
+    },
+    "termCount": {
+      "label": "Number of Fourier terms (circles) — the scrub axis.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "64",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    },
+    "view": {
+      "label": "The picture: the drawn outline (faint, with draggable vertices), the reconstruction\nfrom the current number of circles (bold), and the frozen epicycle chain that sums\nto a point on it.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "480"
+      },
+      "params": [
+        {
+          "name": "outline",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "recon",
+          "type": "Recon",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "plot",
+          "type": "Chart"
+        }
+      ]
+    }
+  }
+}

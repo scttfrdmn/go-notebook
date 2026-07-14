@@ -20,6 +20,7 @@ on:
       - "examples/lotka/**"
       - "examples/clt/**"
       - "examples/boundary/**"
+      - "examples/fourier/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
