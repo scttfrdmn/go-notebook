@@ -5,6 +5,63 @@ import (
 	"testing"
 )
 
+// TestFixtureDaily pins the reproducible price path: the checked-in prices.csv
+// yields a non-empty, sorted series for a held ticker and ERRORS on an unknown
+// one (a missing ticker is a fault, not a silent empty series — the same
+// discipline the notebook is about). This is the path CI and `notebook run`
+// verification take, so it must not depend on the network.
+func TestFixtureDaily(t *testing.T) {
+	for _, tk := range []Ticker{"MSFT", "AAPL"} {
+		bars, err := fixtureDaily(tk)
+		if err != nil {
+			t.Fatalf("fixtureDaily(%s): %v", tk, err)
+		}
+		if len(bars) == 0 {
+			t.Fatalf("fixtureDaily(%s): empty series", tk)
+		}
+		for i := 1; i < len(bars); i++ {
+			if bars[i].Date.Before(bars[i-1].Date) {
+				t.Errorf("fixtureDaily(%s): not sorted at %d", tk, i)
+			}
+		}
+	}
+	// Case-insensitive, matching fetchDaily's ToUpper handling.
+	if _, err := fixtureDaily("msft"); err != nil {
+		t.Errorf("fixtureDaily(msft) lower-case: %v", err)
+	}
+	// Unknown ticker is an error, never a silent empty series.
+	if _, err := fixtureDaily("NOPE"); err == nil {
+		t.Error("fixtureDaily(NOPE): want error for unknown ticker, got nil")
+	}
+}
+
+// TestFixtureDrivesGraph proves the fixture path reaches the numbers: with the
+// default holdings, performance() computes a non-empty series with a positive
+// invested basis. This is the downstream numeric render that the dead Stooq
+// endpoint blocked (#96) — here it runs offline, deterministically.
+func TestFixtureDrivesGraph(t *testing.T) {
+	lots := holdings()
+	bars := Prices{}
+	for _, tk := range tickers(lots.Value) {
+		b, err := fixtureDaily(tk)
+		if err != nil {
+			t.Fatalf("fixtureDaily(%s): %v", tk, err)
+		}
+		bars[tk] = b
+	}
+	series, err := performance(lots, bars)
+	if err != nil {
+		t.Fatalf("performance: %v", err)
+	}
+	if len(series) == 0 {
+		t.Fatal("performance produced no snapshots — the graph did not reach the numbers")
+	}
+	last := series[len(series)-1]
+	if last.Invested <= 0 {
+		t.Errorf("last snapshot Invested = %v, want > 0", last.Invested)
+	}
+}
+
 // TestTableReconcile pins the Table's entry in the reconcile taxonomy: a client
 // edit arrives as []map[string]any (the coerced wire row set) and Reconcile
 // rebuilds []Lot, round-tripping each field through its own JSON codec —
