@@ -66,9 +66,11 @@ func TestReconcilerClamps(t *testing.T) {
 }
 
 func TestRenderableProbe(t *testing.T) {
+	// AsRendered converts text/markdown to safe text/html at this chokepoint (see
+	// renderMarkdown), so a markdown source comes back as rendered HTML, not source.
 	if r, ok := AsRendered(markdown("# hi")); !ok {
 		t.Error("markdown should be Renderable")
-	} else if r.MIME != "text/markdown" || r.Data != "# hi" {
+	} else if r.MIME != "text/html" || r.Data != "<h1>hi</h1>\n" {
 		t.Errorf("rendered = %+v", r)
 	}
 	if _, ok := AsRendered(42); ok {
@@ -213,7 +215,9 @@ func TestDisplayLadder(t *testing.T) {
 		t.Errorf("scalar readout = %q/%q, want text/plain/0.75", ev.Out.MIME, ev.Out.Data)
 	}
 
-	if ev, ok := lastEvent(events, "note"); !ok || ev.Out == nil || ev.Out.MIME != "text/markdown" {
+	// The markdown cell's rich view arrives as text/html (converted from its
+	// text/markdown source at the AsRendered chokepoint).
+	if ev, ok := lastEvent(events, "note"); !ok || ev.Out == nil || ev.Out.MIME != "text/html" {
 		t.Errorf("renderable cell must carry its rich view; got %+v", ev)
 	}
 
