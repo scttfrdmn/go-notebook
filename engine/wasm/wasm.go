@@ -176,6 +176,21 @@ func fromJS(v js.Value) any {
 		return v.Bool()
 	case js.TypeString:
 		return v.String()
+	case js.TypeObject:
+		// A JS array becomes []any (the same shape the SSE path's JSON decode
+		// produces), so a widget selection — a Multi's labels, a Draggable's flat
+		// point floats — reaches engine.CoerceWire and homogenizes like it does on
+		// the server. Without this a selection array stringified and the widget
+		// write path silently did nothing (it worked over SSE, not in the browser).
+		if v.InstanceOf(js.Global().Get("Array")) {
+			n := v.Length()
+			out := make([]any, n)
+			for i := 0; i < n; i++ {
+				out[i] = fromJS(v.Index(i))
+			}
+			return out
+		}
+		return v.String()
 	default:
 		return v.String()
 	}

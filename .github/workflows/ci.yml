@@ -32,6 +32,17 @@ jobs:
       - name: go test -race + coverage
         run: go test -race -coverprofile=coverage.out ./...
 
+      # The browser transport (engine/wasm) is js,wasm-only, so `go test ./...`
+      # above never compiles or runs it. Without this lane a bug in the wasm
+      # write path — like the grip-drag array coercion that shipped silently
+      # broken (#91) — passes CI green. Run the js,wasm tests under Node using
+      # the toolchain's exec shim.
+      - name: go test (js,wasm) under Node
+        run: |
+          GOROOT=$(go env GOROOT)
+          PATH="$GOROOT/lib/wasm:$GOROOT/misc/wasm:$PATH" \
+            GOOS=js GOARCH=wasm go test ./engine/wasm/...
+
       - name: coverage floor (library packages, examples excluded)
         run: |
           go test -coverprofile=cover.lib.out $(go list ./... | grep -v '/examples/') >/dev/null
