@@ -13,7 +13,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
 go build -o /tmp/notebook-build ./cmd/notebook
-for nb in capacity curvefit bayes; do
+for nb in capacity curvefit bayes anscombe; do
   /tmp/notebook-build build --target=wasm -o "site/demos/$nb" "examples/$nb"
 done
 
