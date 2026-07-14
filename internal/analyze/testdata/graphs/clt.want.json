@@ -1,0 +1,239 @@
+{
+  "order": [
+    "population",
+    "sampleSize",
+    "trials",
+    "seed",
+    "distribution",
+    "sampling",
+    "populationView",
+    "samplingView",
+    "readout",
+    "intro"
+  ],
+  "helpers": [
+    "newLCG",
+    "f2",
+    "maxOf",
+    "clamp01hi"
+  ],
+  "producer": {
+    "dist": "distribution",
+    "m": "trials",
+    "md": "intro",
+    "meansChart": "samplingView",
+    "n": "sampleSize",
+    "pop": "population",
+    "popChart": "populationView",
+    "report": "readout",
+    "s": "seed",
+    "samp": "sampling"
+  },
+  "cells": {
+    "distribution": {
+      "label": "The population as a probability distribution plus its exact moments.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "pop",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "dist",
+          "type": "Dist"
+        }
+      ]
+    },
+    "intro": {
+      "label": "The Central Limit Theorem, and why it needs purity.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "population": {
+      "label": "The population.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "height": "420",
+        "row": "panels"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "pop",
+          "type": "Draggable[Pt]"
+        }
+      ]
+    },
+    "populationView": {
+      "label": "The population you sculpt.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "420",
+        "row": "panels"
+      },
+      "params": [
+        {
+          "name": "pop",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "dist",
+          "type": "Dist",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "popChart",
+          "type": "PopChart"
+        }
+      ]
+    },
+    "readout": {
+      "label": "The numbers: the population's own mean and spread, the CLT's prediction for the\nmean's spread (σ/√n), and n.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "dist",
+          "type": "Dist",
+          "kind": "wired"
+        },
+        {
+          "name": "samp",
+          "type": "Sampling",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "sampleSize": {
+      "label": "Sample size n — the scrub axis. n = 1 shows the population itself; turn it up and\nthe mean's distribution collapses to a bell; turn it back down and it un-converges.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "50",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    },
+    "sampling": {
+      "label": "The sampling distribution of the mean: draw `trials` samples of size n from the\npopulation and histogram their means.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "dist",
+          "type": "Dist",
+          "kind": "wired"
+        },
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "m",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "s",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "samp",
+          "type": "Sampling"
+        }
+      ]
+    },
+    "samplingView": {
+      "label": "The sampling distribution of the mean, with the CLT's predicted normal overlaid.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "420",
+        "row": "panels"
+      },
+      "params": [
+        {
+          "name": "samp",
+          "type": "Sampling",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "meansChart",
+          "type": "MeansChart"
+        }
+      ]
+    },
+    "seed": {
+      "label": "Seed for the sampling.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "999",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "s",
+          "type": "int"
+        }
+      ]
+    },
+    "trials": {
+      "label": "How many sample means to draw — the resolution of the bell on the right.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "8000",
+        "min": "500",
+        "slider": "",
+        "step": "500"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "m",
+          "type": "int"
+        }
+      ]
+    }
+  }
+}
