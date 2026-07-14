@@ -100,7 +100,7 @@
 
   <header>
     <img src="assets/logo.png" alt="go-notebook — a cell is a function">
-    <p class="tag">Reactive notebooks that compile. Drag a slider below and watch the wave move through the dependency graph at the top of the demo — that graph is derived by the Go type checker, and it's compiled Go running in your browser, no server. Then browse the corpus: seventeen notebooks, eleven you can drag right here.</p>
+    <p class="tag">Reactive notebooks that compile. Drag a slider below and watch the wave move through the dependency graph at the top of the demo — that graph is derived by the Go type checker, and it's compiled Go running in your browser, no server. Then browse the corpus: eighteen notebooks, twelve you can drag right here.</p>
   </header>
 
   <!-- ONE DEMO FIRST. Drag before you read a single word of prose. -->
@@ -138,8 +138,8 @@
        batch tiles are the same file, built for a cluster instead. -->
 
   <section class="corpus">
-    <h2>The corpus — seventeen notebooks, one shape</h2>
-    <p class="lead">Every notebook is a plain Go package. Eleven run right here in your browser as WebAssembly; the rest are the same file built as a static binary for a cluster — a notebook is browser-portable only if it touches no <code>net</code>, <code>os</code>, or cgo, and the toolchain derives that from the call graph. Several were ported from marimo's gallery (porting them found real bugs); others are originals built to put one mechanism on stage.</p>
+    <h2>The corpus — eighteen notebooks, one shape</h2>
+    <p class="lead">Every notebook is a plain Go package. Twelve run right here in your browser as WebAssembly; the rest are the same file built as a static binary for a cluster — a notebook is browser-portable only if it touches no <code>net</code>, <code>os</code>, or cgo, and the toolchain derives that from the call graph. Several were ported from marimo's gallery (porting them found real bugs); others are originals built to put one mechanism on stage.</p>
     <div class="tiles">
 
       <a class="tile" href="demos/capacity/index.html">
@@ -219,6 +219,13 @@
         <span class="go">Open demo</span>
       </a>
 
+      <a class="tile" href="demos/boundary/index.html">
+        <div class="top"><h3>boundary</h3><span class="tag">grips</span></div>
+        <p class="what">What did the classifier learn? A logistic-regression decision surface over two draggable clouds. Drag a point across the line and watch the boundary chase it; drag an outlier and turn regularization up to watch L2 refuse to chase it. Two grip leaves on one chart.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <span class="go">Open demo</span>
+      </a>
+
       <a class="tile" href="https://github.com/scttfrdmn/go-notebook/blob/main/examples/queue/queue.go">
         <div class="top"><h3>queue</h3><span class="tag">Prev[T]</span></div>
         <p class="what">A queue you can watch fill and drain over time. The one notebook that needed a genuinely new concept — <code>Prev[T]</code> + a clock — because a DAG of pure functions can't accumulate.</p>
@@ -262,7 +269,7 @@
       </a>
 
     </div>
-    <p class="lead" style="margin-top:1.25rem">Every batch tile is one <code>go tool notebook build</code> away from being a live tile — the split is a property of what the code touches, not two different systems. <a href="https://github.com/scttfrdmn/go-notebook/tree/main/examples">All seventeen, in full →</a></p>
+    <p class="lead" style="margin-top:1.25rem">Every batch tile is one <code>go tool notebook build</code> away from being a live tile — the split is a property of what the code touches, not two different systems. <a href="https://github.com/scttfrdmn/go-notebook/tree/main/examples">All eighteen, in full →</a></p>
   </section>
 
   <!-- THE THESIS: the graph is the artifact. Named, after you've already seen it move. -->

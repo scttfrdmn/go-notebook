@@ -19,6 +19,7 @@ on:
       - "examples/percolation/**"
       - "examples/lotka/**"
       - "examples/clt/**"
+      - "examples/boundary/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"

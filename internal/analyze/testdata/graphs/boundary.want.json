@@ -1,0 +1,184 @@
+{
+  "order": [
+    "classA",
+    "classB",
+    "regularizationCenti",
+    "fit",
+    "surface",
+    "readout",
+    "intro"
+  ],
+  "helpers": [
+    "accuracy",
+    "angleDeg",
+    "f0",
+    "f2",
+    "pct",
+    "pngHeatmap",
+    "confColor",
+    "lerp",
+    "boundarySegment"
+  ],
+  "producer": {
+    "a": "classA",
+    "b": "classB",
+    "lambda": "regularizationCenti",
+    "md": "intro",
+    "model": "fit",
+    "plot": "surface",
+    "report": "readout"
+  },
+  "cells": {
+    "classA": {
+      "label": "Class A (blue).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "height": "460"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "a",
+          "type": "Draggable[Pt]"
+        }
+      ]
+    },
+    "classB": {
+      "label": "Class B (red).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "height": "460"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "b",
+          "type": "Draggable[Pt]"
+        }
+      ]
+    },
+    "fit": {
+      "label": "The fitted classifier: logistic regression on the two clouds, by gradient descent\nwith L2 regularization, run to a fixed horizon inside this one cell.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "a",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "b",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "lambda",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "model",
+          "type": "Model"
+        }
+      ]
+    },
+    "intro": {
+      "label": "What did the classifier actually learn?",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "readout": {
+      "label": "The numbers: training accuracy, the weight magnitude (how confident/steep the\nsurface is — L2 pulls this down), and the boundary's angle.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "row": "panels"
+      },
+      "params": [
+        {
+          "name": "a",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "b",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "model",
+          "type": "Model",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "regularizationCenti": {
+      "label": "Regularization strength (L2), in hundredths — 20 → λ = 0.20.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "100",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "lambda",
+          "type": "int"
+        }
+      ]
+    },
+    "surface": {
+      "label": "The decision surface: the plane shaded by the model's confidence (blue for A, red\nfor B), the boundary line where it's a coin flip, and every training point as a\ndraggable grip.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "460",
+        "row": "panels"
+      },
+      "params": [
+        {
+          "name": "a",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "b",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "model",
+          "type": "Model",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "plot",
+          "type": "Surface"
+        }
+      ]
+    }
+  }
+}
