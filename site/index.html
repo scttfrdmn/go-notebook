@@ -112,10 +112,14 @@
     </div>
   </section>
 
-  <!-- curvefit is PULLED until grips land (M10 step 4): its control points render
-       with a grab cursor but dragging does nothing yet, and a "drag the control
-       points" demo that doesn't drag has no place in a "measured, not promised"
-       shop window. Restore this section the moment grips are wired. -->
+  <section class="demo">
+    <h2>Curve fit — drag the data</h2>
+    <p class="sub">Drag a point, or the polynomial degree. The least-squares fit follows, live.</p>
+    <div class="frame"><iframe src="demos/curvefit/index.html" loading="lazy" title="curvefit demo"></iframe></div>
+    <div class="reveal">
+      <p class="call">Dragging a control point is an edit to a leaf — <b>the renderer reads it, the runtime writes it, a write is not an edge.</b> No two-way binding to wire, because the cycle is unrepresentable.</p>
+    </div>
+  </section>
 
   <section class="demo">
     <h2>Bayesian regression — watch the posterior form</h2>
