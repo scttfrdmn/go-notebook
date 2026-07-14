@@ -1,6 +1,20 @@
 # Decision doc — checked SQL, or typed Go ops?
 
-*Status: `needs-conversation`. This is **not** a milestone and it opens **no** implementation issues. It is a decision that has to be made by a human before any of this thread can be framed, let alone built. Do not pick this up on momentum — momentum is exactly how the last four rounds each began, and it is the failure mode here.*
+*Status: **DECIDED — SQL typechecker withdrawn** (Scott, 2026-07-13). Not deferred. The rest of this doc is the framing that led to the decision, kept as the record of how the call was made; the decision itself is at the top.*
+
+---
+
+## Decision: withdrawn, not deferred
+
+**Do not build the SQL typechecker.** The reasoning is stronger than "typed Go ops are good enough":
+
+> **The typechecker is not what SQL costs, and it is not what SQL buys.**
+
+A notebook is ordinary Go. A cell can call DuckDB today, unchecked, from a helper — the cgo cost lands on *that* notebook and nobody else pays it. The typechecker adds exactly one thing on top: compile-time checking of the SQL *string*. To get it, the toolchain takes on a dialect-specific SQL parser (the largest single piece of work in the project) and cgo becomes a first-class toolchain concern instead of one notebook's private problem. The trade: a large permanent toolchain burden plus a wound to the static-binary premise, in exchange for checking a string the user can avoid needing checked by writing typed Go.
+
+`taxi` refuted the claim empirically — built as a stopgap, it delivers the headline guarantee (rename a column, every cell that used it fails to compile) with no parser, no cgo, no dialect, because the compiler already does it. Same shape as the grip token and `Table.Reconcile`: designed against a problem, the code showed which problem was real, and the general mechanism already covered it.
+
+Recorded in `design.md` as the sixth correction and as the reversal that closes the cgo wound (static binary intact, all four topologies clean). This was the last piece of unexercised confident prose in the project — *a specification is a claim, and this is the one that was never cashed.*
 
 ---
 

@@ -298,7 +298,7 @@ Same file, same engine, four topologies, distinguished only by **where you put a
 
 All four are now built and measured. The fourth — compute in the browser — was the real test, because the only reason it *should* work is the discipline that the engine never imports a transport: `engine/wasm` is a syscall/js sibling of `engine/server`, and standing it up required **zero changes to any existing engine public API** (the diff of every engine file is empty). capacity compiles to `GOOS=js GOARCH=wasm` at ~1 MB gzipped, cold-loads to an interactive slider in ~40 ms, and repaints in ~300 µs — an order of magnitude smaller than an interpreter-shipping stack (Pyodide alone is 10 MB+ before the notebook), because a compiled program is not an interpreter plus a program. **One honest caveat:** `GOOS=js` is single-threaded, so the goroutine fan-out — the parallel-branch dividend that is the whole point of the language choice — is *absent* in the browser. Waves run serially. Correct, just not parallel; invisible on capacity, real on anything compute-heavy.
 
-**A fifth topology is rejected, not deferred: the browser as editor.** It is tempting — WASM already runs the notebook in the tab, so why not author it there too? Because a notebook *is a plain Go file*, and authoring a Go file is a solved problem owned by your editor and `gopls`: completion, go-to-definition, refactoring, type errors as you type, the whole apparatus. A browser text pane would be a strictly worse editor with none of it, and building one would violate the project's own premise — that a notebook carries no special format, so the ordinary Go toolchain already edits it. The browser's job is the *other* end: it is an **output, diagnostic, and graph surface** — it shows what the notebook computes, what failed and where, and the live dependency graph, none of which your editor does. Input stays with the tools built for it. This line matters because "add an editor to the browser" will look like an obvious next feature forever; it is a foreclosed one. (Contrast the genuinely-deferred items — SQL, `Prev`, the widget vocabulary — which are *not yet built*; this is *chosen against*.)
+**A fifth topology is rejected, not deferred: the browser as editor.** It is tempting — WASM already runs the notebook in the tab, so why not author it there too? Because a notebook *is a plain Go file*, and authoring a Go file is a solved problem owned by your editor and `gopls`: completion, go-to-definition, refactoring, type errors as you type, the whole apparatus. A browser text pane would be a strictly worse editor with none of it, and building one would violate the project's own premise — that a notebook carries no special format, so the ordinary Go toolchain already edits it. The browser's job is the *other* end: it is an **output, diagnostic, and graph surface** — it shows what the notebook computes, what failed and where, and the live dependency graph, none of which your editor does. Input stays with the tools built for it. This line matters because "add an editor to the browser" will look like an obvious next feature forever; it is a foreclosed one. (Contrast the genuinely-deferred items — `Prev`, the widget vocabulary — which were *not yet built* when this was written; this is *chosen against*. SQL was on that list too, and is now in a third category: neither deferred nor foreclosed but **withdrawn** — proposed, then refuted by the code that made it unnecessary. See *the SQL claim, withdrawn* below.)
 
 ### Headless
 
@@ -315,9 +315,9 @@ And fold + clock is a discrete-event loop — so a notebook with a `Prev` cell i
 
 ---
 
-## SQL and data that doesn't fit
+## Data that doesn't fit — and the SQL claim, withdrawn
 
-These are the same problem: a SQL cell must return rows *of some Go type*, and if the data doesn't fit in RAM that type cannot be a slice of the rows.
+The problem is real: a cell that queries a dataset must return rows *of some Go type*, and if the data doesn't fit in RAM that type cannot be a slice of the rows. The answer that shipped is not the answer this document first proposed.
 
 **The struct is the schema.**
 
@@ -329,25 +329,32 @@ type Trip struct {
     ...
 }
 
-func demand(all Rel[Trip], m Select[Month]) (hours []HourStat, err error) {
-    return Query[HourStat](all, `
-        SELECT hour(Pickup) AS Hour,
-               count(*)     AS Trips,
-               avg(Fare)    AS MeanFare
-        FROM trips WHERE month(Pickup) = ? GROUP BY 1 ORDER BY 1`, m.Value.N)
+// Demand by hour. Scan streams every row of the relation through the
+// accumulator; the 24-row result crosses into Go, the 42M-row table never does.
+func demand(all Rel[Trip]) (hours []HourStat, err error) {
+    acc := map[int]*HourStat{}
+    err = Scan(all, func(t Trip) {
+        h := t.Pickup.Hour()
+        s := acc[h]
+        // ... ordinary Go accumulation, typed the whole way down
+        s.Trips++
+        s.MeanRevenue += t.Fare + t.Tip
+    })
+    // ... finalize the 24 rows and return
 }
 ```
 
-The toolchain parses that string at **build time** and checks every identifier against `Trip`, and the result columns against `HourStat`:
+Rename `Fare` and every cell that reads `t.Fare` fails to compile — **the headline guarantee — and the compiler that already exists is what delivers it.** No data is needed: the struct *is* the schema. The parquet file's actual schema is validated against it once, at load, so a mismatched file is an error rather than a silently-wrong column.
 
-- a column that isn't a `Trip` field → **compile error**
-- a result struct that doesn't match the `SELECT` → **compile error**
-- `avg(Fare)` assigned to an `int` → **compile error**
-- **rename a column and every SQL cell that used it fails to compile**
+### The SQL claim, withdrawn
 
-No data is needed to compile — the struct *is* the schema. The parquet file's actual schema is validated against it once, at load, so a mismatched file is an error rather than a silently-wrong column. Three-way agreement between struct, query, and file.
+An earlier draft made compile-time-checked SQL the centerpiece of this section — a `Query[HourStat](all, "SELECT … GROUP BY …")` whose string the toolchain parsed at build time and checked against `Trip` and `HourStat`, so that a bad column or a mismatched result struct was a compile error. It was called *"the strongest claim in the design."* It is **withdrawn — not deferred.**
 
-marimo *cannot* do this. Not "does not" — there is no compile step to hang it on. This is the strongest claim in the design and it is a straight consequence of deciding to compile, ten decisions earlier, for unrelated reasons.
+The sharp version of why: **the typechecker is not what SQL costs, and it is not what SQL buys.** A notebook is ordinary Go, so a cell can call DuckDB today, unchecked, from a helper — the cgo cost lands on *that* notebook and nobody else pays it. The typechecker adds exactly one thing on top: compile-time checking of the SQL *string*. To get it, the toolchain takes on a dialect-specific SQL parser (the largest single piece of work in the project) and cgo becomes a first-class toolchain concern instead of one notebook's private problem. So the trade is a large permanent toolchain burden, and a wound to the static-binary story — which is not a feature, it is the premise — in exchange for checking a string the user could avoid needing checked by writing typed Go instead.
+
+And `taxi` refuted the claim empirically. It was built as a stopgap and it delivers the actual substance — rename a column, every cell that used it fails to compile — with no parser, no cgo, no dialect, and no new toolchain, because the compiler was already doing it. The stopgap turned out to be the answer. Same shape as the grip token and `Table.Reconcile`: designed against a problem, the code showed which problem was real, and the general mechanism already covered it.
+
+This was the last piece of unexercised confident prose in the project. "The strongest claim in the design" was written in a design conversation, before a line of code existed, and it went unchallenged for sixteen rounds because it sounded right. **A specification is a claim — and this is the one that was never cashed, and shouldn't be.**
 
 ### A path is not a handle
 
@@ -359,13 +366,11 @@ marimo *cannot* do this. Not "does not" — there is no compile step to hang it 
 
 Out-of-core works because the SELECT touches 42M rows and returns 24. **Pushing compute to the data is not an optimization here — it is the only reason a slice of the result is a legal Go value at all.**
 
-### The wound
+### The wound that closed
 
-**DuckDB is cgo.** `CGO_ENABLED=0` breaks, and with it the one-line "cross-compile, scp, sbatch" story that everything above leans on.
+The earlier draft had a scar here: **DuckDB is cgo**, `CGO_ENABLED=0` breaks, and with it the one-line "cross-compile, scp, sbatch" story that everything above leans on. That wound existed *because* the toolchain was going to own SQL. Withdrawing the SQL typechecker closes it — not by being fixed, but by the thing that caused it turning out not to be worth having. The out-of-core path is pure-Go `Rel[T]` + `Scan`/`Filter`/`GroupBy`: **no cgo, static binary intact, all four topologies clean.** A notebook that genuinely wants DuckDB imports it and pays the cgo cost locally, visible in its own imports; the toolchain stays out of it.
 
-The honest resolution is two tiers, visible in the file's imports: **pure-Go parquet** for scans and simple aggregates, keeping the static binary intact; **DuckDB via cgo** when you need real SQL. Cross-compiling cgo is possible (zig cc) and it is not free.
-
-Two more limits, stated plainly. The toolchain now needs a **SQL parser and typechecker** — the single biggest piece of engineering in this document, bigger than the scheduler. `sqlc` proves it's tractable; it is still real work, and dialect-specific. And **unit types don't survive arbitrary SQL arithmetic**: `avg(Fare)` → `USD`, but `avg(epoch(Dropoff)-epoch(Pickup))/60` → `float64`. I won't pretend to infer units through expression trees.
+One honest limit survives and it is small: **unit types don't survive arbitrary aggregate arithmetic.** `mean(Fare)` stays `USD` because it's Go; but if you divide a `USD` sum by a duration to get a rate, that's a `float64` unless you name the result type. Nothing infers units through expression trees, and nothing pretends to.
 
 ---
 
@@ -429,9 +434,7 @@ Everything above is design, and design was the easy part. The remaining risk is 
 
 **2. Glitch-free propagation.** The epoch'd immutable snapshot is the answer, and it is the one piece of "think hard" that survived every round, because it is an actual correctness bug a user sees — not a purity concern.
 
-**3. The SQL typechecker.** Tractable (`sqlc` exists), large, dialect-specific.
-
-Those three are where the weeks go.
+Those two are where the weeks go. (An earlier draft listed a third — the SQL typechecker — as "large, dialect-specific." It's withdrawn, not unresolved; see *the SQL claim, withdrawn* above. The project's single biggest piece of engineering turned out to be a piece of engineering the project shouldn't do.)
 
 ---
 
@@ -445,7 +448,9 @@ The niche is **systems, simulation, and cluster work** — queueing models, capa
 
 And every "how do we avoid X" turned out to be "you already avoided it three decisions ago." That is the opposite of the accretion pattern. **Fewer layers isn't a gap to be filled. It's the point.**
 
-**What it cost.** One new concept (`Prev` + `Tick`). Three corrections the ports forced (per-widget reconciliation; cacheability is derived, not declared; the edit log is real but only for stateful notebooks) — plus a fourth the WASM build forced: purity and portability are *different* callgraph verdicts, not one (see above) — plus a fifth the widget build *reaffirmed*: the grip `leafToken` was nearly deleted as redundant-given-`Widget.Kind`, until the corpus showed every grip is cross-cell (drawn by a cell that doesn't own its leaf), which `Kind` can't identify — so the token stays, now justified structurally rather than aesthetically (see above). One genuine wound (cgo, for SQL). No per-cell stdout, and no goroutine parallelism in the browser tier.
+**What it cost.** One new concept (`Prev` + `Tick`). Three corrections the ports forced (per-widget reconciliation; cacheability is derived, not declared; the edit log is real but only for stateful notebooks) — plus a fourth the WASM build forced: purity and portability are *different* callgraph verdicts, not one (see above) — plus a fifth the widget build *reaffirmed*: the grip `leafToken` was nearly deleted as redundant-given-`Widget.Kind`, until the corpus showed every grip is cross-cell (drawn by a cell that doesn't own its leaf), which `Kind` can't identify — so the token stays, now justified structurally rather than aesthetically (see above).
+
+And a sixth, the largest reversal of all: **compile-time-checked SQL, withdrawn.** The claim was that struct-as-schema makes SQL checkable at build time and no other notebook can do it — both true — and it was called "the strongest claim in the design." But `taxi` demonstrates that typed Go operations over `Rel[T]` deliver the same guarantee (rename a column, the cells fail to compile) using the compiler that already exists, with no parser, no cgo, and no dialect. A notebook that genuinely wants SQL calls DuckDB from an ordinary helper and pays the cgo cost locally. The typechecker would have imposed that cost on the toolchain to check a string the design makes unnecessary. Withdrawn, not deferred — and it closes the one honest scar in the document: **no cgo, static binary intact, all four topologies clean.** The wound didn't get bandaged; the thing that caused it turned out not to be worth having. No per-cell stdout, and no goroutine parallelism in the browser tier remain the standing costs.
 
 Everything else compounded from a single sentence.
 
