@@ -26,9 +26,8 @@
 //     same recomputed run — not two plots kept in sync by hand, but two projections
 //     of a single value the graph already holds. That is the reactive-graph thesis
 //     as a picture: the dependency graph forks trajectory → {series, portrait}.
-//     (They stack vertically; the client renders one cell per row. A side-by-side
-//     `row=` layout is a directive the browser doesn't yet honor — the *linking*
-//     is the real point, and that is structural, not cosmetic.)
+//     They share a `//notebook:row=panels` directive, so on a wide screen they sit
+//     side by side (and wrap to stacked when it's narrow).
 //   - **A grip in phase space.** The starting populations are a draggable point on
 //     the phase portrait itself — drag it and you pick a different orbit. curvefit's
 //     grip mechanism, but the handle lives in the abstract (x, y) plane, not on a
@@ -173,8 +172,8 @@ without them. Drag the rates, or drag the **starting point on the phase portrait
 to pick a different orbit.
 
 Two views, one source. The **time series** shows prey and predators rising and
-crashing, the predators lagging the prey. Below it, the **phase portrait** plots the
-same run as prey-vs-predators, and it closes into a *loop* — the system is
+crashing, the predators lagging the prey. Beside it, the **phase portrait** plots
+the same run as prey-vs-predators, and it closes into a *loop* — the system is
 conservative and returns to where it started. They are two cells reading the one
 ` + "`trajectory`" + ` cell, so a single edit redraws both: the dependency graph
 forks trajectory → {series, portrait}, and that fork is the reactive thesis as a
