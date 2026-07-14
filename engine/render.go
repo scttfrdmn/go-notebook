@@ -65,7 +65,18 @@ func AsRendered(v any) (Rendered, bool) {
 		mime.Kind() != reflect.String || data.Kind() != reflect.String {
 		return Rendered{}, false
 	}
-	return Rendered{MIME: mime.String(), Data: data.String()}, true
+	mimeStr, dataStr := mime.String(), data.String()
+	// text/markdown is converted to safe HTML here, at the one chokepoint every
+	// rendered output passes through. A notebook returns text/markdown (its
+	// intro() does), but the client paints only text/html and image/svg as markup
+	// and everything else as raw text — so without this the prose would show its
+	// literal **asterisks**. Doing it here means all notebooks get formatted intros
+	// with no notebook change, and the client stays a dumb painter. See
+	// renderMarkdown for the safe subset and why it is stdlib-only.
+	if mimeStr == "text/markdown" {
+		return Rendered{MIME: "text/html", Data: renderMarkdown(dataStr)}, true
+	}
+	return Rendered{MIME: mimeStr, Data: dataStr}, true
 }
 
 // AsWidgetView probes v for the Viewable capability and returns its state view.
