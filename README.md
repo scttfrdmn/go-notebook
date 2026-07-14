@@ -72,9 +72,9 @@ Overlapping the rebuild with the running binary ([#22](https://github.com/scttfr
 
 **Two stories, both working.** The differentiated one is batch and cluster: the same file is a notebook, an `sbatch` job, and a callable model (`--headless --set --json`). The familiar one is interactive: edit source, see the chart move — at every notebook size measured. Neither is a consolation for the other.
 
-**Built so far:** `internal/graph` (plain-data IR, no `go/types`), `internal/analyze` (incremental type-checking `Session`, CHA-based purity), `internal/gen` (codegen + overlay), `engine` (head + epoch'd glitch-free scheduler + cache + capability probes), `engine/server` (SSE + edits; the only `net/http`). Deferred by design (seams cut, features skipped): `Prev[T]` folds, grips, SQL/`Rel[T]`, WASM. Progress is tracked in [GitHub issues](https://github.com/scttfrdmn/go-notebook/issues); kill-criteria numbers live on [#16](https://github.com/scttfrdmn/go-notebook/issues/16).
+**Built so far:** `internal/graph` (plain-data IR, no `go/types`), `internal/analyze` (incremental type-checking `Session`, CHA-based purity **and** WASM-portability), `internal/gen` (codegen + overlay), `engine` (head + epoch'd glitch-free scheduler + cache + capability probes + safe markdown rendering), `engine/server` (SSE + edits; the only `net/http`), `engine/wasm` (the browser transport, a `syscall/js` sibling of the server), and `internal/webui` (the shared browser client). Grips, the widget vocabulary (`Multi`/`Select`/`Range`/`Table`/`Draggable`), and all four topologies including WASM are **built** — nine notebooks run live in the browser. Still deferred: `Prev[T]` folds (dynamics use fixed-horizon pure cells instead). SQL/`Rel[T]` is **withdrawn**, not deferred — typed Go operations over `Rel[T]` deliver the same compile-time guarantee without a parser or cgo (see the design's *SQL claim, withdrawn*). Progress is tracked in [GitHub issues](https://github.com/scttfrdmn/go-notebook/issues); kill-criteria numbers live on [#16](https://github.com/scttfrdmn/go-notebook/issues/16).
 
-**Quality bar.** CI enforces `gofmt`, `go vet`, `go test -race`, and `golangci-lint` (errcheck, staticcheck, revive, ineffassign, misspell, gocyclo ≤ 15, unconvert, gocritic) on every push — the full set the retired Go Report Card used to grade, now checked in-tree so it stays honest without a third-party service. Library-package coverage (the example notebooks are fixtures, excluded) is held to a **≥ 75% floor** in CI; it currently sits at ~79%, with the core engine/graph/analyze/gen packages all above 82%.
+**Quality bar.** CI enforces `gofmt`, `go vet`, `go test -race`, and `golangci-lint` (errcheck, staticcheck, revive, ineffassign, misspell, gocyclo ≤ 15, unconvert, gocritic) on every push — the full set the retired Go Report Card used to grade, now checked in-tree so it stays honest without a third-party service. Library-package coverage (the example notebooks are fixtures, excluded) is held to a **≥ 75% floor** in CI; it currently sits at ~78%, with the core engine/graph/analyze/gen packages all above 82%.
 
 ## Documents
 
@@ -88,7 +88,9 @@ Overlapping the rebuild with the running binary ([#22](https://github.com/scttfr
 
 ## The notebooks
 
-Each was written to stress one thing. Together they're the evidence the design has, and the corrections it took.
+Fifteen notebooks, nine of them running live in the browser as WebAssembly ([go-notebook.dev](https://go-notebook.dev)). The first batch (ports and the reference fixture) is the evidence the design has and the corrections it took; the second (originals) puts one mechanism each on stage. A notebook is browser-portable only if its call graph touches no `net`/`os`/cgo — the toolchain derives that — so the rest are the same file built as a static binary for a cluster.
+
+### Ports & baseline — the evidence, and the bugs they found
 
 | Notebook | What it tests | What it found |
 |---|---|---|
@@ -100,13 +102,24 @@ Each was written to stress one thing. Together they're the evidence the design h
 | **`bayes`** *(port)* | Incremental compute. Is "posterior after n points" a fold? | **No — and using a fold would break it.** Sufficient statistics are sums, so `posterior` is pure and you can scrub *backward*. Gave the rule: *relative gestures accumulate; absolute controls recompute.* |
 | **`portfolio`** *(port)* | Side effects, caching, financial units. | **Bug:** `yf.Ticker("MSFT")` is hardcoded — every ticker downloads Microsoft's history, relabeled, and never re-downloads. The *enabling* flaw: the graph edge carries `parent_folder`, a constant. **Rule:** *a path is not a handle; a handle identifies its contents.* |
 | **`mandelbrot`** *(port)* | The rigged fight, made honest: strong scaling instead of Go-vs-Python. | **Correction:** I invented a `//notebook:nocache` directive and it was wrong — cacheability is derivable from the call graph. A button turned out to be the same `Tick` as a timer, with a different writer. |
-| **`taxi`** | **SQL + out-of-core.** 42M rows; a query cell must return rows *of some Go type*. | The struct **is** the schema, so SQL typechecks at build time: rename a column and every SQL cell fails to compile. **The wound:** DuckDB is cgo, which costs the static-binary story for SQL notebooks. |
+| **`taxi`** | **Out-of-core over a content-addressed handle.** 42M rows; a query cell must return rows *of some Go type*. | `Rel[T]` streams the rows; only the small result crosses into Go. Typed Go `Scan`/`Filter`/`GroupBy` give the compile-time guarantee — rename a column, every cell fails to compile — with **no SQL parser and no cgo**. This is what *withdrew* the SQL typechecker (see the design): the stopgap was the answer, and it closed the one cgo wound. |
+
+### Originals — one mechanism each, on stage
+
+| Notebook | Mechanism | What it shows |
+|---|---|---|
+| **`anscombe`** *(live)* | grips + purity | Summary statistics lie. Drag the scatter (a dinosaur) into any shape; mean, variance, correlation, and the fit line scarcely move. The graph is the only honest witness. |
+| **`nbody`** *(live)* | fixed-horizon + units | "Running is not passing" in a numerical integrator: Euler's orbits *look* fine while it manufactures energy every step; symplectic Verlet stays flat. Unit-typed `Energy`; the bug is only visible if you plot the invariant. |
+| **`turing`** *(live)* | fan-out + WASM caveat | Gray-Scott reaction-diffusion — spots, stripes, mazes from two numbers. The grid update is embarrassingly parallel: the fan-out is real natively and *absent in the single-threaded tab*, the caveat stated out loud. |
+| **`percolation`** *(live)* | purity | A phase transition you can scrub. Fill a grid with probability *p*, drag through p_c ≈ 0.593, watch a spanning cluster snap into place top-to-bottom. Pure, so you sweep the transition **both ways** exactly. |
+| **`surface`** *(live, escape hatch)* | WebGL | A shaded 3D surface on the GPU. The corpus's deliberate exception — WebGL has no Go form, so it drops to raw HTML/JS, the framework boundary the design *quarantines and labels*. Go still owns the math; the GPU only draws. |
+| **`gpulife`** *(live, escape hatch)* | WebGPU compute | Conway's Life on a WebGPU **compute shader** — a quarter-million cells stepping many times a second. The answer to turing's caveat: the parallel dividend, back in the tab, on the GPU. Go owns the seed; the shader owns the iteration. |
 
 ---
 
 ## What it cost
 
-One new concept (`Prev[T]` + `Tick`). Three corrections the ports forced. One genuine wound (cgo, for SQL). No per-cell stdout — the price of goroutine fan-out.
+One new concept (`Prev[T]` + `Tick`). Corrections the ports and later builds forced — per-widget reconciliation, cacheability-is-derived, purity-vs-portability as *two* callgraph verdicts, the structural justification for the grip token. One reversal: compile-checked SQL, **withdrawn** — typed Go over `Rel[T]` gave the same guarantee and closed the cgo wound. The standing costs: no per-cell stdout, and no goroutine parallelism in the browser tier (the GPU is one answer to that — see `gpulife`).
 
 Everything else compounded from a single sentence.
 
