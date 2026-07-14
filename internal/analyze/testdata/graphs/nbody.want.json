@@ -1,0 +1,240 @@
+{
+  "order": [
+    "bodies",
+    "steps",
+    "stepSize",
+    "euler",
+    "verlet",
+    "orbits",
+    "conservation",
+    "drift",
+    "intro"
+  ],
+  "helpers": [
+    "integrate",
+    "stepEuler",
+    "stepVerlet",
+    "accelerations",
+    "totalEnergy",
+    "kinetic",
+    "potential",
+    "centroid",
+    "dt",
+    "relDrift",
+    "pct"
+  ],
+  "producer": {
+    "dtMilli": "stepSize",
+    "energy": "conservation",
+    "euler": "euler",
+    "md": "intro",
+    "n": "steps",
+    "paths": "orbits",
+    "report": "drift",
+    "start": "bodies",
+    "verlet": "verlet"
+  },
+  "cells": {
+    "bodies": {
+      "label": "Starting positions of the three bodies.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "height": "440"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "start",
+          "type": "Draggable[Pt]"
+        }
+      ]
+    },
+    "conservation": {
+      "label": "Total energy over time.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "440",
+        "row": "panels"
+      },
+      "params": [
+        {
+          "name": "euler",
+          "type": "Trajectory",
+          "kind": "wired"
+        },
+        {
+          "name": "verlet",
+          "type": "Trajectory",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "energy",
+          "type": "EnergyChart"
+        }
+      ]
+    },
+    "drift": {
+      "label": "How badly Euler drifts — the number under the picture.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "euler",
+          "type": "Trajectory",
+          "kind": "wired"
+        },
+        {
+          "name": "verlet",
+          "type": "Trajectory",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "euler": {
+      "label": "Forward Euler.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "start",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "dtMilli",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "euler",
+          "type": "Trajectory"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Running is not passing — in a numerical integrator.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "orbits": {
+      "label": "The orbits.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "440",
+        "row": "panels"
+      },
+      "params": [
+        {
+          "name": "start",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "euler",
+          "type": "Trajectory",
+          "kind": "wired"
+        },
+        {
+          "name": "verlet",
+          "type": "Trajectory",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "paths",
+          "type": "OrbitChart"
+        }
+      ]
+    },
+    "stepSize": {
+      "label": "Step size (the integrator's dt).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "30",
+        "min": "4",
+        "slider": "",
+        "step": "2"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "dtMilli",
+          "type": "int"
+        }
+      ]
+    },
+    "steps": {
+      "label": "Steps to simulate.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "4000",
+        "min": "50",
+        "slider": "",
+        "step": "50"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    },
+    "verlet": {
+      "label": "Velocity Verlet — symplectic, energy-conserving.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "start",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "dtMilli",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "verlet",
+          "type": "Trajectory"
+        }
+      ]
+    }
+  }
+}
