@@ -1,0 +1,261 @@
+{
+  "order": [
+    "alphaCenti",
+    "betaCenti",
+    "gammaCenti",
+    "deltaCenti",
+    "horizonTenths",
+    "start",
+    "trajectory",
+    "series",
+    "portrait",
+    "summary",
+    "intro"
+  ],
+  "helpers": [
+    "f1",
+    "axisMax"
+  ],
+  "producer": {
+    "alpha": "alphaCenti",
+    "beta": "betaCenti",
+    "delta": "deltaCenti",
+    "gamma": "gammaCenti",
+    "ic": "start",
+    "md": "intro",
+    "phase": "portrait",
+    "report": "summary",
+    "run": "trajectory",
+    "span": "horizonTenths",
+    "timeplot": "series"
+  },
+  "cells": {
+    "alphaCenti": {
+      "label": "Prey birth rate α, in hundredths (110 → 1.10).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "200",
+        "min": "40",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "alpha",
+          "type": "int"
+        }
+      ]
+    },
+    "betaCenti": {
+      "label": "Predation rate β, in hundredths — how efficiently predators convert prey into\nfewer prey.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "120",
+        "min": "20",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "beta",
+          "type": "int"
+        }
+      ]
+    },
+    "deltaCenti": {
+      "label": "Predator growth rate δ, in hundredths — how much each meal helps predators breed.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "100",
+        "min": "10",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "delta",
+          "type": "int"
+        }
+      ]
+    },
+    "gammaCenti": {
+      "label": "Predator death rate γ, in hundredths — how fast predators starve without prey.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "200",
+        "min": "40",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "gamma",
+          "type": "int"
+        }
+      ]
+    },
+    "horizonTenths": {
+      "label": "How long to simulate, in tenths of a time unit — the horizon and scrub axis.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "400",
+        "min": "50",
+        "slider": "",
+        "step": "10"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "span",
+          "type": "int"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Predator and prey — the same trajectory, two ways.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "portrait": {
+      "label": "The phase portrait: prey on x, predators on y, the same run as a path.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "460",
+        "row": "panels"
+      },
+      "params": [
+        {
+          "name": "run",
+          "type": "Trajectory",
+          "kind": "wired"
+        },
+        {
+          "name": "ic",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "phase",
+          "type": "PhaseChart"
+        }
+      ]
+    },
+    "series": {
+      "label": "Populations over time.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "460",
+        "row": "panels"
+      },
+      "params": [
+        {
+          "name": "run",
+          "type": "Trajectory",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "timeplot",
+          "type": "TimeChart"
+        }
+      ]
+    },
+    "start": {
+      "label": "Starting populations: a draggable point on the phase portrait.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "height": "460"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "ic",
+          "type": "Draggable[Pt]"
+        }
+      ]
+    },
+    "summary": {
+      "label": "The numbers: the period of the cycle (peak-to-peak in prey) and the peak\npopulations — a readout of the oscillation the plots show.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "run",
+          "type": "Trajectory",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "trajectory": {
+      "label": "The trajectory: integrate Lotka-Volterra from the starting populations to the\nhorizon with RK4, returning prey and predators at every step.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "alpha",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "beta",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "gamma",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "delta",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "ic",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "span",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "run",
+          "type": "Trajectory"
+        }
+      ]
+    }
+  }
+}

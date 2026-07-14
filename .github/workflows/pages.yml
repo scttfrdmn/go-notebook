@@ -17,6 +17,7 @@ on:
       - "examples/surface/**"
       - "examples/gpulife/**"
       - "examples/percolation/**"
+      - "examples/lotka/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
