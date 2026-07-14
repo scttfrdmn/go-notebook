@@ -12,6 +12,7 @@ on:
       - "examples/curvefit/**"
       - "examples/bayes/**"
       - "examples/anscombe/**"
+      - "examples/nbody/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
