@@ -1,0 +1,189 @@
+{
+  "order": [
+    "lbNines",
+    "appNines",
+    "dbNines",
+    "replicas",
+    "system",
+    "diagram",
+    "budget",
+    "intro"
+  ],
+  "helpers": [
+    "fromNines",
+    "ninesOf",
+    "pctString",
+    "downtime",
+    "replicaNote",
+    "f1",
+    "redundancyLabel"
+  ],
+  "producer": {
+    "app": "appNines",
+    "block": "diagram",
+    "db": "dbNines",
+    "lb": "lbNines",
+    "md": "intro",
+    "n": "replicas",
+    "report": "budget",
+    "sys": "system"
+  },
+  "cells": {
+    "appNines": {
+      "label": "Per-app-server availability, in nines×10.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "50",
+        "min": "10",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "app",
+          "type": "int"
+        }
+      ]
+    },
+    "budget": {
+      "label": "The numbers people actually feel: the system's nines and its downtime per year,\nand the same for each stage — so you can see which stage is the floor.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "sys",
+          "type": "System",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "dbNines": {
+      "label": "Database availability, in nines×10.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "50",
+        "min": "10",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "db",
+          "type": "int"
+        }
+      ]
+    },
+    "diagram": {
+      "label": "The reliability block diagram: the three stages in series, left to right, with the\napp tier drawn as N stacked parallel boxes.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "320"
+      },
+      "params": [
+        {
+          "name": "sys",
+          "type": "System",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "block",
+          "type": "Diagram"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Nines, in series and in parallel.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "lbNines": {
+      "label": "Load balancer availability, in nines×10 (30 → 3.0 nines → 99.9%).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "50",
+        "min": "10",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "lb",
+          "type": "int"
+        }
+      ]
+    },
+    "replicas": {
+      "label": "Number of app-server replicas in parallel.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "5",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    },
+    "system": {
+      "label": "The composed system: the app tier's availability after N-way redundancy, and the\nseries product of load balancer × app tier × database.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "lb",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "app",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "db",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "sys",
+          "type": "System"
+        }
+      ]
+    }
+  }
+}
