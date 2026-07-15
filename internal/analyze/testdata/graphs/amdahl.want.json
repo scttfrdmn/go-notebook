@@ -1,0 +1,136 @@
+{
+  "order": [
+    "parallelPct",
+    "cores",
+    "model",
+    "curves",
+    "readout",
+    "intro"
+  ],
+  "helpers": [
+    "f0",
+    "f1",
+    "pct",
+    "maxOf"
+  ],
+  "producer": {
+    "chart": "curves",
+    "m": "model",
+    "md": "intro",
+    "n": "cores",
+    "p": "parallelPct",
+    "report": "readout"
+  },
+  "cells": {
+    "cores": {
+      "label": "Cores n — where the marker sits on the curve, so you can read the speedup at a\nspecific core count and see how far below the ceiling it already is.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "256",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    },
+    "curves": {
+      "label": "The speedup curves: Amdahl (what you actually get, bending over toward its\nceiling) and Gustafson (the linear line, if you grow the problem instead), with\nthe ceiling drawn as a dashed asymptote and a marker at the chosen core count.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "420"
+      },
+      "params": [
+        {
+          "name": "m",
+          "type": "Model",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "Chart"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Amdahl's ceiling — why more cores stop helping.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "model": {
+      "label": "The speedup model: Amdahl's curve over 1..maxCores, its asymptotic ceiling\n1/(1−p), Gustafson's linear curve for contrast, and the values at the marker n.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "p",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "m",
+          "type": "Model"
+        }
+      ]
+    },
+    "parallelPct": {
+      "label": "Parallelizable fraction p, in percent.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "100",
+        "min": "50",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "p",
+          "type": "int"
+        }
+      ]
+    },
+    "readout": {
+      "label": "The numbers: the ceiling the serial fraction imposes, the speedup you actually get\nat n cores, and the efficiency (how much of each core is doing useful work — it\ncollapses as you add cores past the knee).",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "m",
+          "type": "Model",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    }
+  }
+}

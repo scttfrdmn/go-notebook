@@ -26,6 +26,7 @@ on:
       - "examples/reliability/**"
       - "examples/little/**"
       - "examples/critpath/**"
+      - "examples/amdahl/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
