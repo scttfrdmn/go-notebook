@@ -1,0 +1,187 @@
+{
+  "order": [
+    "offeredPeak",
+    "retryPct",
+    "breakerPct",
+    "storm",
+    "timeline",
+    "phase",
+    "verdict",
+    "intro"
+  ],
+  "helpers": [
+    "loadProfile",
+    "collapsed",
+    "hysteresisUp",
+    "hysteresisDown",
+    "f0",
+    "maxOf",
+    "esc"
+  ],
+  "producer": {
+    "breaker": "breakerPct",
+    "loop": "phase",
+    "md": "intro",
+    "peak": "offeredPeak",
+    "report": "verdict",
+    "retry": "retryPct",
+    "run": "storm",
+    "series": "timeline"
+  },
+  "cells": {
+    "breakerPct": {
+      "label": "Circuit breaker threshold — the failure rate (%) at which the breaker trips and\nsheds retries (fail fast, stop piling on). 100 = disabled (never trips): drag it\ndown to arm it.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "100",
+        "min": "20",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "breaker",
+          "type": "int"
+        }
+      ]
+    },
+    "intro": {
+      "label": "The retry storm — watch a healthy service tip into metastable collapse.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "offeredPeak": {
+      "label": "Offered peak — the top of the load ramp, in requests/tick.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "260",
+        "min": "60",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "peak",
+          "type": "int"
+        }
+      ]
+    },
+    "phase": {
+      "label": "The phase loop: goodput plotted against offered load, swept up then down.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "360"
+      },
+      "params": [
+        {
+          "name": "run",
+          "type": "Storm",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "loop",
+          "type": "Loop"
+        }
+      ]
+    },
+    "retryPct": {
+      "label": "Retry percentage — the share of each failed request that comes back as a retry.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "100",
+        "min": "0",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "retry",
+          "type": "int"
+        }
+      ]
+    },
+    "storm": {
+      "label": "storm steps the retry feedback loop for `ticks` ticks and returns the offered and\ngoodput traces plus the metastability verdict.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "peak",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "retry",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "breaker",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "run",
+          "type": "Storm"
+        }
+      ]
+    },
+    "timeline": {
+      "label": "The timeline: offered load and goodput over time.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "340"
+      },
+      "params": [
+        {
+          "name": "run",
+          "type": "Storm",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "series",
+          "type": "Timeline"
+        }
+      ]
+    },
+    "verdict": {
+      "label": "The verdict: what state is the system in, and how wide is the trap?",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "run",
+          "type": "Storm",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    }
+  }
+}

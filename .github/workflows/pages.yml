@@ -30,6 +30,7 @@ on:
       - "examples/roofline/**"
       - "examples/fleet/**"
       - "examples/pid/**"
+      - "examples/retrystorm/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
