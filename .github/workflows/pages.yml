@@ -25,6 +25,7 @@ on:
       - "examples/spectrogram/**"
       - "examples/reliability/**"
       - "examples/little/**"
+      - "examples/critpath/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
