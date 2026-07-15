@@ -1,0 +1,259 @@
+{
+  "order": [
+    "checkout",
+    "deps",
+    "compile",
+    "lint",
+    "test",
+    "pkg",
+    "deploy",
+    "schedule",
+    "timeline",
+    "readout",
+    "intro"
+  ],
+  "helpers": [
+    "mostSlack",
+    "maxSlack"
+  ],
+  "producer": {
+    "chart": "timeline",
+    "checkout": "checkout",
+    "compile": "compile",
+    "deploy": "deploy",
+    "deps": "deps",
+    "lint": "lint",
+    "md": "intro",
+    "pkg": "pkg",
+    "plan": "schedule",
+    "report": "readout",
+    "test": "test"
+  },
+  "cells": {
+    "checkout": {
+      "label": "Checkout duration (seconds).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "30",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "checkout",
+          "type": "int"
+        }
+      ]
+    },
+    "compile": {
+      "label": "Compile duration (seconds).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "120",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "compile",
+          "type": "int"
+        }
+      ]
+    },
+    "deploy": {
+      "label": "Deploy duration (seconds).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "60",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "deploy",
+          "type": "int"
+        }
+      ]
+    },
+    "deps": {
+      "label": "Dependency fetch/restore duration (seconds).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "60",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "deps",
+          "type": "int"
+        }
+      ]
+    },
+    "intro": {
+      "label": "The critical path — where speeding up a task does nothing.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "lint": {
+      "label": "Lint duration (seconds).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "120",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "lint",
+          "type": "int"
+        }
+      ]
+    },
+    "pkg": {
+      "label": "Package duration (seconds).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "60",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "pkg",
+          "type": "int"
+        }
+      ]
+    },
+    "readout": {
+      "label": "The numbers: total pipeline time, which tasks are on the critical path, and the\nslack on the rest.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "plan",
+          "type": "Plan",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "schedule": {
+      "label": "schedule builds the task graph from the durations, runs the critical-path method\n(forward pass → earliest start/finish; backward pass → latest start/finish; slack\n= latest − earliest), and marks the critical path (the tasks with zero slack).",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "checkout",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "deps",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "compile",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "lint",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "test",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "pkg",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "deploy",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "plan",
+          "type": "Plan"
+        }
+      ]
+    },
+    "test": {
+      "label": "Test duration (seconds).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "120",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "test",
+          "type": "int"
+        }
+      ]
+    },
+    "timeline": {
+      "label": "The pipeline as a timeline: each task a bar placed at its earliest start, width =\nduration.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "360"
+      },
+      "params": [
+        {
+          "name": "plan",
+          "type": "Plan",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "Chart"
+        }
+      ]
+    }
+  }
+}
