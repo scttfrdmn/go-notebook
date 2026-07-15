@@ -22,6 +22,7 @@ on:
       - "examples/boundary/**"
       - "examples/fourier/**"
       - "examples/kmeans/**"
+      - "examples/spectrogram/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
