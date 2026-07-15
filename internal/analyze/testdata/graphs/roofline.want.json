@@ -1,0 +1,161 @@
+{
+  "order": [
+    "peakGFLOPs",
+    "bandwidthGBs",
+    "intensityCenti",
+    "roofline",
+    "plot",
+    "readout",
+    "intro"
+  ],
+  "helpers": [
+    "f0",
+    "f2",
+    "pct",
+    "clampX"
+  ],
+  "producer": {
+    "ai": "intensityCenti",
+    "bw": "bandwidthGBs",
+    "chart": "plot",
+    "md": "intro",
+    "peak": "peakGFLOPs",
+    "r": "roofline",
+    "report": "readout"
+  },
+  "cells": {
+    "bandwidthGBs": {
+      "label": "Memory bandwidth, in GB/s.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "1000",
+        "min": "20",
+        "slider": "",
+        "step": "10"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "bw",
+          "type": "int"
+        }
+      ]
+    },
+    "intensityCenti": {
+      "label": "The kernel's arithmetic intensity, in hundredths of a FLOP/byte (25 → 0.25).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "6400",
+        "min": "5",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "ai",
+          "type": "int"
+        }
+      ]
+    },
+    "intro": {
+      "label": "The roofline — is your kernel compute-bound or memory-bound?",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "peakGFLOPs": {
+      "label": "Peak compute, in GFLOP/s.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "2000",
+        "min": "50",
+        "slider": "",
+        "step": "50"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "peak",
+          "type": "int"
+        }
+      ]
+    },
+    "plot": {
+      "label": "The roofline plot on log-log axes: the bandwidth slope rising to the peak plateau,\nthe ridge point where they meet, and the kernel plotted as a dot sitting ON its\nceiling (the point of the model is that a kernel can't exceed the roof).",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "440"
+      },
+      "params": [
+        {
+          "name": "r",
+          "type": "Roofline",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "Chart"
+        }
+      ]
+    },
+    "readout": {
+      "label": "The verdict: memory- or compute-bound, the attainable performance, the ridge, and\nwhat to do about it.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "r",
+          "type": "Roofline",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "roofline": {
+      "label": "The roofline model: the ridge point (peak/bandwidth), the kernel's attainable\nperformance (min of the two ceilings at its intensity), and whether it's memory-\nor compute-bound.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "peak",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "bw",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "ai",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "r",
+          "type": "Roofline"
+        }
+      ]
+    }
+  }
+}
