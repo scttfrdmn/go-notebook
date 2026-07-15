@@ -28,6 +28,7 @@ on:
       - "examples/critpath/**"
       - "examples/amdahl/**"
       - "examples/roofline/**"
+      - "examples/fleet/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
