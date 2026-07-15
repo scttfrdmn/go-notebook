@@ -32,6 +32,7 @@ on:
       - "examples/pid/**"
       - "examples/retrystorm/**"
       - "examples/backfill/**"
+      - "examples/cachepolicy/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"

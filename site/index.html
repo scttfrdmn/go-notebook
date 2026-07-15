@@ -100,7 +100,7 @@
 
   <header>
     <img src="assets/logo.png" alt="go-notebook — a cell is a function">
-    <p class="tag">Reactive notebooks that compile. Drag a slider below and watch the wave move through the dependency graph at the top of the demo — that graph is derived by the Go type checker, and it's compiled Go running in your browser, no server. Then browse the corpus: thirty notebooks, twenty-four you can drag right here.</p>
+    <p class="tag">Reactive notebooks that compile. Drag a slider below and watch the wave move through the dependency graph at the top of the demo — that graph is derived by the Go type checker, and it's compiled Go running in your browser, no server. Then browse the corpus: thirty-one notebooks, twenty-five you can drag right here.</p>
   </header>
 
   <!-- ONE DEMO FIRST. Drag before you read a single word of prose. -->
@@ -138,7 +138,7 @@
        batch tiles are the same file, built for a cluster instead. -->
 
   <section class="corpus">
-    <h2>The corpus — thirty notebooks, one shape</h2>
+    <h2>The corpus — thirty-one notebooks, one shape</h2>
     <p class="lead">Every notebook is a plain Go package. Twenty-one run right here in your browser as WebAssembly; the rest are the same file built as a static binary for a cluster — a notebook is browser-portable only if it touches no <code>net</code>, <code>os</code>, or cgo, and the toolchain derives that from the call graph. Several were ported from marimo's gallery (porting them found real bugs); others are originals built to put one mechanism on stage.</p>
     <div class="tiles">
 
@@ -310,6 +310,13 @@
         <span class="go">Open demo</span>
       </a>
 
+      <a class="tile" href="demos/cachepolicy/index.html">
+        <div class="top"><h3>cachepolicy</h3><span class="tag">LRU vs LFU</span></div>
+        <p class="what">The best cache-eviction rule depends on the workload — here's the proof. On recency traffic LRU wins and its hit-rate cliffs then plateaus (2× the cache buys nothing); on popularity traffic LFU wins. Flip the workload and watch the two curves swap places. The "is more cache worth it?" decision, replayed not formula'd.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <span class="go">Open demo</span>
+      </a>
+
       <a class="tile" href="https://github.com/scttfrdmn/go-notebook/blob/main/examples/queue/queue.go">
         <div class="top"><h3>queue</h3><span class="tag">Prev[T]</span></div>
         <p class="what">A queue you can watch fill and drain over time. The one notebook that needed a genuinely new concept — <code>Prev[T]</code> + a clock — because a DAG of pure functions can't accumulate.</p>
@@ -353,7 +360,7 @@
       </a>
 
     </div>
-    <p class="lead" style="margin-top:1.25rem">Every batch tile is one <code>go tool notebook build</code> away from being a live tile — the split is a property of what the code touches, not two different systems. <a href="https://github.com/scttfrdmn/go-notebook/tree/main/examples">All thirty, in full →</a></p>
+    <p class="lead" style="margin-top:1.25rem">Every batch tile is one <code>go tool notebook build</code> away from being a live tile — the split is a property of what the code touches, not two different systems. <a href="https://github.com/scttfrdmn/go-notebook/tree/main/examples">All thirty-one, in full →</a></p>
   </section>
 
   <!-- THE THESIS: the graph is the artifact. Named, after you've already seen it move. -->

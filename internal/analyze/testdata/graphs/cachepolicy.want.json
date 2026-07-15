@@ -1,0 +1,192 @@
+{
+  "order": [
+    "workloadPick",
+    "cacheSize",
+    "workingSetSize",
+    "stream",
+    "curves",
+    "rateChart",
+    "verdict",
+    "intro"
+  ],
+  "helpers": [
+    "hitRateLRU",
+    "hitRateLFU",
+    "pct",
+    "at",
+    "esc"
+  ],
+  "producer": {
+    "chart": "rateChart",
+    "md": "intro",
+    "report": "verdict",
+    "result": "curves",
+    "size": "cacheSize",
+    "trace": "stream",
+    "workload": "workloadPick",
+    "ws": "workingSetSize"
+  },
+  "cells": {
+    "cacheSize": {
+      "label": "Cache size — items held before eviction kicks in.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "200",
+        "min": "5",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "size",
+          "type": "int"
+        }
+      ]
+    },
+    "curves": {
+      "label": "curves replays BOTH policies over the whole stream at every cache size, returning\nthe two hit-rate curves.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "trace",
+          "type": "Trace",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "result",
+          "type": "Curves"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Cache policy — the best eviction rule depends on the workload, and here's the proof.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "rateChart": {
+      "label": "The hit-rate curves: LRU and LFU plotted against cache size for the chosen workload,\nwith a marker at the selected size.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "400"
+      },
+      "params": [
+        {
+          "name": "result",
+          "type": "Curves",
+          "kind": "wired"
+        },
+        {
+          "name": "size",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "Chart"
+        }
+      ]
+    },
+    "stream": {
+      "label": "stream is the deterministic access trace for the chosen workload: `streamLen`\nreferences from a fixed-seed LCG, so it's byte-identical every recompute and across\na policy comparison (that identity is the experiment — only the policy differs).",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "workload",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "ws",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "trace",
+          "type": "Trace"
+        }
+      ]
+    },
+    "verdict": {
+      "label": "The verdict at the selected cache size: each policy's hit-rate and which one wins on\nthis workload.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "result",
+          "type": "Curves",
+          "kind": "wired"
+        },
+        {
+          "name": "size",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "workload",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "workingSetSize": {
+      "label": "Working-set size — how many keys are \"hot\" at once in the working-set workload (the\nwindow that drifts through the key space).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "120",
+        "min": "10",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "ws",
+          "type": "int"
+        }
+      ]
+    },
+    "workloadPick": {
+      "label": "Workload: 0 = working-set (locality — a moving window of hot keys, a recency\nworkload), 1 = Zipf (a few globally-popular keys dominate, a popularity workload).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "1",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "workload",
+          "type": "int"
+        }
+      ]
+    }
+  }
+}
