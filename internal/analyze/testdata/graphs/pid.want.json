@@ -1,0 +1,189 @@
+{
+  "order": [
+    "kpCenti",
+    "kiCenti",
+    "kdCenti",
+    "loadStep",
+    "simulate",
+    "response",
+    "metrics",
+    "intro"
+  ],
+  "helpers": [
+    "overshoot",
+    "settleTick",
+    "f1",
+    "pct",
+    "lcgNoise",
+    "rangeOf",
+    "esc"
+  ],
+  "producer": {
+    "chart": "response",
+    "kd": "kdCenti",
+    "ki": "kiCenti",
+    "kp": "kpCenti",
+    "load": "loadStep",
+    "md": "intro",
+    "report": "metrics",
+    "run": "simulate"
+  },
+  "cells": {
+    "intro": {
+      "label": "Your autoscaler is a PID controller — here's the step response.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "kdCenti": {
+      "label": "Derivative gain Kd (×100).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "200",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "kd",
+          "type": "int"
+        }
+      ]
+    },
+    "kiCenti": {
+      "label": "Integral gain Ki (×100).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "100",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "ki",
+          "type": "int"
+        }
+      ]
+    },
+    "kpCenti": {
+      "label": "Proportional gain Kp (×100).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "200",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "kp",
+          "type": "int"
+        }
+      ]
+    },
+    "loadStep": {
+      "label": "The load step: arrivals per tick after the jump at t=0 (before, the system is at\nrest).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "120",
+        "min": "20",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "load",
+          "type": "int"
+        }
+      ]
+    },
+    "metrics": {
+      "label": "The tuning verdict: overshoot, settling time, and steady-state error — the three\nnumbers the gains trade off.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "run",
+          "type": "Run",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "response": {
+      "label": "The step response: queue depth over time (the controlled signal) with the target\nline, and the replica count the controller chose.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "420"
+      },
+      "params": [
+        {
+          "name": "run",
+          "type": "Run",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "Chart"
+        }
+      ]
+    },
+    "simulate": {
+      "label": "The step response: step the plant and PID controller for `ticks` ticks and return\nthe queue-depth and replica-count traces, plus summary metrics (overshoot, settling\ntime, steady-state error).",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "kp",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "ki",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "kd",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "load",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "run",
+          "type": "Run"
+        }
+      ]
+    }
+  }
+}
