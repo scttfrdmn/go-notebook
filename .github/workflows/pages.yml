@@ -24,6 +24,7 @@ on:
       - "examples/kmeans/**"
       - "examples/spectrogram/**"
       - "examples/reliability/**"
+      - "examples/little/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"

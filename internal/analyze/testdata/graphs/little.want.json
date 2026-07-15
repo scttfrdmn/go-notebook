@@ -1,0 +1,174 @@
+{
+  "order": [
+    "arrivalRate",
+    "latencyMillis",
+    "latency",
+    "concurrency",
+    "view",
+    "readout",
+    "intro"
+  ],
+  "helpers": [
+    "f0",
+    "f1"
+  ],
+  "producer": {
+    "chart": "view",
+    "l": "concurrency",
+    "lambda": "arrivalRate",
+    "md": "intro",
+    "report": "readout",
+    "w": "latency",
+    "wMillis": "latencyMillis"
+  },
+  "cells": {
+    "arrivalRate": {
+      "label": "Throughput λ — requests arriving per second.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "10000",
+        "min": "100",
+        "slider": "",
+        "step": "100"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "lambda",
+          "type": "PerSecond"
+        }
+      ]
+    },
+    "concurrency": {
+      "label": "Concurrency L — requests in flight — BY Little's Law: L = λ·W.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "lambda",
+          "type": "PerSecond",
+          "kind": "wired"
+        },
+        {
+          "name": "w",
+          "type": "Seconds",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "l",
+          "type": "Requests"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Little's Law — and why the units won't let you cheat.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "latency": {
+      "label": "Latency as a typed duration in Seconds — the unit W must be in for the law.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "wMillis",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "w",
+          "type": "Seconds"
+        }
+      ]
+    },
+    "latencyMillis": {
+      "label": "Latency W — how long each request stays in the system, in milliseconds.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "250",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "wMillis",
+          "type": "int"
+        }
+      ]
+    },
+    "readout": {
+      "label": "The three numbers, and the identity between them stated plainly.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "lambda",
+          "type": "PerSecond",
+          "kind": "wired"
+        },
+        {
+          "name": "w",
+          "type": "Seconds",
+          "kind": "wired"
+        },
+        {
+          "name": "l",
+          "type": "Requests",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "view": {
+      "label": "The law, drawn: a rectangle whose width is λ and height is W, so its AREA is L —\nLittle's Law as literal area.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "340"
+      },
+      "params": [
+        {
+          "name": "lambda",
+          "type": "PerSecond",
+          "kind": "wired"
+        },
+        {
+          "name": "w",
+          "type": "Seconds",
+          "kind": "wired"
+        },
+        {
+          "name": "l",
+          "type": "Requests",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "Chart"
+        }
+      ]
+    }
+  }
+}
