@@ -23,6 +23,7 @@ on:
       - "examples/fourier/**"
       - "examples/kmeans/**"
       - "examples/spectrogram/**"
+      - "examples/reliability/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
