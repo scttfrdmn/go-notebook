@@ -1,0 +1,252 @@
+{
+  "order": [
+    "linkALatency",
+    "linkABandwidth",
+    "linkBLatency",
+    "linkBBandwidth",
+    "transferSize",
+    "linkA",
+    "linkB",
+    "compare",
+    "curveChart",
+    "verdict",
+    "intro"
+  ],
+  "helpers": [
+    "crossoverKB",
+    "humanTime",
+    "humanKB",
+    "linkDesc",
+    "esc"
+  ],
+  "producer": {
+    "a": "linkA",
+    "b": "linkB",
+    "bwA": "linkABandwidth",
+    "bwB": "linkBBandwidth",
+    "chart": "curveChart",
+    "latA": "linkALatency",
+    "latB": "linkBLatency",
+    "md": "intro",
+    "report": "verdict",
+    "result": "compare",
+    "sizeKB": "transferSize"
+  },
+  "cells": {
+    "compare": {
+      "label": "compare builds the two time-vs-size curves and the crossover size where the links\ntie.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "a",
+          "type": "Link",
+          "kind": "wired"
+        },
+        {
+          "name": "b",
+          "type": "Link",
+          "kind": "wired"
+        },
+        {
+          "name": "sizeKB",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "result",
+          "type": "Comparison"
+        }
+      ]
+    },
+    "curveChart": {
+      "label": "The transfer-time curves: time vs size (log-log) for both links, with the crossover\nand the selected size marked.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "400"
+      },
+      "params": [
+        {
+          "name": "result",
+          "type": "Comparison",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "Chart"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Latency vs bandwidth — why your fast link feels slow, and when it doesn't.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "linkA": {
+      "label": "linkA / linkB assemble each link's characteristics into a typed Link.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "latA",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "bwA",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "a",
+          "type": "Link"
+        }
+      ]
+    },
+    "linkABandwidth": {
+      "label": "Link A bandwidth (Mbit/s).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "100000",
+        "min": "10",
+        "slider": "",
+        "step": "10"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "bwA",
+          "type": "int"
+        }
+      ]
+    },
+    "linkALatency": {
+      "label": "Link A latency (ms) — round trip to the first byte.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "400",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "latA",
+          "type": "int"
+        }
+      ]
+    },
+    "linkB": {
+      "label": "linkB",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "latB",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "bwB",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "b",
+          "type": "Link"
+        }
+      ]
+    },
+    "linkBBandwidth": {
+      "label": "Link B bandwidth (Mbit/s).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "100000",
+        "min": "10",
+        "slider": "",
+        "step": "10"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "bwB",
+          "type": "int"
+        }
+      ]
+    },
+    "linkBLatency": {
+      "label": "Link B latency (ms) — the FAR link (long-haul / satellite).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "400",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "latB",
+          "type": "int"
+        }
+      ]
+    },
+    "transferSize": {
+      "label": "Transfer size (KB) — the file you're moving.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "1000000",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "sizeKB",
+          "type": "int"
+        }
+      ]
+    },
+    "verdict": {
+      "label": "The verdict at the selected size: each link's transfer time, which wins, and whether\nyou're in the latency-bound or bandwidth-bound regime.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "result",
+          "type": "Comparison",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    }
+  }
+}

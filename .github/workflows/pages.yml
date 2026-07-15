@@ -33,6 +33,7 @@ on:
       - "examples/retrystorm/**"
       - "examples/backfill/**"
       - "examples/cachepolicy/**"
+      - "examples/latencybw/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
