@@ -29,6 +29,7 @@ on:
       - "examples/amdahl/**"
       - "examples/roofline/**"
       - "examples/fleet/**"
+      - "examples/pid/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
