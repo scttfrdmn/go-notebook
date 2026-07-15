@@ -1,0 +1,283 @@
+{
+  "order": [
+    "nodes",
+    "spotPct",
+    "hoursPerMonth",
+    "gridCO2",
+    "onDemandRate",
+    "spotRate",
+    "nodePower",
+    "cost",
+    "carbon",
+    "summary",
+    "request",
+    "intro"
+  ],
+  "helpers": [
+    "f0",
+    "pct",
+    "money",
+    "tonnes"
+  ],
+  "producer": {
+    "bill": "cost",
+    "chart": "summary",
+    "em": "carbon",
+    "g": "gridCO2",
+    "hrs": "hoursPerMonth",
+    "md": "intro",
+    "n": "nodes",
+    "od": "onDemandRate",
+    "p": "nodePower",
+    "report": "request",
+    "sp": "spotRate",
+    "spot": "spotPct"
+  },
+  "cells": {
+    "carbon": {
+      "label": "The emissions: total energy (power × node-hours across the whole fleet) times the\ngrid's carbon intensity.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "hrs",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "p",
+          "type": "Kilowatts",
+          "kind": "wired"
+        },
+        {
+          "name": "g",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "em",
+          "type": "Emissions"
+        }
+      ]
+    },
+    "cost": {
+      "label": "The bill: node-hours split by the spot fraction, each priced at its rate, summed.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "spot",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "hrs",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "od",
+          "type": "USDPerHour",
+          "kind": "wired"
+        },
+        {
+          "name": "sp",
+          "type": "USDPerHour",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "bill",
+          "type": "Bill"
+        }
+      ]
+    },
+    "gridCO2": {
+      "label": "Grid carbon intensity, in grams CO₂ per kWh.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "800",
+        "min": "20",
+        "slider": "",
+        "step": "10"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "g",
+          "type": "int"
+        }
+      ]
+    },
+    "hoursPerMonth": {
+      "label": "Hours the fleet runs this month (per node).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "744",
+        "min": "24",
+        "slider": "",
+        "step": "24"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "hrs",
+          "type": "int"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Fleet cost and carbon — the two numbers on the procurement request.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "nodePower": {
+      "label": "Node power draw under load, in kilowatts (CPU + memory + share of cooling/PSU).",
+      "pure": true,
+      "isLeaf": true,
+      "params": null,
+      "results": [
+        {
+          "name": "p",
+          "type": "Kilowatts"
+        }
+      ]
+    },
+    "nodes": {
+      "label": "Fleet size — number of compute nodes.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "1024",
+        "min": "8",
+        "slider": "",
+        "step": "8"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    },
+    "onDemandRate": {
+      "label": "On-demand price per node-hour.",
+      "pure": true,
+      "isLeaf": true,
+      "params": null,
+      "results": [
+        {
+          "name": "od",
+          "type": "USDPerHour"
+        }
+      ]
+    },
+    "request": {
+      "label": "The procurement line items, as they'd appear on the request.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "bill",
+          "type": "Bill",
+          "kind": "wired"
+        },
+        {
+          "name": "em",
+          "type": "Emissions",
+          "kind": "wired"
+        },
+        {
+          "name": "spot",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "spotPct": {
+      "label": "Fraction of the fleet on spot instances, in percent.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "100",
+        "min": "0",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "spot",
+          "type": "int"
+        }
+      ]
+    },
+    "spotRate": {
+      "label": "Spot price per node-hour — the discount that makes the cost lever.",
+      "pure": true,
+      "isLeaf": true,
+      "params": null,
+      "results": [
+        {
+          "name": "sp",
+          "type": "USDPerHour"
+        }
+      ]
+    },
+    "summary": {
+      "label": "The two numbers a request needs, side by side, with a breakdown: monthly cost\n(split spot vs on-demand) and monthly carbon (with the energy behind it).",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "320"
+      },
+      "params": [
+        {
+          "name": "bill",
+          "type": "Bill",
+          "kind": "wired"
+        },
+        {
+          "name": "em",
+          "type": "Emissions",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "Chart"
+        }
+      ]
+    }
+  }
+}
