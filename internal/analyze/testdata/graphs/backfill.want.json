@@ -1,0 +1,182 @@
+{
+  "order": [
+    "jobCount",
+    "poolNodes",
+    "policyPick",
+    "queue",
+    "schedule",
+    "gantt",
+    "stats",
+    "intro"
+  ],
+  "helpers": [
+    "medianInt",
+    "meanInt",
+    "maxInt",
+    "f1",
+    "esc"
+  ],
+  "producer": {
+    "chart": "gantt",
+    "jobs": "jobCount",
+    "md": "intro",
+    "nodes": "poolNodes",
+    "plan": "schedule",
+    "policy": "policyPick",
+    "report": "stats",
+    "work": "queue"
+  },
+  "cells": {
+    "gantt": {
+      "label": "The Gantt chart: one bar per job on a node×time grid — x is when it runs, height is\nthe nodes it holds, color marks the widest (blocking) jobs.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "440"
+      },
+      "params": [
+        {
+          "name": "plan",
+          "type": "Plan",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "Gantt"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Backfill — the scheduler trick that cuts wait without cutting the line.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "jobCount": {
+      "label": "Number of jobs in the queue.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "48",
+        "min": "6",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "jobs",
+          "type": "int"
+        }
+      ]
+    },
+    "policyPick": {
+      "label": "Policy: 0 = FIFO (strict arrival order — one wide job blocks the queue behind it),\n1 = EASY backfill (let small jobs fill the gaps without delaying the head job).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "1",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "policy",
+          "type": "int"
+        }
+      ]
+    },
+    "poolNodes": {
+      "label": "Nodes in the pool.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "16",
+        "min": "4",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "nodes",
+          "type": "int"
+        }
+      ]
+    },
+    "queue": {
+      "label": "queue is the deterministic job set: `jobs` jobs from a fixed-seed LCG, so it is\nbyte-identical every recompute and — crucially — identical across a policy flip.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "jobs",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "nodes",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "work",
+          "type": "Queue"
+        }
+      ]
+    },
+    "schedule": {
+      "label": "schedule places every job on the node×time grid under the chosen policy and returns\nthe start tick of each, plus the wait-time metrics.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "work",
+          "type": "Queue",
+          "kind": "wired"
+        },
+        {
+          "name": "policy",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "plan",
+          "type": "Plan"
+        }
+      ]
+    },
+    "stats": {
+      "label": "The verdict: the wait-time numbers the policy trades on.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "plan",
+          "type": "Plan",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    }
+  }
+}

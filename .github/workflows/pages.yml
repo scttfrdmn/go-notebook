@@ -31,6 +31,7 @@ on:
       - "examples/fleet/**"
       - "examples/pid/**"
       - "examples/retrystorm/**"
+      - "examples/backfill/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
