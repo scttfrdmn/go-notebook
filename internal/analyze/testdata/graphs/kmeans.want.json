@@ -1,0 +1,214 @@
+{
+  "order": [
+    "clusterCount",
+    "seed",
+    "iterations",
+    "centroids",
+    "data",
+    "cluster",
+    "plot",
+    "readout",
+    "intro"
+  ],
+  "helpers": [
+    "nearest",
+    "inertia",
+    "newLCG",
+    "f0",
+    "palette"
+  ],
+  "producer": {
+    "chart": "plot",
+    "init": "centroids",
+    "k": "clusterCount",
+    "md": "intro",
+    "points": "data",
+    "report": "readout",
+    "result": "cluster",
+    "s": "seed",
+    "steps": "iterations"
+  },
+  "cells": {
+    "centroids": {
+      "label": "The initial centroids — a draggable leaf, seeded randomly from (k, seed).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "height": "480"
+      },
+      "params": [
+        {
+          "name": "k",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "s",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "init",
+          "type": "Draggable[Pt]"
+        }
+      ]
+    },
+    "cluster": {
+      "label": "The clustering: run `steps` of Lloyd's algorithm from the initial centroids over\nthe data, and report the assignment, the moved centroids, and the inertia (total\nwithin-cluster squared distance — the thing k-means minimizes).",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "points",
+          "type": "[]Pt",
+          "kind": "wired"
+        },
+        {
+          "name": "init",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "steps",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "result",
+          "type": "Clustering"
+        }
+      ]
+    },
+    "clusterCount": {
+      "label": "Number of clusters k.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "6",
+        "min": "2",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "k",
+          "type": "int"
+        }
+      ]
+    },
+    "data": {
+      "label": "The data: three Gaussian-ish blobs, fixed (a constant seed so the points don't\nmove when you drag centroids — only the clustering should change).",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "points",
+          "type": "[]Pt"
+        }
+      ]
+    },
+    "intro": {
+      "label": "k-means, and why initialization ruins your day.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "iterations": {
+      "label": "Iterations of Lloyd's algorithm — the scrub axis. 0 shows the raw start; step up\nto watch assign/update converge; the clustering usually settles within ~8 steps.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "20",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "steps",
+          "type": "int"
+        }
+      ]
+    },
+    "plot": {
+      "label": "The clustering: points coloured by assignment, the settled centroids as ✕, and the\ndraggable INITIAL centroids as grips.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "480"
+      },
+      "params": [
+        {
+          "name": "points",
+          "type": "[]Pt",
+          "kind": "wired"
+        },
+        {
+          "name": "init",
+          "type": "Draggable[Pt]",
+          "kind": "wired"
+        },
+        {
+          "name": "result",
+          "type": "Clustering",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "Chart"
+        }
+      ]
+    },
+    "readout": {
+      "label": "The numbers: converged inertia (lower is better), and k.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "result",
+          "type": "Clustering",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "seed": {
+      "label": "Seed for the initial centroid placement.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "40",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "s",
+          "type": "int"
+        }
+      ]
+    }
+  }
+}
