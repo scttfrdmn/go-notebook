@@ -21,6 +21,7 @@ on:
       - "examples/clt/**"
       - "examples/boundary/**"
       - "examples/fourier/**"
+      - "examples/kmeans/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
