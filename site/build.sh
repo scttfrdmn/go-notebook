@@ -13,7 +13,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
 go build -o /tmp/notebook-build ./cmd/notebook
-for nb in capacity curvefit bayes anscombe nbody turing surface gpulife percolation lotka clt boundary fourier kmeans spectrogram reliability little critpath amdahl; do
+for nb in capacity curvefit bayes anscombe nbody turing surface gpulife percolation lotka clt boundary fourier kmeans spectrogram reliability little critpath amdahl roofline; do
   /tmp/notebook-build build --target=wasm -o "site/demos/$nb" "examples/$nb"
 done
 
