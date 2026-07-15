@@ -1,0 +1,282 @@
+{
+  "order": [
+    "toneA",
+    "toneB",
+    "chirpDepth",
+    "windowChoice",
+    "signal",
+    "spectrum",
+    "spectrogram",
+    "waveform",
+    "spectrumView",
+    "spectrogramView",
+    "readout",
+    "intro"
+  ],
+  "helpers": [
+    "applyWindow",
+    "dftMag",
+    "concentration",
+    "pct",
+    "maxOf",
+    "magColor",
+    "lerp",
+    "absAll"
+  ],
+  "producer": {
+    "chart": "spectrumView",
+    "depth": "chirpDepth",
+    "fa": "toneA",
+    "fb": "toneB",
+    "grid": "spectrogram",
+    "md": "intro",
+    "report": "readout",
+    "sig": "signal",
+    "spec": "spectrum",
+    "view": "spectrogramView",
+    "wave": "waveform",
+    "win": "windowChoice"
+  },
+  "cells": {
+    "chirpDepth": {
+      "label": "Chirp depth — how far a rising sweep climbs across the record, in Hz.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "160",
+        "min": "0",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "depth",
+          "type": "int"
+        }
+      ]
+    },
+    "intro": {
+      "label": "A signal, three ways — and why the window matters.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "readout": {
+      "label": "The numbers: which window is active, and how concentrated the spectrum is — the\nfraction of energy sitting within 4 bins of a local peak, vs leaked into the gaps\nbetween.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "spec",
+          "type": "Spectrum",
+          "kind": "wired"
+        },
+        {
+          "name": "win",
+          "type": "Select[Window]",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "signal": {
+      "label": "The signal: two pure tones plus a linear chirp, sampled to n points.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "fa",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "fb",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "depth",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "sig",
+          "type": "Signal"
+        }
+      ]
+    },
+    "spectrogram": {
+      "label": "The spectrogram: the windowed DFT over a sliding window, stacked into a\ntime×frequency grid.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "sig",
+          "type": "Signal",
+          "kind": "wired"
+        },
+        {
+          "name": "win",
+          "type": "Select[Window]",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "grid",
+          "type": "Spectrogram"
+        }
+      ]
+    },
+    "spectrogramView": {
+      "label": "The spectrogram — frequency over time.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "300"
+      },
+      "params": [
+        {
+          "name": "grid",
+          "type": "Spectrogram",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "view",
+          "type": "SpectrogramView"
+        }
+      ]
+    },
+    "spectrum": {
+      "label": "The spectrum: magnitude of the windowed DFT of the whole record.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "sig",
+          "type": "Signal",
+          "kind": "wired"
+        },
+        {
+          "name": "win",
+          "type": "Select[Window]",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "spec",
+          "type": "Spectrum"
+        }
+      ]
+    },
+    "spectrumView": {
+      "label": "The spectrum — the tones the signal is made of.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "300",
+        "row": "panels"
+      },
+      "params": [
+        {
+          "name": "spec",
+          "type": "Spectrum",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "SpectrumChart"
+        }
+      ]
+    },
+    "toneA": {
+      "label": "Frequency of the first pure tone, in Hz.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "120",
+        "min": "8",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "fa",
+          "type": "int"
+        }
+      ]
+    },
+    "toneB": {
+      "label": "Frequency of the second pure tone, in Hz.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "120",
+        "min": "8",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "fb",
+          "type": "int"
+        }
+      ]
+    },
+    "waveform": {
+      "label": "The waveform — amplitude over time.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "300",
+        "row": "panels"
+      },
+      "params": [
+        {
+          "name": "sig",
+          "type": "Signal",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "wave",
+          "type": "WaveChart"
+        }
+      ]
+    },
+    "windowChoice": {
+      "label": "The analysis window.",
+      "pure": true,
+      "isLeaf": true,
+      "params": null,
+      "results": [
+        {
+          "name": "win",
+          "type": "Select[Window]"
+        }
+      ]
+    }
+  }
+}
