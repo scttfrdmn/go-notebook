@@ -1,0 +1,175 @@
+{
+  "order": [
+    "centerRe",
+    "centerIm",
+    "zoom",
+    "maxIter",
+    "render",
+    "depth",
+    "intro"
+  ],
+  "helpers": [
+    "escape",
+    "shade",
+    "pixelBytes"
+  ],
+  "producer": {
+    "centerDepth": "depth",
+    "cx": "centerRe",
+    "cy": "centerIm",
+    "limit": "maxIter",
+    "mag": "zoom",
+    "md": "intro",
+    "picture": "render"
+  },
+  "cells": {
+    "centerIm": {
+      "label": "Center, imaginary axis.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "1.5",
+        "min": "-1.5",
+        "slider": "",
+        "step": "0.0001"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "cy",
+          "type": "float64"
+        }
+      ]
+    },
+    "centerRe": {
+      "label": "Center, real axis.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "1.0",
+        "min": "-2.5",
+        "slider": "",
+        "step": "0.0001"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "cx",
+          "type": "float64"
+        }
+      ]
+    },
+    "depth": {
+      "label": "depth reports the escape time at the exact center pixel — the number the crosshair\nwould read.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "cx",
+          "type": "float64",
+          "kind": "wired"
+        },
+        {
+          "name": "cy",
+          "type": "float64",
+          "kind": "wired"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "centerDepth",
+          "type": "float64"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Mandelbrot — a fractal you can zoom until float64 runs out of mantissa.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "maxIter": {
+      "label": "Iteration limit.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "2048",
+        "min": "64",
+        "slider": "",
+        "step": "64"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "limit",
+          "type": "int"
+        }
+      ]
+    },
+    "render": {
+      "label": "render computes the escape-time image at the current viewport.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "560"
+      },
+      "params": [
+        {
+          "name": "cx",
+          "type": "float64",
+          "kind": "wired"
+        },
+        {
+          "name": "cy",
+          "type": "float64",
+          "kind": "wired"
+        },
+        {
+          "name": "mag",
+          "type": "float64",
+          "kind": "wired"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "picture",
+          "type": "Image"
+        }
+      ]
+    },
+    "zoom": {
+      "label": "Zoom, in powers of ten.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "13",
+        "min": "0",
+        "slider": "",
+        "step": "0.1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "mag",
+          "type": "float64"
+        }
+      ]
+    }
+  }
+}

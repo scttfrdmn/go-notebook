@@ -37,6 +37,7 @@ on:
       - "examples/aimd/**"
       - "examples/bdp/**"
       - "examples/fattree/**"
+      - "examples/mandelbrot/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"
