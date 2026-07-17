@@ -35,6 +35,7 @@ on:
       - "examples/cachepolicy/**"
       - "examples/latencybw/**"
       - "examples/aimd/**"
+      - "examples/bdp/**"
       - "engine/**"
       - "internal/**"
       - "cmd/**"

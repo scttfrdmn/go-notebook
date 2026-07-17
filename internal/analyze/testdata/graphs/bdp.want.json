@@ -1,0 +1,181 @@
+{
+  "order": [
+    "bandwidth",
+    "roundTrip",
+    "windowKB",
+    "link",
+    "analyze",
+    "curveChart",
+    "verdict",
+    "intro"
+  ],
+  "helpers": [
+    "pct",
+    "humanKB",
+    "humanRate",
+    "esc"
+  ],
+  "producer": {
+    "bw": "bandwidth",
+    "chart": "curveChart",
+    "md": "intro",
+    "path": "link",
+    "report": "verdict",
+    "result": "analyze",
+    "rtt": "roundTrip",
+    "window": "windowKB"
+  },
+  "cells": {
+    "analyze": {
+      "label": "analyze computes the bandwidth-delay product, the throughput the chosen window\nactually achieves, and the full throughput-vs-window curve.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "path",
+          "type": "Link",
+          "kind": "wired"
+        },
+        {
+          "name": "window",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "result",
+          "type": "Result"
+        }
+      ]
+    },
+    "bandwidth": {
+      "label": "Link bandwidth (Mbit/s).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "10000",
+        "min": "10",
+        "slider": "",
+        "step": "10"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "bw",
+          "type": "int"
+        }
+      ]
+    },
+    "curveChart": {
+      "label": "The throughput curve: achieved rate vs window size (log x).",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "400"
+      },
+      "params": [
+        {
+          "name": "result",
+          "type": "Result",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "Chart"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Bandwidth-delay product — why a 10-gigabit link can run at dial-up speed.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "link": {
+      "label": "link assembles the path characteristics into a typed Link.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "bw",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "rtt",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "path",
+          "type": "Link"
+        }
+      ]
+    },
+    "roundTrip": {
+      "label": "Round-trip time (ms).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "600",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "rtt",
+          "type": "int"
+        }
+      ]
+    },
+    "verdict": {
+      "label": "The verdict: the BDP you need, the window you have, the throughput you get, and\nwhich regime you're in.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "result",
+          "type": "Result",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "windowKB": {
+      "label": "TCP window (KB) — how much unacknowledged data is allowed in flight at once.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "262144",
+        "min": "16",
+        "slider": "",
+        "step": "16"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "window",
+          "type": "int"
+        }
+      ]
+    }
+  }
+}
