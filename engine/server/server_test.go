@@ -133,7 +133,7 @@ func TestServerEditRepaints(t *testing.T) {
 		if !strings.HasPrefix(line, "data: ") {
 			continue
 		}
-		var ev wireEvent
+		var ev engine.WireEvent
 		if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &ev); err != nil {
 			continue
 		}
@@ -205,7 +205,7 @@ func TestKC8RuntimeErrorAndBlockedReachTheWire(t *testing.T) {
 		if !strings.HasPrefix(line, "data: ") {
 			continue
 		}
-		var ev wireEvent
+		var ev engine.WireEvent
 		if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &ev); err != nil {
 			continue
 		}

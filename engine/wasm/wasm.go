@@ -99,22 +99,14 @@ func RunNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provena
 	select {} // block forever; the JS event loop drives us from here
 }
 
-// pump forwards engine events to the JS sink, one call per event.
+// pump forwards engine events to the JS sink, one call per event. The wire shape
+// is built from the shared [engine.ToWire] projection — the SAME source the SSE
+// server encodes — via its Map form, because js.ValueOf cannot marshal a struct.
+// This is the single source of truth the two transports previously duplicated.
 func pump(sub <-chan engine.Event) {
 	sink := js.Global().Get("__notebook_event")
 	for ev := range sub {
-		obj := map[string]any{
-			"epoch": float64(ev.Epoch),
-			"cell":  string(ev.Cell),
-			"state": ev.State.String(),
-		}
-		if ev.Out != nil {
-			obj["mime"] = ev.Out.MIME
-			obj["data"] = ev.Out.Data
-		}
-		if ev.Err != "" {
-			obj["err"] = ev.Err
-		}
+		obj := engine.ToWire(ev).Map()
 		// Re-fetch the sink each time in case JS installed it after start.
 		if !sink.Truthy() {
 			sink = js.Global().Get("__notebook_event")
