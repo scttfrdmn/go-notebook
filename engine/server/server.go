@@ -67,32 +67,6 @@ func NewNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provena
 // live listener.
 func (s *Server) Handler() http.Handler { return s.mux }
 
-// wireEvent is the JSON shape pushed to the client for each cell update. It
-// carries no Go types — just the cell id, its state, and an optional rendered
-// blob (mime + data).
-type wireEvent struct {
-	Epoch uint64 `json:"epoch"`
-	Cell  string `json:"cell"`
-	State string `json:"state"`
-	MIME  string `json:"mime,omitempty"`
-	Data  string `json:"data,omitempty"`
-	Err   string `json:"err,omitempty"`
-}
-
-func toWire(ev engine.Event) wireEvent {
-	w := wireEvent{
-		Epoch: uint64(ev.Epoch),
-		Cell:  string(ev.Cell),
-		State: ev.State.String(),
-		Err:   ev.Err,
-	}
-	if ev.Out != nil {
-		w.MIME = ev.Out.MIME
-		w.Data = ev.Out.Data
-	}
-	return w
-}
-
 // handleEvents streams cell updates as Server-Sent Events. SSE (rather than a
 // WebSocket) keeps this package stdlib-only: it is a one-directional
 // server→client stream, which is exactly the event shape; edits flow back via
@@ -124,7 +98,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 			// path below returns, so the bare Fprints only need their errors
 			// discarded.
 			_, _ = fmt.Fprint(w, "data: ")
-			if err := enc.Encode(toWire(ev)); err != nil {
+			if err := enc.Encode(engine.ToWire(ev)); err != nil {
 				return
 			}
 			_, _ = fmt.Fprint(w, "\n")
