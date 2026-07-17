@@ -1,0 +1,221 @@
+{
+  "order": [
+    "betaPct",
+    "increaseStep",
+    "decreaseRule",
+    "single",
+    "pair",
+    "sawtooth",
+    "fairness",
+    "verdict",
+    "intro"
+  ],
+  "helpers": [
+    "decrease",
+    "f1",
+    "pct",
+    "maxOf",
+    "esc",
+    "plotSeries"
+  ],
+  "producer": {
+    "ai": "increaseStep",
+    "beta": "betaPct",
+    "duo": "pair",
+    "fair": "fairness",
+    "flow": "single",
+    "md": "intro",
+    "report": "verdict",
+    "rule": "decreaseRule",
+    "saw": "sawtooth"
+  },
+  "cells": {
+    "betaPct": {
+      "label": "Decrease factor β (×100) — how hard a flow cuts its window on loss.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "95",
+        "min": "20",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "beta",
+          "type": "int"
+        }
+      ]
+    },
+    "decreaseRule": {
+      "label": "Decrease rule: 0 = MULTIPLICATIVE (cwnd × β — real TCP, converges to fair sharing),\n1 = ADDITIVE (cwnd − k — the counterexample: fairness never converges).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "1",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "rule",
+          "type": "int"
+        }
+      ]
+    },
+    "fairness": {
+      "label": "The fairness chart: two flows sharing the pipe, started unequal.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "320"
+      },
+      "params": [
+        {
+          "name": "duo",
+          "type": "Pair",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "fair",
+          "type": "Fair"
+        }
+      ]
+    },
+    "increaseStep": {
+      "label": "Additive-increase step — how many packets the window grows per loss-free round trip.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "8",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "ai",
+          "type": "int"
+        }
+      ]
+    },
+    "intro": {
+      "label": "AIMD — the sawtooth that makes the internet fair.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "pair": {
+      "label": "pair runs TWO flows sharing the one pipe, starting deliberately unequal, and returns\nboth cwnd traces plus the fairness gap over time (|a−b|).",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "beta",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "ai",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "rule",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "duo",
+          "type": "Pair"
+        }
+      ]
+    },
+    "sawtooth": {
+      "label": "The sawtooth: one flow's congestion window over time.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "320"
+      },
+      "params": [
+        {
+          "name": "flow",
+          "type": "Flow",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "saw",
+          "type": "Saw"
+        }
+      ]
+    },
+    "single": {
+      "label": "single runs one flow under the chosen AIMD parameters and returns its cwnd trace\nplus utilization (delivered ÷ capacity over the run).",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "beta",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "ai",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "rule",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "flow",
+          "type": "Flow"
+        }
+      ]
+    },
+    "verdict": {
+      "label": "The verdict: single-flow utilization and the two-flow fairness outcome.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "flow",
+          "type": "Flow",
+          "kind": "wired"
+        },
+        {
+          "name": "duo",
+          "type": "Pair",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    }
+  }
+}
