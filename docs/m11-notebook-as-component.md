@@ -21,6 +21,54 @@ This doc is unexercised prose. After sixteen rounds of catching *the system did 
 
 ---
 
+## Evidence, now (the transport seam, mapped)
+
+*Added after a three-transport code-mapping pass. This converts the structural claims above into evidence with `file:line` pointers. It does not tick a KC — no behavior was observed reaching a new consumer; it establishes what the code already is, and names precisely what is left.*
+
+**The engine spine is ONE contract, and it is constraint-guarded.** All I/O reduces to three engine calls; the engine imports no transport.
+
+| Direction | The one call | Where |
+|---|---|---|
+| **in** | `Head.Set(leaf, any)` — the single documented mutation chokepoint | `engine/head.go:64` |
+| | `Runtime.Set(ctx, leaf, v)` wraps it (bump epoch, cancel stale waves, run wave) | `engine/schedule.go:155` |
+| **out** | `Runtime.Subscribe() <-chan Event`; `Event{Epoch,Cell,State,Out *Rendered,Err}` | `engine/schedule.go:130`, `engine/event.go:45` |
+| **read** | `Runtime.Finals() map[Symbol]any` (last committed value of every cell) | `engine/schedule.go:277` |
+| **coerce** | `CoerceWire(raw)` strips wire encoding; generated `setLeafValue` applies per-leaf static types | `engine/widget.go:108`, `internal/gen/main.go:182` |
+
+The doc comment at `engine/event.go:44` already states the intent verbatim: *"the engine never imports a transport — this channel is the whole seam that keeps headless, WASM, and batch modes free."* The mapping confirms all three transports are adapters over exactly these calls.
+
+### The one-port organizing sentence
+
+> **A notebook's entire interface to the outside world is one bidirectional seam: you `Set` a leaf (data in) and you `Subscribe` to a cell (data out) — the same two calls whether the counterparty is a human at a slider, a program over a socket, a foreign host page, or a batch job, and whether the transport is HTTP, the JS bridge, or a CLI. Rendering (for eyes) and the typed value (for machines) are two projections of the same subscription, exactly as bounds/options/reconcile are two probes of the same leaf.**
+
+This is the compressed answer to the doc's own question ("What is a notebook's interface to the outside world?"). It adds **no second mechanism** and **no component model** (the anti-goal): the "component API" is just *naming and packaging the write/subscribe port that already exists*.
+
+### The honest asterisk: the seam is *stated* three times, not *shared* once
+
+The spine is clean, but three edges re-express it, and two of the three are impoverished:
+
+1. **The wire event shape is defined twice** — `server.wireEvent` struct + `toWire` (`engine/server/server.go:73-94`) vs. an inline `map[string]any` hand-built in `wasm.pump` (`engine/wasm/wasm.go:106-117`). Same `{epoch,cell,state,mime,data,err}` shape, two sources of truth, synced by eye. A third transport would copy it a third time.
+2. **Headless input is a weaker parallel path.** `--set` uses a *separate* generated string-parser `setLeaf` (`internal/gen/main.go:147`) that writes `head.Set` **directly** — bypassing `Runtime.Set`, epoch/wave, and `CoerceWire` — and its `kindOther` rung writes a raw **string**, so a composite/widget/bulk leaf gets a value its `Reconcile` rejects. The browser's `setLeafValue` path (which *does* call `CoerceWire`) has no such limit. Headless is the one place a leaf write scatters off the chokepoint.
+3. **Output is bimodal and asymmetric.** Browsers get *rendered* output (`Rendered{MIME,Data}` from `doneEvent`, `engine/schedule.go:482`) — for eyes. Headless gets *raw values* (`{provenance,values}` of `Finals()`, `internal/gen/main.go:338`) — for machines, one-shot, not a stream. **There is no typed value a program can subscribe to** as it changes.
+
+**Root cause (why this is coherent to fix, not ad hoc):** the project discovers *inputs* by capability probing — `Bounded`, `Optioned`, `Reconciler` (§4.3), "adding a kind means adding a probe, never editing a switch." *Outputs* have exactly one capability, `Renderable{ Render() Rendered }`, which only serves eyes. The value-out gap is not a transport bug — it is that **outputs were never given the capability symmetry inputs have.** `recordFinals` (`engine/schedule.go:267`) already captures every cell's typed value in the same wave that emits the `Event`; the value and its rendering are computed together, then delivered on two different roads.
+
+### The finishing work — all additive to the engine, ranked (SQ1 first)
+
+1. **One wire serializer** (pure refactor → SQ1/KC16 precondition). Collapse the duplicated shape into a single `engine`-owned `WireEvent`/`ToWire` both `server` and `wasm` import. Anti-pass: the SSE frame and the JS event object must be **byte-identical** before/after, or it changed behavior. (Deliberate, name-it-don't-hide-it decision: this puts a wire-format concern in `engine` — defensible because the shape is transport-*agnostic*, and `engine` already imports `encoding/json`; it does **not** import `net/http`, so the foreclosure-table constraint holds.)
+2. **`Value any` on `Event`** (additive field → the one genuinely-new surface, value-out for machines). Mirrors how `Grips` was added to `Rendered`. **Opt-in only:** `Subscribe()` stays rendered-only and wire-safe (the default the browser transports use); a new `SubscribeValues()` populates `Value` for **in-process** consumers, so no transport is forced to marshal an arbitrary Go value. `Finals()` becomes a fold over that stream, not a separate road. Anti-pass: for a scalar cell, `Event.Value` must equal its `Finals()` entry and its rendered `Data` must agree — if they diverge, the two roads have forked. A value only crosses a wire by explicit projection (the `WidgetView`/`CoerceWire` discipline, in the out direction).
+3. **Unify headless input** (refactor → SQ2/KC17, KC18). Route `--set` through the same `CoerceWire`/`Runtime.Set`/`setLeafValue` the browser uses (CLI values arrive as strings → parse to a JSON value first, then reuse the existing coercer). Deletes the weak `setLeaf`; removes the one scattered write; lets `--set leaf=<json>` carry composite/table/handle shapes. Anti-pass: an uncoercible shape must **fail loud** (CoerceWire's existing contract), never silently set a raw string.
+
+### What CANNOT stay additive (findings, named not hidden)
+
+- **F1 — KC16 needs a structural cut in `internal/webui`.** The wire-serializer collapse gives a host *a shape to read*, but `NB.init` still **requires and builds** `#controls`/`#cells`/`#graph` (`internal/webui/webui.go`) and owns the epoch guard and seeding. For a foreign page to drive the notebook with `NB` *absent from the bundle* (KC16's pass; its anti-pass rejects "NB still mounted"), the `{set, subscribe, graph}` surface must be extractable **below** `NB` — a new small layer, not a field addition. Additive to the *engine*; **structural to `internal/webui`.** Its difficulty *is* the SQ1 measurement. Sequence it last, own design pass.
+- **F2 — bulk-in is free as a HANDLE, not as a PAYLOAD.** `CoerceWire`'s vocabulary is a *closed* set that fails on shapes it doesn't cover. A `Rel[T]` handle decodes as `map[string]any`, which `coerceMap` already accepts — so `set(dataLeaf, handleJSON)` **composes for free** (the strong SQ2 result: "we already built this"). A raw `[]byte` parquet *payload* is **not** in the vocabulary; accepting it needs a deliberate vocabulary addition or a new bulk transport (which KC17's anti-pass calls a finding, not a win). And the handle's *bytes* still live behind the wasm sandbox with no filesystem — identity travels, contents may not. **The SQ2 answer: bulk-in is additive only via a content-addressed handle, which constrains the author to declare a handle leaf.**
+- **F3 — push-out is excluded (anti-goal).** A notebook publishing to a webhook/queue would put the impure edge *inside* a cell. Keep the rule: the transport owns the impure boundary; a cell is subscribed/pulled, never pushes.
+
+**Sequence (no big bang):** rank 1 → F1 spike (drive a bare host page with `NB` removed; whatever breaks *is* the SQ1 measurement) → rank 3 → SQ2 experiment (`set(dataLeaf, RelHandleJSON)`, no rebuild, assert downstream recompute) → rank 2 (build the typed-value surface only when a program-consumer KC actually needs live values, not speculatively). Each step converts one cluster of claims to evidence and is independently revertible. **No KC ticks until observed end-to-end against a real consumer.**
+
+---
+
 ## The one question, three hats
 
 "Designerly," data-in/out, and spore.host are not three questions. They are one:
