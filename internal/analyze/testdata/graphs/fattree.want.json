@@ -1,0 +1,156 @@
+{
+  "order": [
+    "treeDepth",
+    "fatnessPct",
+    "topology",
+    "analyze",
+    "diagram",
+    "verdict",
+    "intro"
+  ],
+  "helpers": [
+    "f0",
+    "f1",
+    "pct",
+    "esc"
+  ],
+  "producer": {
+    "chart": "diagram",
+    "depth": "treeDepth",
+    "fatness": "fatnessPct",
+    "md": "intro",
+    "report": "verdict",
+    "result": "analyze",
+    "tree": "topology"
+  },
+  "cells": {
+    "analyze": {
+      "label": "analyze reads the interconnect trade off the topology: bisection bandwidth (the\ncapacity across a cut through the root), the all-to-all slowdown vs a non-blocking\ntree, and the switch-cost saving from oversubscription.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "tree",
+          "type": "Tree",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "result",
+          "type": "Result"
+        }
+      ]
+    },
+    "diagram": {
+      "label": "The fat-tree diagram: nodes along the bottom, switch tiers stacked to a single root,\neach link drawn with width proportional to its capacity.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "height": "460"
+      },
+      "params": [
+        {
+          "name": "result",
+          "type": "Result",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "Tree2D"
+        }
+      ]
+    },
+    "fatnessPct": {
+      "label": "Per-tier fatness (%) — how much of a switch's total downlink bandwidth its uplinks\ncarry. 100 = non-blocking (full fat-tree); 50 = 2:1 oversubscription per tier; 25 =\n4:1.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "100",
+        "min": "25",
+        "slider": "",
+        "step": "5"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "fatness",
+          "type": "int"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Fat-tree — the interconnect trade nobody sees until the all-to-all crawls.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "topology": {
+      "label": "topology builds the fat-tree: node count, the switch count per tier, and the uplink\ncapacity leaving each tier (which thins by the fatness fraction as you climb).",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "depth",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "fatness",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "tree",
+          "type": "Tree"
+        }
+      ]
+    },
+    "treeDepth": {
+      "label": "Tree depth — the number of switch tiers above the nodes.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "max": "5",
+        "min": "2",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "depth",
+          "type": "int"
+        }
+      ]
+    },
+    "verdict": {
+      "label": "The verdict: bisection bandwidth, the all-to-all slowdown it implies, and the\nswitch-cost saving that bought it.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "result",
+          "type": "Result",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    }
+  }
+}
