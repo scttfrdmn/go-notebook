@@ -173,3 +173,32 @@ func TestFromJSScalars(t *testing.T) {
 		t.Errorf("fromJS(string) = %v, want hi", got)
 	}
 }
+
+// TestFromJSObject pins the object branch that lets a host set a composite leaf
+// over the wasm port: a plain JS object (a content-addressed handle
+// {Source, Rows, Schema}, or a Table row) must become map[string]any and
+// homogenize through engine.CoerceWire's coerceMap exactly as the SSE path's
+// JSON decode does. Without it a host's set(dataLeaf, handle) stringified to
+// "<object>" over wasm while composing fine over SSE/CLI — the IN-side
+// asymmetry the SQ2 survey (#100) measured. This is the wasm end of that fix.
+func TestFromJSObject(t *testing.T) {
+	o := js.Global().Get("Object").New()
+	o.Set("Source", "trips.csv")
+	o.Set("Rows", 7)
+	o.Set("Schema", 123456)
+
+	m, ok := fromJS(o).(map[string]any)
+	if !ok {
+		t.Fatalf("fromJS(object) = %T, want map[string]any (a handle would stringify without this)", fromJS(o))
+	}
+	// The whole point: it survives CoerceWire's coerceMap into the same clean map
+	// the server yields, so a Rel handle reaches a leaf's Reconcile unchanged.
+	norm, cok := engine.CoerceWire(m)
+	if !cok {
+		t.Fatalf("CoerceWire rejected the handle map from fromJS; set(dataLeaf, handle) would die in the coercer")
+	}
+	want := map[string]any{"Source": "trips.csv", "Rows": float64(7), "Schema": float64(123456)}
+	if !reflect.DeepEqual(norm, want) {
+		t.Fatalf("CoerceWire(fromJS(handle)) = %#v, want %#v", norm, want)
+	}
+}

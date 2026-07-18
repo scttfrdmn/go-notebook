@@ -208,8 +208,11 @@ func jsonToJS(v any) any {
 }
 
 // fromJS converts a JS value to the plain Go value the head stores. JS numbers
-// arrive as float64 and bools as bool — the same shapes the SSE /set path sees,
-// so the generated coercer treats them identically.
+// arrive as float64 and bools as bool, arrays as []any, objects as
+// map[string]any — the same shapes the SSE /set path's JSON decode produces, so
+// the generated coercer (engine.CoerceWire) treats a browser edit and a server
+// edit identically. This equivalence is the point: one coercer, one leaf-write
+// contract, whichever transport the edit arrived on.
 func fromJS(v js.Value) any {
 	switch v.Type() {
 	case js.TypeNumber:
@@ -231,6 +234,23 @@ func fromJS(v js.Value) any {
 				out[i] = fromJS(v.Index(i))
 			}
 			return out
+		}
+		// A non-array object becomes map[string]any — the same shape the SSE
+		// path's JSON decode produces for an object — so a content-addressed
+		// handle ({Source, Rows, Schema}) or a Table row reaches engine.CoerceWire
+		// and homogenizes via coerceMap exactly as it does on the server. Without
+		// this a host's set(dataLeaf, handle) stringified to "<object>" over the
+		// wasm port while composing fine over SSE/CLI — the IN-side asymmetry. null
+		// (a non-truthy object) falls through to the string rung, where CoerceWire
+		// rejects it loudly rather than treating it as an empty map.
+		if v.Truthy() {
+			keys := js.Global().Get("Object").Call("keys", v)
+			m := make(map[string]any, keys.Length())
+			for i := 0; i < keys.Length(); i++ {
+				k := keys.Index(i).String()
+				m[k] = fromJS(v.Get(k))
+			}
+			return m
 		}
 		return v.String()
 	default:
