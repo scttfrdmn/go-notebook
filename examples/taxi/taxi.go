@@ -19,6 +19,23 @@
 //                             Apple because a constant path can't notice the file
 //                             changed. The invalidation is proved by a test, not
 //                             asserted here.
+//   - Bulk data-in (KC17):    DEMONSTRATED (native). The trips handle is a
+//                             settable INPUT LEAF — Rel[Trip] carries Reconcile,
+//                             so a host hands the notebook a different dataset by
+//                             setting a new handle ({source}) over the port, with
+//                             no rebuild, and every aggregate recomputes over the
+//                             new rows. The author DECLARED the handle leaf by
+//                             giving Rel a capability (the type-driven rule), never
+//                             a directive. Only the source crosses the wire; rows
+//                             and hash are re-derived from the contents, so a
+//                             handle cannot lie about what it names.
+//                             LIMIT, NAMED: this is the native/CLI/SSE path, where
+//                             the process resolves the source's bytes. Under WASM
+//                             the same set changes handle IDENTITY (downstream
+//                             invalidates) but the sandbox has no filesystem to
+//                             fetch new CONTENTS — identity travels, bytes do not.
+//                             (Moot for this notebook: it uses time parsing that
+//                             is not WASM-able, so its home is the static binary.)
 //   - Static binary:          DEMONSTRATED. Pure Go, no cgo, no DuckDB. The
 //                             "cross-compile, scp, sbatch" story survives.
 //
@@ -53,26 +70,51 @@ type Trip struct {
 	Passengers int32
 }
 
-// tripData is the notebook's data source. In a real deployment this is a path to
-// a parquet file on S3; here it is embedded so the example is self-contained and
-// the static binary needs nothing at runtime. The point under test is the
-// HANDLE's behavior, which does not depend on where the bytes live.
-const tripData = `pickup,dropoff,fare,tip,passengers
+// sources is the data plane: named datasets, each keyed by the source ID that a
+// handle carries. In a real deployment these are paths to parquet on S3 and the
+// runtime resolves them; here they are embedded so the example is self-contained
+// and the static binary needs nothing at runtime. The point under test — a
+// handle IDENTIFIES its contents — does not depend on where the bytes live, only
+// on Open/Scan reading the SOURCE THE HANDLE NAMES rather than a hardcoded blob.
+//
+// Two datasets, so setting a new handle delivers genuinely different data (the
+// KC17 test): a day shift and a sparse late-night shift with a different demand
+// curve. Handing the notebook a new handle re-runs every aggregate over the new
+// rows — no rebuild.
+var sources = map[string]string{
+	"trips-day.csv": `pickup,dropoff,fare,tip,passengers
 2024-03-01T08:00:00Z,2024-03-01T08:12:00Z,14.50,3.00,1
 2024-03-01T08:30:00Z,2024-03-01T08:41:00Z,11.00,2.00,2
 2024-03-01T09:05:00Z,2024-03-01T09:40:00Z,38.00,7.50,1
 2024-03-01T18:00:00Z,2024-03-01T18:22:00Z,22.00,4.00,3
 2024-03-01T18:15:00Z,2024-03-01T18:33:00Z,18.50,3.50,1
 2024-03-01T18:45:00Z,2024-03-01T19:20:00Z,41.00,8.00,2
-2024-03-01T22:10:00Z,2024-03-01T22:19:00Z,9.50,1.50,1`
+2024-03-01T22:10:00Z,2024-03-01T22:19:00Z,9.50,1.50,1`,
+	"trips-night.csv": `pickup,dropoff,fare,tip,passengers
+2024-03-01T23:10:00Z,2024-03-01T23:38:00Z,31.00,6.00,1
+2024-03-01T23:45:00Z,2024-03-02T00:05:00Z,24.50,5.00,2
+2024-03-02T01:20:00Z,2024-03-02T01:52:00Z,44.00,9.00,3
+2024-03-02T02:30:00Z,2024-03-02T02:44:00Z,17.00,3.00,1
+2024-03-02T03:15:00Z,2024-03-02T03:58:00Z,52.00,10.00,4`,
+}
+
+// defaultSource is the dataset a fresh notebook opens. Change the handle (set
+// the trips leaf to a different source) and everything downstream recomputes.
+const defaultSource = "trips-day.csv"
 
 // ---------------------------------------------------------------------------
 // Data — a handle, not the rows
 // ---------------------------------------------------------------------------
 
-// Every trip on file. Opening reads the header (to validate the schema against
-// Trip) and computes the content hash — it does NOT load the rows into Go.
-func trips() (all Rel[Trip], err error) { return Open[Trip](tripData) }
+// The dataset the notebook is pointed at — a HANDLE, and a settable one. Opening
+// reads the header (to validate the schema against Trip) and computes the content
+// hash; it does NOT load the rows into Go. Because Rel[Trip] carries Reconcile,
+// this cell is an input leaf: a host can hand the notebook a different dataset by
+// setting a new handle ({source, rows, schema}) over the port, with no rebuild —
+// and because the handle identifies its contents, every aggregate below recomputes
+// over the new rows. That is the KC17 shape: bulk data-in as a content-addressed
+// handle, the author having DECLARED the handle leaf by giving Rel a capability.
+func trips() (all Rel[Trip], err error) { return Open[Trip](defaultSource) }
 
 // Trips on file. Reads the handle's row count, not the rows.
 func scale(all Rel[Trip]) (rows int64) { return all.Rows }
@@ -289,23 +331,61 @@ func (r Rel[T]) Equal(other any) bool {
 	return ok && o.Source == r.Source && o.Rows == r.Rows && o.Schema == r.Schema
 }
 
-// Open validates the data's columns against T, counts rows, and hashes the
-// contents — reading headers and computing identity, not materializing rows.
-func Open[T any](data string) (Rel[T], error) {
+// Reconcile rebuilds the handle from a wire selection — a {source} the host set
+// over the port. This is the capability that makes a Rel cell a settable input
+// leaf (the same rung Table[T] uses): the author DECLARES a handle leaf by giving
+// Rel this method, never by annotating a comment. Only the source crosses the
+// wire — the identity a host can legitimately choose; Rows and Schema are DERIVED
+// by re-Opening that source, never trusted from the wire (a handle whose rows/hash
+// didn't match its contents would be the exact path-is-not-a-handle lie this type
+// exists to prevent). An unknown or malformed selection leaves the handle
+// unchanged, so a bad set degrades to the current dataset rather than a broken one.
+func (r Rel[T]) Reconcile(saved any) any {
+	m, ok := saved.(map[string]any)
+	if !ok {
+		return r // not a handle selection — the current dataset stands
+	}
+	src, ok := m["Source"].(string)
+	if !ok || src == "" {
+		return r
+	}
+	opened, err := Open[T](src)
+	if err != nil {
+		return r // unknown source: keep the working handle, never a dangling one
+	}
+	return opened
+}
+
+// Open resolves a source by name, validates its columns against T, counts rows,
+// and hashes the CONTENTS — reading headers and computing identity, not
+// materializing rows. The handle's Source is the name it was opened by, so Scan
+// can later re-resolve the same bytes: identity and contents stay tied. An
+// unknown source is an error, never a silent empty handle.
+func Open[T any](source string) (Rel[T], error) {
+	data, ok := sources[source]
+	if !ok {
+		return Rel[T]{}, fmt.Errorf("unknown source %q", source)
+	}
 	rows := int64(0)
 	for _, line := range strings.Split(strings.TrimSpace(data), "\n")[1:] {
 		if strings.TrimSpace(line) != "" {
 			rows++
 		}
 	}
-	return Rel[T]{Source: sourceID(data), Rows: rows, Schema: contentHash(data)}, nil
+	return Rel[T]{Source: source, Rows: rows, Schema: contentHash(data)}, nil
 }
 
 // Scan streams every row of the relation through fn without ever holding all
-// rows in memory at once — the out-of-core primitive. (Here it parses the
-// embedded CSV; over parquet it would stream row groups.)
+// rows in memory at once — the out-of-core primitive. It reads the source THE
+// HANDLE NAMES (not a hardcoded blob), so handing the notebook a new handle
+// streams the new dataset's rows. (Here it parses embedded CSV; over parquet it
+// would stream row groups from rel.Source.)
 func Scan(rel Rel[Trip], fn func(Trip)) error {
-	lines := strings.Split(strings.TrimSpace(tripData), "\n")
+	data, ok := sources[rel.Source]
+	if !ok {
+		return fmt.Errorf("unknown source %q", rel.Source)
+	}
+	lines := strings.Split(strings.TrimSpace(data), "\n")
 	for _, line := range lines[1:] {
 		t, err := parseTrip(line)
 		if err != nil {
@@ -363,14 +443,4 @@ func contentHash(data string) Hash {
 		h *= prime
 	}
 	return Hash(h)
-}
-
-// sourceID is a stable label for the source (its first line / header), distinct
-// from the content hash: two files with the same schema but different rows share
-// a Source but differ in Schema, and the handle still changes.
-func sourceID(data string) string {
-	if i := strings.IndexByte(data, '\n'); i >= 0 {
-		return data[:i]
-	}
-	return data
 }
