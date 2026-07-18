@@ -14,6 +14,16 @@
 //     rich content; scalars fall back to type-default readouts (gauge, money, duration).
 //
 // Note the imports: stdlib only. Nothing here knows it's in a notebook.
+//
+// Presentation is arranged, not source-ordered: the //notebook:layout lines
+// below place the intro first, the input sliders beside the scalar readouts they
+// drive, and the sweep chart full-width underneath — regardless of where these
+// functions sit in the file. Strip these three lines and the notebook still
+// renders correctly, just linearly.
+//
+//notebook:layout notes
+//notebook:layout controls | readouts
+//notebook:layout capacityCurve
 
 package capacity
 
@@ -29,26 +39,28 @@ import (
 
 // Incoming jobs per hour.
 //
-//notebook:slider min=0 max=5000 step=50
+//notebook:slider min=0 max=5000 step=50 area=controls
 func arrivalRate() (lambda PerHour) { return 1200 }
 
 // Jobs completed per hour, per server.
 //
-//notebook:slider min=1 max=200 step=1
+//notebook:slider min=1 max=200 step=1 area=controls
 func serviceRate() (mu PerHour) { return 20 }
 
 // Servers in the fleet.
 //
-//notebook:slider min=1 max=256
+//notebook:slider min=1 max=256 area=controls
 func servers() (c int) { return 80 }
 
 // On-demand price per server-hour.
 //
-//notebook:slider min=0 max=5 step=0.001
+//notebook:slider min=0 max=5 step=0.001 area=controls
 func hourlyPrice() (price USD) { return 1.006 }
 
 // SLA: the largest acceptable probability that a job has to wait.
-// No //notebook: needed — Probability carries Bounds(), so it renders as a [0,1] slider.
+// Probability carries Bounds(), so it renders as a [0,1] slider with no directive.
+//
+//notebook:area=controls
 func slaTarget() (target Probability) { return 0.20 }
 
 // ---------------------------------------------------------------------------
@@ -62,16 +74,22 @@ func offeredLoad(lambda, mu PerHour) (a Erlangs) {
 
 // Server utilization. Deliberately a plain float64, not a Unit: overload (rho >= 1)
 // is a real, meaningful state, so clamping to [0,1] would be a lie.
+//
+//notebook:area=readouts
 func utilization(a Erlangs, c int) (rho float64) {
 	return float64(a) / float64(c)
 }
 
 // Probability an arriving job finds every server busy (Erlang C).
+//
+//notebook:area=readouts
 func waitProbability(a Erlangs, c int) (pWait Probability) {
 	return Probability(erlangC(c, float64(a)))
 }
 
 // Mean time a job spends waiting in queue before service.
+//
+//notebook:area=readouts
 func meanWait(pWait Probability, rho float64, c int, mu PerHour) (wq Seconds) {
 	if rho >= 1 {
 		return Seconds(math.Inf(1)) // unstable: the queue grows without bound
@@ -92,11 +110,15 @@ func hourlyCost(c int, price USD) (cost USD) {
 }
 
 // Amortized infrastructure cost per completed job.
+//
+//notebook:area=readouts
 func costPerJob(cost USD, lambda PerHour) (perJob USD) {
 	return USD(float64(cost) / float64(lambda))
 }
 
 // Whether the current fleet meets the wait-probability SLA.
+//
+//notebook:area=readouts
 func slaMet(pWait, target Probability) (meets bool) {
 	return pWait <= target
 }

@@ -156,6 +156,13 @@ type Graph struct {
 	// cell that vanishes because the author forgot to name its result is then a
 	// one-glance diagnosis rather than a mystery.
 	Helpers []CellID `json:"helpers,omitempty"`
+	// Layout is the optional presentation arrangement: an ordered list of rows,
+	// each an ordered list of area-or-cell tokens (a token names an area=<name>
+	// group, or falls back to a cell ID). Parsed from package-level
+	// //notebook:layout directive lines. Presentation-only and fully optional —
+	// an empty Layout renders in source Order (degrade-to-linear). It carries no
+	// Go types and never affects execution or wiring; the scheduler never sees it.
+	Layout [][]string `json:"layout,omitempty"`
 }
 
 // New returns an empty Graph with initialized maps.

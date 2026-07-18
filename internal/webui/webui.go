@@ -91,6 +91,18 @@ const CSS = `
      a narrow viewport. min-width:0 lets a flex child shrink below its content. */
   .cellrow { display: flex; flex-wrap: wrap; gap: 0 1.5rem; align-items: flex-start; }
   .cellrow > .cell { flex: 1 1 320px; min-width: 0; }
+  /* Arranged layout (//notebook:layout): a row holds equal-flex columns, each
+     stacking its cells. Same equal-width, wrap-when-narrow behavior as a bare
+     cellrow, but a column can hold more than one cell (an area's members). */
+  .cellrow > .cellcol { flex: 1 1 320px; min-width: 0; }
+  /* Controls inside an arranged area stack (label on its own line, then the
+     control full-width with its value after it) rather than the top block's
+     3-column label|input|value grid, which needs full page width and collapses
+     in a ~50% column. The value sits inline after the control via order/flow. */
+  .cellcol > .controls { display: block; margin-bottom: 1rem; }
+  .cellcol > .controls label { display: block; margin-top: .6rem; }
+  .cellcol > .controls input[type=range] { width: 100%; }
+  .cellcol > .controls .val { margin-left: .5rem; color: var(--navy); font-weight: 600; }
   .cell.blocked { opacity: .4; }
   .cell.running { border-left-color: var(--run); }
   .cell.error   { border-left-color: var(--err); }
@@ -179,6 +191,7 @@ const NB = (function () {
   const lastEpoch = {};     // cell id -> newest epoch rendered (drop stale waves)
   const STATES = ['running', 'done', 'error', 'blocked', 'stale'];
   let META = [];
+  let LAYOUT = null;        // presentation arrangement (rows of area/cell tokens), or null → source order
   let onEdit = function () {};
 
   function coerce(s) { const n = Number(s); return s.trim() !== '' && !Number.isNaN(n) ? n : s; }
@@ -208,10 +221,10 @@ const NB = (function () {
   // WidgetView (options/bounds/selection) each wave. emit(selection) is called
   // on user edit with the SELECTION only. Kind is capability-derived at codegen;
   // a directive would refine it, but the kind is the type's own say.
-  function buildControl(m, emit) {
+  function buildControl(m, emit, container) {
     const kind = (m.Widget && m.Widget.Kind) || '';
     const out = document.createElement('span'); out.className = 'val';
-    const controls = document.getElementById('controls');
+    const controls = container || document.getElementById('controls');
 
     if (kind === 'select') {
       const sel = document.createElement('select');
@@ -322,7 +335,42 @@ const NB = (function () {
     }
   }
 
+  // makeCellEl builds one cell's display element (state rail, error slot, body,
+  // optional read-only source). Shared by both the source-order and the arranged
+  // layout paths so the two cannot diverge in what a cell looks like.
+  function makeCellEl(m) {
+    const el = document.createElement('div');
+    el.className = 'cell';
+    el.hidden = true; // revealed by the first event that has something to show
+    el.innerHTML = '<div class="id"><span class="dot"></span>' + m.ID +
+                   '</div><div class="err" hidden></div><div class="body"></div>';
+    if (m.Leaf) el.dataset.leaf = '1'; // control is its view; don't echo the body
+    if (m.Source) {
+      const det = document.createElement('details');
+      const sum = document.createElement('summary');
+      const pre = document.createElement('pre'); pre.className = 'src';
+      pre.textContent = m.Source; // code, set as text — never injected as HTML
+      det.append(sum, pre); el.append(det);
+    }
+    cellEls[m.ID] = el;
+    return el;
+  }
+
+  // registerLeaf wires a leaf cell's control (into the given container) and
+  // records it under both addressing keys. Shared by both layout paths.
+  function registerLeaf(m, container) {
+    const label = document.createElement('label');
+    label.textContent = m.Label || m.ID;
+    container.append(label);
+    const ctl = buildControl(m, (sel) => onEdit(m.Leaf, sel), container);
+    ctl.leafSym = m.Leaf;
+    leafCtl[m.ID] = ctl;
+    leafByCell[m.Leaf] = ctl;
+    return ctl;
+  }
+
   function buildControlsAndCells() {
+    if (LAYOUT && LAYOUT.length) { buildArranged(); return; }
     const controls = document.getElementById('controls');
     const cells = document.getElementById('cells');
     // A //notebook:row=<name> directive lays consecutive same-named cells side by
@@ -371,6 +419,79 @@ const NB = (function () {
       }
       container(m).append(el);
       cellEls[m.ID] = el;
+    }
+  }
+
+  // buildArranged renders the notebook per an explicit LAYOUT (rows of
+  // area-or-cell tokens). Every cell is placed into a named area by its
+  // //notebook:area directive; a layout token names an AREA if one exists, else a
+  // single CELL (so a lone cell needs no area= wrapper). Each layout row is a
+  // flex row of equal-width columns (reusing the .cellrow CSS); controls render
+  // inside their cell's area — a slider beside the chart it drives — not in a
+  // separate top block. Cells named in no placed area append below in source
+  // order, so nothing is ever dropped (degrade-to-linear even under a partial
+  // layout). Rendering is address-by-ID (cellEls/leafCtl keyed by cell ID), so
+  // this reordering never affects event routing.
+  function buildArranged() {
+    const cells = document.getElementById('cells');
+    // The top #controls block is unused in arranged mode; hide it so no empty
+    // grid gap shows. Controls live in their areas instead.
+    const topControls = document.getElementById('controls');
+    if (topControls) topControls.style.display = 'none';
+
+    // Bucket cells by area (in source order within each area).
+    const areaOf = (m) => (m.Directives && m.Directives.area) || null;
+    const byArea = {};       // area name -> [meta...]
+    const placedIDs = new Set();
+    for (const m of META) {
+      const a = areaOf(m);
+      if (a) { (byArea[a] ||= []).push(m); }
+    }
+
+    // renderCellInto builds a cell (and its control, if a leaf) into a container.
+    // A leaf's control needs the 3-column label|input|value grid (.controls); a
+    // column reuses ONE such grid for all its leaves (opened lazily) so several
+    // sliders in an area align, exactly as they do in the top block. The cell's
+    // display element still goes directly in the column (a leaf's body stays
+    // hidden — its control is its view).
+    const gridOf = (col) => {
+      let g = col.querySelector(':scope > .controls');
+      if (!g) { g = document.createElement('div'); g.className = 'controls'; col.appendChild(g); }
+      return g;
+    };
+    const renderCellInto = (m, col) => {
+      if (m.Leaf) registerLeaf(m, gridOf(col));
+      col.appendChild(makeCellEl(m));
+      placedIDs.add(m.ID);
+    };
+    // renderToken resolves one layout token to a column of cells: an area's
+    // members, or a single cell of that ID, or (unknown) a skipped empty column.
+    const renderToken = (tok, col) => {
+      if (byArea[tok]) { for (const m of byArea[tok]) renderCellInto(m, col); return; }
+      const m = META.find(x => x.ID === tok);
+      if (m) renderCellInto(m, col);
+      // else: a token naming nothing — silently no column, not an error.
+    };
+
+    for (const row of LAYOUT) {
+      const rowEl = document.createElement('div'); rowEl.className = 'cellrow';
+      for (const tok of row) {
+        const col = document.createElement('div'); col.className = 'cellcol';
+        renderToken(tok, col);
+        if (col.childNodes.length) rowEl.appendChild(col);
+      }
+      if (rowEl.childNodes.length) cells.appendChild(rowEl);
+    }
+
+    // Anything not placed by the layout appends below, in source order — the
+    // override-not-manifest rule: place what matters, the rest still show. Route
+    // through the same column helper so an unplaced leaf still gets the control
+    // grid (the top #controls block is hidden in arranged mode).
+    let tail = null;
+    for (const m of META) {
+      if (placedIDs.has(m.ID)) continue;
+      if (!tail) { tail = document.createElement('div'); cells.appendChild(tail); }
+      renderCellInto(m, tail);
     }
   }
 
@@ -616,11 +737,13 @@ const NB = (function () {
 
   // init builds the whole UI from META. opts.onEdit(leaf, value) is called on a
   // control edit; opts.afterRender runs after each render (optional);
-  // opts.provenance is the build identity to show in the footer (optional).
+  // opts.provenance is the build identity to show in the footer (optional);
+  // opts.layout is the presentation arrangement (optional; source order if absent).
   function init(meta, opts) {
     META = meta || [];
     onEdit = (opts && opts.onEdit) || function () {};
     if (opts && opts.afterRender) afterRender = opts.afterRender;
+    LAYOUT = (opts && opts.layout) || null;
     buildGraph();
     buildControlsAndCells();
     if (opts && opts.provenance) showProvenance(opts.provenance);

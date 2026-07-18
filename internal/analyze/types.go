@@ -106,6 +106,11 @@ func buildFromTypes(fset *token.FileSet, files []*ast.File, tpkg *types.Package)
 		diags = append(diags, cellDiags...)
 	}
 
+	// The optional presentation layout is parsed from the file's package doc.
+	// Presentation-only: it never affects Check (wiring/cycles), so it is set
+	// after the graph is built and does not participate in validation.
+	g.Layout = parseLayout(file)
+
 	diags = append(diags, g.Check()...)
 	return g, diags, nil
 }

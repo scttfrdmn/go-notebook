@@ -7,6 +7,7 @@ import "github.com/scttfrdmn/go-notebook/internal/webui"
 // is used because the assembled page contains literal % (CSS) and { } (JS).
 const metaPlaceholder = "/*__META__*/null"
 const provPlaceholder = "/*__PROV__*/null"
+const layoutPlaceholder = "/*__LAYOUT__*/null"
 
 // indexHTML is the SSE server's page. The page SHELL and the client (CSS,
 // control/cell builder, dependency graph, event renderer) are assembled by
@@ -19,6 +20,7 @@ var indexHTML = webui.Page(webui.PageOpts{
 	Glue: `const META = ` + metaPlaceholder + `;
 NB.init(META, {
   provenance: ` + provPlaceholder + `,
+  layout: ` + layoutPlaceholder + `,
   onEdit: (leaf, value) => fetch('/set', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},

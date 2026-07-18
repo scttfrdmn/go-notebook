@@ -133,3 +133,57 @@ func directives(fn *ast.FuncDecl) map[string]string {
 	}
 	return out
 }
+
+// layoutPrefix marks a package-level presentation-layout row.
+const layoutPrefix = "//notebook:layout"
+
+// parseLayout reads the notebook's presentation arrangement from the file's
+// package doc comment. Each `//notebook:layout` line is one ROW; within a row,
+// `|` separates columns, and each column token names an area=<name> group (or,
+// failing that, a single cell). Returns nil when there is no layout, so an
+// unarranged notebook renders in source order (degrade-to-linear).
+//
+// This is a SEPARATE parser from [directives] — and deliberately so. directives
+// flattens per-function `k=v` tokens into a map; a layout row is an ORDERED list
+// of columns that a map cannot hold, and it lives on the package doc, not a
+// function. The one thing they share is the //notebook: register.
+//
+// Why per-row directive lines rather than one indented block: gofmt (which the
+// project enforces) treats an indented, non-directive comment as prose and
+// reflows it — reordering the lines and stripping indentation, which would
+// destroy an ASCII-art block. A `//notebook:layout …` line is a directive
+// (no space after //), so gofmt preserves it verbatim.
+func parseLayout(file *ast.File) [][]string {
+	// Read from the file's leading comment groups, NOT file.Doc: a blank line
+	// between the layout lines and the `package` clause detaches file.Doc (Go
+	// only attaches a doc comment immediately adjacent to `package`), yet the
+	// comments still live in file.Comments. Scan every comment group that appears
+	// BEFORE the package keyword — that is the package-level region where a layout
+	// directive belongs, and it excludes per-cell doc comments below.
+	var rows [][]string
+	for _, cg := range file.Comments {
+		if cg.Pos() >= file.Package {
+			break // past the package clause — into cell bodies
+		}
+		for _, c := range cg.List {
+			text := strings.TrimSpace(c.Text)
+			if !strings.HasPrefix(text, layoutPrefix) {
+				continue
+			}
+			body := strings.TrimSpace(strings.TrimPrefix(text, layoutPrefix))
+			if body == "" {
+				continue // a bare "//notebook:layout" with no row content is ignored
+			}
+			var cols []string
+			for _, col := range strings.Split(body, "|") {
+				if tok := strings.TrimSpace(col); tok != "" {
+					cols = append(cols, tok)
+				}
+			}
+			if len(cols) > 0 {
+				rows = append(rows, cols)
+			}
+		}
+	}
+	return rows
+}
