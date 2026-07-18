@@ -113,13 +113,13 @@ func precomputeCost(elapsed time.Duration) (cost Markdown) {
 
 // Original.
 //
-//notebook:row=compare
+//notebook:area=compare
 func original(img Frame) (before Image) { return Image{Frame: img, Caption: "original"} }
 
 // Carved. Moving the slider runs only this cell: one pass over the pixels,
 // keeping those whose seam index has not yet come up. No DP, no cache.
 //
-//notebook:row=compare
+//notebook:area=compare
 func carved(img Frame, order SeamMap, scale Scale) (after Image) {
 	drop := img.W - int(float64(img.W)*float64(scale))
 	out := Frame{W: img.W - drop, H: img.H}

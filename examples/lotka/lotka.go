@@ -26,7 +26,7 @@
 //     same recomputed run — not two plots kept in sync by hand, but two projections
 //     of a single value the graph already holds. That is the reactive-graph thesis
 //     as a picture: the dependency graph forks trajectory → {series, portrait}.
-//     They share a `//notebook:row=panels` directive, so on a wide screen they sit
+//     They share a `//notebook:area=panels` directive, so on a wide screen they sit
 //     side by side (and wrap to stacked when it's narrow).
 //   - **A grip in phase space.** The starting populations are a draggable point on
 //     the phase portrait itself — drag it and you pick a different orbit. curvefit's
@@ -133,7 +133,7 @@ func trajectory(alpha, beta, gamma, delta int, ic Draggable[Pt], span int) (run 
 // Populations over time. Prey and predators as two waves; watch the predators lag
 // the prey — the crash follows the feast.
 //
-//notebook:row=panels
+//notebook:area=panels
 //notebook:height=460
 func series(run Trajectory) (timeplot TimeChart) {
 	return TimeChart{Prey: run.Prey, Pred: run.Pred, DT: run.DT}
@@ -143,7 +143,7 @@ func series(run Trajectory) (timeplot TimeChart) {
 // into a loop because the system is conservative. The starting point is a grip —
 // drag it to a different orbit.
 //
-//notebook:row=panels
+//notebook:area=panels
 //notebook:height=460
 func portrait(run Trajectory, ic Draggable[Pt]) (phase PhaseChart) {
 	return PhaseChart{Prey: run.Prey, Pred: run.Pred, Grip: Handle{At: ic.Value[0], Ref: ic.Grip(0)}}

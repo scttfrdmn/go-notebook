@@ -98,23 +98,24 @@ func TestEveryWidgetKindHasAControl(t *testing.T) {
 	}
 }
 
-// TestRowDirectiveIsHonored is the test that would have caught the row= gap (#121):
-// the //notebook:row= directive laid cells side by side in prose (bayes/seam/lotka)
-// but the client ignored it and stacked them, for the project's whole life. The fix
-// (#122) groups same-row cells into a .cellrow flex container. This pins that the
-// client actually reads the row directive and builds the grouping — if someone
-// removes it, the directive goes silently inert again.
-func TestRowDirectiveIsHonored(t *testing.T) {
+// TestAreaDirectiveIsHonored is the test that would have caught the original
+// grouping gap (#121): a grouping directive laid cells side by side in prose
+// (bayes/seam/lotka) but the client ignored it and stacked them. The directive
+// is now //notebook:area= (it replaced //notebook:row= when composition landed);
+// with no layout block, consecutive same-area cells group into a .cellrow flex
+// container. This pins that the client actually reads the area directive and
+// builds the grouping — if someone removes it, the directive goes silently inert.
+func TestAreaDirectiveIsHonored(t *testing.T) {
 	for _, want := range []string{
-		"Directives.row", // the client reads the row directive off CellMeta
-		"cellrow",        // and groups matching cells into a flex row container
+		"Directives.area", // the client reads the area directive off CellMeta
+		"cellrow",         // and groups matching cells into a flex row container
 	} {
 		if !strings.Contains(JS, want) {
-			t.Errorf("shared JS missing %q — the //notebook:row= directive would be inert (regression of #121)", want)
+			t.Errorf("shared JS missing %q — the //notebook:area= directive would be inert (regression of #121)", want)
 		}
 	}
 	if !strings.Contains(CSS, ".cellrow") {
-		t.Error("shared CSS missing .cellrow — row=grouped cells would not lay out side by side")
+		t.Error("shared CSS missing .cellrow — area-grouped cells would not lay out side by side")
 	}
 }
 

@@ -26,7 +26,7 @@
 // the bayes lesson (sufficient statistics, not a fold) applied to the theorem that
 // is *literally about what averaging does*.
 //
-// The two views share a `//notebook:row=panels` directive, so the population you're
+// The two views share a `//notebook:area=panels` directive, so the population you're
 // sculpting sits beside the bell it produces.
 
 package clt
@@ -48,7 +48,7 @@ const bins = 12 // the population is a histogram over [0, bins); value = bin + U
 // distribution stay a bell. Seeded deliberately wild (bimodal with a spike) so the
 // theorem has something to defy.
 //
-//notebook:row=panels
+//notebook:area=panels
 //notebook:height=420
 func population() (pop Draggable[Pt]) {
 	// Bar i sits at x = i + 0.5 (the bin centre); its Y is the draggable height.
@@ -165,7 +165,7 @@ func sampling(dist Dist, n int, m int, s int) (samp Sampling) {
 // The population you sculpt. Drag any bar. The mean's distribution beside it will
 // stay a bell no matter how wild you make this.
 //
-//notebook:row=panels
+//notebook:area=panels
 //notebook:height=420
 func populationView(pop Draggable[Pt], dist Dist) (popChart PopChart) {
 	popChart = PopChart{Mean: dist.Mean}
@@ -179,7 +179,7 @@ func populationView(pop Draggable[Pt], dist Dist) (popChart PopChart) {
 // The sampling distribution of the mean, with the CLT's predicted normal overlaid.
 // At n = 1 it mirrors the population; as n grows it collapses onto the bell.
 //
-//notebook:row=panels
+//notebook:area=panels
 //notebook:height=420
 func samplingView(samp Sampling) (meansChart MeansChart) {
 	return MeansChart{Hist: samp.Hist, Mean: samp.PredMean, SD: samp.PredSD}

@@ -93,7 +93,7 @@ func verlet(start Draggable[Pt], n int, dtMilli int) (verlet Trajectory) {
 // The orbits. Both integrators' paths, and the draggable starting positions. This
 // is the view that would let Euler pass — the paths look plausible.
 //
-//notebook:row=panels
+//notebook:area=panels
 //notebook:height=440
 func orbits(start Draggable[Pt], euler Trajectory, verlet Trajectory) (paths OrbitChart) {
 	paths = OrbitChart{Euler: euler, Verlet: verlet}
@@ -106,7 +106,7 @@ func orbits(start Draggable[Pt], euler Trajectory, verlet Trajectory) (paths Orb
 // Total energy over time. The instrument that catches the bug the orbit plot hides:
 // Euler's total energy climbs; Verlet's stays flat. Same simulation, plotted honestly.
 //
-//notebook:row=panels
+//notebook:area=panels
 //notebook:height=440
 func conservation(euler Trajectory, verlet Trajectory) (energy EnergyChart) {
 	return EnergyChart{Euler: euler.Energy, Verlet: verlet.Energy}
