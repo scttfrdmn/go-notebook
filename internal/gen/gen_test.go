@@ -84,12 +84,15 @@ func TestMetaCarriesDependencyEdges(t *testing.T) {
 	src := string(reg.Content)
 
 	// utilization consumes offeredLoad (a) and servers (c). Match the edge
-	// substring (the line also carries Source, which we don't pin here).
-	if !strings.Contains(src, `ID: "utilization", Leaf: "", Label: "Server utilization.", Directives: nil, In: []engine.CellID{"offeredLoad", "servers"}, Source:`) {
+	// substring (the line also carries Source, which we don't pin here). It now
+	// also carries area=readouts (its presentation region under the layout), so
+	// the directive map is no longer nil — the edge is what this test pins.
+	if !strings.Contains(src, `ID: "utilization", Leaf: "", Label: "Server utilization.", Directives: map[string]string{"area": "readouts"}, In: []engine.CellID{"offeredLoad", "servers"}, Source:`) {
 		t.Errorf("utilization's In should be {offeredLoad, servers}")
 	}
-	// A source leaf has no upstream — In is nil, not an empty slice literal.
-	if !strings.Contains(src, `ID: "arrivalRate", Leaf: "lambda", Label: "Incoming jobs per hour.", Directives: map[string]string{"max": "5000", "min": "0", "slider": "", "step": "50"}, In: nil, Source:`) {
+	// A source leaf has no upstream — In is nil, not an empty slice literal. It
+	// now also carries area=controls (its presentation region).
+	if !strings.Contains(src, `ID: "arrivalRate", Leaf: "lambda", Label: "Incoming jobs per hour.", Directives: map[string]string{"area": "controls", "max": "5000", "min": "0", "slider": "", "step": "50"}, In: nil, Source:`) {
 		t.Errorf("a source leaf should have In: nil (no upstream)")
 	}
 }

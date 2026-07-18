@@ -53,14 +53,14 @@ type SetFunc func(ctx context.Context, rt *engine.Runtime, leaf string, raw any)
 // to every subscriber. It publishes no provenance; use [RunNotebook] to show
 // build identity.
 func Run(rt *engine.Runtime, meta []engine.CellMeta, set SetFunc) {
-	RunNotebook(rt, meta, engine.Provenance{}, set)
+	RunNotebook(rt, meta, engine.Provenance{}, nil, set)
 }
 
 // RunNotebook is [Run] plus build provenance, exposed as notebook.provenance so
 // the host can show what produced this .wasm — the content identity a fixed URL
 // cannot convey. Run delegates here with an empty Provenance, so the older
 // signature is unchanged.
-func RunNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, set SetFunc) {
+func RunNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, layout [][]string, set SetFunc) {
 	if set == nil {
 		set = func(ctx context.Context, rt *engine.Runtime, leaf string, raw any) {
 			rt.Set(ctx, engine.LeafID(leaf), raw)
@@ -74,11 +74,13 @@ func RunNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provena
 	// subscribes for (it subscribes before start()) is lost.
 	go p.pump(rt.Subscribe())
 
-	// meta and provenance are published as PARSED JS values (arrays/objects), not
-	// JSON strings the host must re-parse: the port hands data, not encodings.
+	// meta, provenance, and layout are published as PARSED JS values
+	// (arrays/objects), not JSON strings the host must re-parse: the port hands
+	// data, not encodings. layout is null when the notebook declared none.
 	obj := map[string]any{
 		"meta":       jsonToJS(meta),
 		"provenance": jsonToJS(prov),
+		"layout":     jsonToJS(layout),
 		"set": js.FuncOf(func(_ js.Value, args []js.Value) any {
 			if len(args) != 2 {
 				return nil

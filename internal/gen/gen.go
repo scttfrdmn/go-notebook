@@ -81,6 +81,13 @@ func Registry(g *graph.Graph, info analyze.PackageInfo) (GeneratedFile, error) {
 	fmt.Fprintf(&b, "\n// NotebookProvenance records what produced this artifact.\n")
 	fmt.Fprintf(&b, "var NotebookProvenance = %s\n", provenanceLiteral(prov))
 
+	// NotebookLayout is the optional presentation arrangement (rows of
+	// area-or-cell tokens), a sibling of NotebookMeta like NotebookProvenance —
+	// not a CellMeta field, because it is package-level, not per-cell. Nil/empty
+	// when the notebook declared no layout; the client then renders in source order.
+	fmt.Fprintf(&b, "\n// NotebookLayout is the presentation arrangement (nil = source order).\n")
+	fmt.Fprintf(&b, "var NotebookLayout = %s\n", layoutLiteral(g.Layout))
+
 	formatted, err := format.Source(b.Bytes())
 	if err != nil {
 		// Return the unformatted source in the error so failures are debuggable;
@@ -193,6 +200,24 @@ func writeMeta(b *bytes.Buffer, g *graph.Graph) {
 			c.ID, leafSymbol(c), c.Label, directiveLiteral(c.Directives), upstreamLiteral(g, c), c.Source, widgetLiteral(c.Widget))
 	}
 	fmt.Fprintf(b, "}\n")
+}
+
+// layoutLiteral renders the presentation layout as a [][]string literal (rows
+// of area-or-cell tokens), or "nil" when the notebook declared none — in which
+// case the client falls back to source order.
+func layoutLiteral(rows [][]string) string {
+	if len(rows) == 0 {
+		return "[][]string(nil)"
+	}
+	parts := make([]string, len(rows))
+	for i, row := range rows {
+		toks := make([]string, len(row))
+		for j, t := range row {
+			toks[j] = fmt.Sprintf("%q", t)
+		}
+		parts[i] = "{" + strings.Join(toks, ", ") + "}"
+	}
+	return "[][]string{" + strings.Join(parts, ", ") + "}"
 }
 
 // widgetLiteral renders a cell's static control descriptor as an

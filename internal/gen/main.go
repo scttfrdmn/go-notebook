@@ -112,7 +112,7 @@ func wasmMainBody(alias string) string {
 			log.Printf("notebook: set %q: %v", leaf, err)
 		}
 	}
-	wasm.RunNotebook(rt, ` + alias + `.NotebookMeta, ` + alias + `.NotebookProvenance, set)
+	wasm.RunNotebook(rt, ` + alias + `.NotebookMeta, ` + alias + `.NotebookProvenance, ` + alias + `.NotebookLayout, set)
 }
 `
 }
@@ -291,7 +291,7 @@ func mainBody(alias string) string {
 			fmt.Println(string(b))
 		}
 	}
-	if err := server.ServeNotebookReady(ctx, *addr, rt, ` + alias + `.NotebookMeta, ` + alias + `.NotebookProvenance, set, onReady); err != nil {
+	if err := server.ServeNotebookReady(ctx, *addr, rt, ` + alias + `.NotebookMeta, ` + alias + `.NotebookProvenance, ` + alias + `.NotebookLayout, set, onReady); err != nil {
 		log.Printf("server: %v", err)
 		os.Exit(1)
 	}

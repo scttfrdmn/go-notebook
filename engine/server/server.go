@@ -25,11 +25,12 @@ import (
 
 // Server serves a runtime over HTTP.
 type Server struct {
-	rt   *engine.Runtime
-	meta []engine.CellMeta
-	prov engine.Provenance
-	set  SetFunc
-	mux  *http.ServeMux
+	rt     *engine.Runtime
+	meta   []engine.CellMeta
+	prov   engine.Provenance
+	layout [][]string
+	set    SetFunc
+	mux    *http.ServeMux
 }
 
 // SetFunc applies a leaf edit: it coerces the raw JSON value (numbers arrive as
@@ -174,10 +175,12 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	metaJSON, _ := json.Marshal(s.meta)
 	provJSON, _ := json.Marshal(s.prov)
+	layoutJSON, _ := json.Marshal(s.layout) // null when no layout → source order
 	// The template contains literal % (CSS) and { } (JS), so substitute the
 	// placeholders by string replace rather than a format verb.
 	page := strings.Replace(indexHTML, metaPlaceholder, string(metaJSON), 1)
 	page = strings.Replace(page, provPlaceholder, string(provJSON), 1)
+	page = strings.Replace(page, layoutPlaceholder, string(layoutJSON), 1)
 	_, _ = fmt.Fprint(w, page)
 }
 
@@ -193,7 +196,7 @@ func Serve(ctx context.Context, addr string, rt *engine.Runtime, meta []engine.C
 // binary — e.g. one scp'd to a login node months ago — can say what it is. Serve
 // delegates here with an empty Provenance, so the older signature is unchanged.
 func ServeNotebook(ctx context.Context, addr string, rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, set SetFunc) error {
-	return ServeNotebookReady(ctx, addr, rt, meta, prov, set, nil)
+	return ServeNotebookReady(ctx, addr, rt, meta, prov, nil, set, nil)
 }
 
 // ServeNotebookReady is [ServeNotebook] that binds the listener BEFORE serving
@@ -204,8 +207,9 @@ func ServeNotebook(ctx context.Context, addr string, rt *engine.Runtime, meta []
 // what is free on the box — but ANNOUNCES it rather than fixing it, so a parent
 // never has to poll-and-hope. onReady is called once, with the bound host:port,
 // just before the accept loop starts; a nil onReady preserves the old behavior.
-func ServeNotebookReady(ctx context.Context, addr string, rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, set SetFunc, onReady func(addr string)) error {
+func ServeNotebookReady(ctx context.Context, addr string, rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, layout [][]string, set SetFunc, onReady func(addr string)) error {
 	s := NewNotebook(rt, meta, prov, set)
+	s.layout = layout
 	// Listen first, so a host:0 request resolves to a concrete port we can report.
 	// http.Server.ListenAndServe hides the listener, which is exactly why :0 is
 	// useless there — the chosen port is never surfaced.

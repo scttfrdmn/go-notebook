@@ -39,6 +39,7 @@ function start(nb) {
     onEdit: (leaf, value) => nb.set(leaf, value),
     afterRender: reportHeight,
     provenance: nb.provenance,
+    layout: nb.layout,
   });
   // The value channel IS the subscription: every cell's value arrives here, and
   // a scalar control seeds its starting position from its OWN first event (the
