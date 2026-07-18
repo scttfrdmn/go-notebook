@@ -101,9 +101,9 @@ Nothing about notebooks is in this line. Any HTTP workload that prints it is spa
 
 ## Sequence
 
-1. Agree this seam (this doc).
-2. go-notebook: `--addr :0` + readiness line. Verifiable **locally, $0** — a test spawns the built binary with `:0`, reads the readiness line, drives `/set` on the reported port, asserts an `/events` change. No EC2. This is the honest bulk of the go-notebook work and it needs no substrate.
+1. Agree this seam (this doc). ✅
+2. **go-notebook: `--addr :0` + readiness line. DONE.** `ServeNotebookReady` (`engine/server/server.go`) binds with `net.Listen` first and reports the resolved address; the generated `main` prints one stdout line `{"event":"ready","addr":"<resolved>","provenance":{…}}` once serving. Verified locally, $0 (`TestServiceReadinessAndDrive`, `cmd/notebook/service_test.go`): the built binary launched with `127.0.0.1:0` reports a real port (never `:0`), and driving `/set` on that reported port takes effect. No EC2.
 3. spore.host: the `--service` workload type, tested against the notebook binary locally first (spawn a local process, tunnel over loopback), then once against real EC2 under supervision.
 4. KC18 ticks on the real, billable, supervised run — set a leaf over the tunnel, observe a rendered cell change, reap, leak-check.
 
-Step 2 is independently useful and independently revertible: a notebook binary that reports its address and readiness is better under *any* launcher, spore.host or not.
+Step 2 was independently useful and independently revertible: a notebook binary that reports its address and readiness is better under *any* launcher, spore.host or not.

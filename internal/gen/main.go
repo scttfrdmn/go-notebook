@@ -270,13 +270,28 @@ func mainBody(alias string) string {
 		return
 	}
 
-	log.Printf("notebook serving on http://%s", *addr)
 	set := func(c context.Context, leaf string, raw any) {
 		if err := setLeafValue(c, rt, leaf, raw); err != nil {
 			log.Printf("notebook: /set: %v", err)
 		}
 	}
-	if err := server.ServeNotebook(ctx, *addr, rt, ` + alias + `.NotebookMeta, ` + alias + `.NotebookProvenance, set); err != nil {
+	// onReady fires once the listener is bound, with the RESOLVED address (so
+	// --addr :0 reports its real port). It emits one machine-readable readiness
+	// line on stdout — the notebook-as-service contract (docs/notebook-as-service.md):
+	// a launcher reads {event:"ready",addr,provenance} instead of polling-and-hoping,
+	// and the human-facing log line still prints for interactive use.
+	onReady := func(resolved string) {
+		log.Printf("notebook serving on http://%s", resolved)
+		ready := map[string]any{
+			"event":      "ready",
+			"addr":       resolved,
+			"provenance": ` + alias + `.NotebookProvenance,
+		}
+		if b, err := json.Marshal(ready); err == nil {
+			fmt.Println(string(b))
+		}
+	}
+	if err := server.ServeNotebookReady(ctx, *addr, rt, ` + alias + `.NotebookMeta, ` + alias + `.NotebookProvenance, set, onReady); err != nil {
 		log.Printf("server: %v", err)
 		os.Exit(1)
 	}
