@@ -92,9 +92,29 @@ const CSS = `
   .cellrow { display: flex; flex-wrap: wrap; gap: 0 1.5rem; align-items: flex-start; }
   .cellrow > .cell { flex: 1 1 320px; min-width: 0; }
   /* Arranged layout (//notebook:layout): a row holds equal-flex columns, each
-     stacking its cells. Same equal-width, wrap-when-narrow behavior as a bare
-     cellrow, but a column can hold more than one cell (an area's members). */
-  .cellrow > .cellcol { flex: 1 1 320px; min-width: 0; }
+     stacking its cells (an area's members). A column is a CARD — a subtle framed
+     panel — so an arranged notebook reads as a composed dashboard rather than
+     loose columns. align-items:stretch gives every card in a row the same height
+     (Observable's grid-auto-rows:1fr rhythm). Cards appear ONLY in arranged mode
+     (.cellcol is emitted only by buildArranged), so a plain notebook is untouched. */
+  .cellrow { align-items: stretch; }
+  .cellrow > .cellcol { flex: 1 1 320px; min-width: 0;
+    background: #fcfcfd; border: 1px solid var(--line); border-radius: 12px;
+    padding: 1rem 1.15rem; }
+  /* A full-width row (one column) is a card too; the flex-basis lets it fill. */
+  .cellrow > .cellcol:only-child { flex-basis: 100%; }
+  /* Inside a card the per-cell top border is redundant with the card frame, and
+     a green "done" rail on every stacked readout is visual noise — the card frame
+     already carries the grouping. So drop the divider, trim margins, and mute the
+     left rail to a hairline in the RESTING states (done/stale); the attention
+     states (running amber, error red, blocked) keep their full rail because those
+     still carry live meaning worth seeing. */
+  .cellcol > .cell { border-top: none; margin: .4rem 0; padding-left: .5rem; }
+  .cellcol > .cell:first-child { margin-top: 0; }
+  .cellcol > .cell.done, .cellcol > .cell.stale { border-left-color: var(--line); }
+  .cellcol > .cell.done .id .dot, .cellcol > .cell.stale .id .dot { background: var(--line); }
+  /* The first cell's id line reads as the card's title. */
+  .cellcol > .cell:first-child .id { font-size: 12px; }
   /* Controls inside an arranged area stack (label on its own line, then the
      control full-width with its value after it) rather than the top block's
      3-column label|input|value grid, which needs full page width and collapses

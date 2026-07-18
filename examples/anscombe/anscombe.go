@@ -20,6 +20,13 @@
 // It is also the project's own ethos wearing the field's oldest cautionary tale:
 // observe the effect, do not trust the number. Here the number is *designed* to
 // deceive you, and the graph is the only honest witness.
+//
+// Arranged so the two things you watch sit SIDE BY SIDE — drag the scatter on the
+// left, watch the summary hold on the right — which is the whole argument. Strip
+// the layout lines and it still renders, just stacked.
+//
+//notebook:layout intro
+//notebook:layout scatter | summary
 
 package anscombe
 
@@ -306,6 +313,28 @@ type WidgetView struct {
 
 type Card struct{ Label, Value, Caption string }
 type Readout struct{ Cards []Card }
+
+// Render draws the summary as a vertical stat list — label above value — which
+// reads cleanly in the narrow column the layout places it in, beside the scatter.
+// The values are engineered strings (no user input), so no escaping is needed.
+// This is what makes the notebook's point land: the numbers sit RIGHT THERE next
+// to the shape you're dragging, and they barely move. Brand palette: muted label,
+// navy value.
+func (r Readout) Render() Rendered {
+	var b strings.Builder
+	b.WriteString(`<div style="display:flex;flex-direction:column;gap:.55rem">`)
+	for _, c := range r.Cards {
+		b.WriteString(`<div>`)
+		fmt.Fprintf(&b, `<div style="font-size:12px;color:#5b6472">%s</div>`, c.Label)
+		fmt.Fprintf(&b, `<div style="font:600 20px/1.2 -apple-system,system-ui,sans-serif;color:#1b3a6b;font-variant-numeric:tabular-nums">%s</div>`, c.Value)
+		if c.Caption != "" {
+			fmt.Fprintf(&b, `<div style="font-size:11px;color:#5b6472">%s</div>`, c.Caption)
+		}
+		b.WriteString(`</div>`)
+	}
+	b.WriteString(`</div>`)
+	return Rendered{MIME: "text/html", Data: b.String()}
+}
 
 type Rendered struct{ MIME, Data string }
 
