@@ -72,7 +72,7 @@ Overlapping the rebuild with the running binary ([#22](https://github.com/scttfr
 
 **Two stories, both working.** The differentiated one is batch and cluster: the same file is a notebook, an `sbatch` job, and a callable model (`--headless --set --json`). The familiar one is interactive: edit source, see the chart move — at every notebook size measured. Neither is a consolation for the other.
 
-**Built so far:** `internal/graph` (plain-data IR, no `go/types`), `internal/analyze` (incremental type-checking `Session`, CHA-based purity **and** WASM-portability), `internal/gen` (codegen + overlay), `engine` (head + epoch'd glitch-free scheduler + cache + capability probes + safe markdown rendering), `engine/server` (SSE + edits; the only `net/http`), `engine/wasm` (the browser transport, a `syscall/js` sibling of the server), and `internal/webui` (the shared browser client). Grips, the widget vocabulary (`Multi`/`Select`/`Range`/`Table`/`Draggable`), and all four topologies including WASM are **built** — nine notebooks run live in the browser. Still deferred: `Prev[T]` folds (dynamics use fixed-horizon pure cells instead). SQL/`Rel[T]` is **withdrawn**, not deferred — typed Go operations over `Rel[T]` deliver the same compile-time guarantee without a parser or cgo (see the design's *SQL claim, withdrawn*). Progress is tracked in [GitHub issues](https://github.com/scttfrdmn/go-notebook/issues); kill-criteria numbers live on [#16](https://github.com/scttfrdmn/go-notebook/issues/16).
+**Built so far:** `internal/graph` (plain-data IR, no `go/types`), `internal/analyze` (incremental type-checking `Session`, CHA-based purity **and** WASM-portability), `internal/gen` (codegen + overlay), `engine` (head + epoch'd glitch-free scheduler + cache + capability probes + safe markdown rendering), `engine/server` (SSE + edits; the only `net/http`), `engine/wasm` (the browser transport, a `syscall/js` sibling of the server), and `internal/webui` (the shared browser client). Grips, the widget vocabulary (`Multi`/`Select`/`Range`/`Table`/`Draggable`), and all four topologies including WASM are **built** — **34 of ~39 notebooks run live in the browser.** Composition is built too: `//notebook:area=` and a package-level `//notebook:layout` arrange a notebook as a designed dashboard (cards, columns) rather than a source-order stack, fully optional and degrading to linear (see *Composing a notebook* below). Views can defer their design to HTML — an invoice, a table, a heatmap — when the answer is a document rather than a chart. Still deferred: `Prev[T]` folds (dynamics use fixed-horizon pure cells instead). SQL/`Rel[T]` is **withdrawn**, not deferred — typed Go operations over `Rel[T]` deliver the same compile-time guarantee without a parser or cgo (see the design's *SQL claim, withdrawn*). Progress is tracked in [GitHub issues](https://github.com/scttfrdmn/go-notebook/issues); kill-criteria numbers live on [#16](https://github.com/scttfrdmn/go-notebook/issues/16).
 
 **Quality bar.** CI enforces `gofmt`, `go vet`, `go test -race`, and `golangci-lint` (errcheck, staticcheck, revive, ineffassign, misspell, gocyclo ≤ 15, unconvert, gocritic) on every push — the full set the retired Go Report Card used to grade, now checked in-tree so it stays honest without a third-party service. Library-package coverage (the example notebooks are fixtures, excluded) is held to a **≥ 75% floor** in CI; it currently sits at ~78%, with the core engine/graph/analyze/gen packages all above 82%.
 
@@ -80,7 +80,10 @@ Overlapping the rebuild with the running binary ([#22](https://github.com/scttfr
 
 | | |
 |---|---|
-| [`docs/design.md`](docs/design.md) | The design. Start here. |
+| [`docs/paper.md`](docs/paper.md) | **The system paper** — the whole design, distilled, honest, one read. Start here for the overview. |
+| [`docs/design.md`](docs/design.md) | The design record. The full derivation, the foreclosure table, the six corrections. |
+| [`docs/composition.md`](docs/composition.md) | How a notebook is arranged — `area=`/`layout`, the design decisions, why no spans/tabs. |
+| [`docs/notebook-as-service.md`](docs/notebook-as-service.md) | The notebook as an ephemeral HTTP service — the readiness/addressing seam. |
 | [`docs/core-loop-spec.md`](docs/core-loop-spec.md) | Buildable first milestone. Repo layout, interfaces, foreclosure table, kill criteria. |
 | [`docs/kickoff.md`](docs/kickoff.md) | Handoff prompt for Claude Code. |
 
@@ -88,7 +91,7 @@ Overlapping the rebuild with the running binary ([#22](https://github.com/scttfr
 
 ## The notebooks
 
-Fifteen notebooks, nine of them running live in the browser as WebAssembly ([go-notebook.dev](https://go-notebook.dev)). The first batch (ports and the reference fixture) is the evidence the design has and the corrections it took; the second (originals) puts one mechanism each on stage. A notebook is browser-portable only if its call graph touches no `net`/`os`/cgo — the toolchain derives that — so the rest are the same file built as a static binary for a cluster.
+Around thirty-nine notebooks, thirty-four of them running live in the browser as WebAssembly ([go-notebook.dev](https://go-notebook.dev)). The ports and the reference fixture are the evidence the design has and the corrections it took; the originals put one mechanism each on stage — queueing theory, statistics, physics, distributed systems, HPC, and a family that renders a *document* (an invoice, a Simpson's-paradox table, a utilization heatmap) in HTML because that is the medium the answer takes. A notebook is browser-portable only if its call graph touches no `net`/`os`/cgo — the toolchain derives that — so the rest are the same file built as a static binary for a cluster.
 
 ### Ports & baseline — the evidence, and the bugs they found
 
@@ -114,6 +117,30 @@ Fifteen notebooks, nine of them running live in the browser as WebAssembly ([go-
 | **`percolation`** *(live)* | purity | A phase transition you can scrub. Fill a grid with probability *p*, drag through p_c ≈ 0.593, watch a spanning cluster snap into place top-to-bottom. Pure, so you sweep the transition **both ways** exactly. |
 | **`surface`** *(live, escape hatch)* | WebGL | A shaded 3D surface on the GPU. The corpus's deliberate exception — WebGL has no Go form, so it drops to raw HTML/JS, the framework boundary the design *quarantines and labels*. Go still owns the math; the GPU only draws. |
 | **`gpulife`** *(live, escape hatch)* | WebGPU compute | Conway's Life on a WebGPU **compute shader** — a quarter-million cells stepping many times a second. The answer to turing's caveat: the parallel dividend, back in the tab, on the GPU. Go owns the seed; the shader owns the iteration. |
+| **`invoice`** *(live, design in HTML)* | HTML document | A cloud pricing model rendered as a styled HTML **invoice** — line items to a bold TOTAL DUE. The answer is a receipt, not a chart, so the view is HTML. The same file emits the same totals as a batch job. |
+| **`simpson`** *(live, design in HTML)* | HTML table | Simpson's paradox on the 1986 kidney-stone data: an HTML **table** where Treatment A wins both subgroup rows and the TOTAL row flips to B — a reveal a bar chart flattens away. Drag the case mix to switch it on and off. |
+| **`consistenthash`** *(live)* | distributed | Servers and keys on a hash **ring**; add a server and only ~1/N keys move, vs `key % N` moving nearly all. The ring is colored by owner; the churn count is the proof. |
+| **`punchcard`** *(live, design in HTML)* | CSS-grid heatmap | A 7×24 cluster-utilization **heatmap** as a CSS grid with native hover, no JS — "where's the headroom?" at a glance. Go computes the load; CSS draws the picture. |
+
+---
+
+## Composing a notebook
+
+By default a notebook lays out in **source order** — the order the functions appear in the file. Two optional, presentation-only directives arrange it deliberately, and a notebook with them stripped still renders correctly (just linearly):
+
+- **`//notebook:area=<name>`** on a cell (or a control) groups it into a named region, *by name, not by source position*.
+- **Package-level `//notebook:layout`** lines, on the `//go:notebook` file, name the arrangement in presentation order; `|` splits a row into equal-width columns.
+
+```go
+//go:notebook
+//notebook:layout intro
+//notebook:layout controls | readouts
+//notebook:layout curve
+```
+
+That reads as: the intro full-width on top, the `controls` region beside the `readouts` region, the `curve` chart full-width below — regardless of where those functions sit in the file. A control carrying `//notebook:area=controls` renders beside the chart it drives, not in a top block. Arranged regions render as **cards**, so a composed notebook reads as a dashboard.
+
+The vocabulary is deliberately spare — it names **regions and order, never geometry** (no spans, weights, pixels, or nesting, and no tabs or sidebars that hide content). That restraint is what keeps it annotations on functions rather than a layout language; anything geometric belongs in the raw-HTML escape hatch. See [`docs/composition.md`](docs/composition.md) for the reasoning.
 
 ---
 
