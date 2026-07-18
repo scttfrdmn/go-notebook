@@ -3,12 +3,109 @@
 package wasm
 
 import (
+	"context"
 	"reflect"
 	"syscall/js"
 	"testing"
 
 	"github.com/scttfrdmn/go-notebook/engine"
 )
+
+// fnNode is a test Node backed by a closure (the wasm package can't see the
+// engine package's own test node). Enough to build a one-cell graph.
+type fnNode struct {
+	id  engine.CellID
+	in  []engine.Symbol
+	out []engine.Symbol
+	run func(ctx context.Context, in engine.Inputs) (engine.Outputs, error)
+}
+
+func (n fnNode) ID() engine.CellID   { return n.id }
+func (n fnNode) In() []engine.Symbol { return n.in }
+func (n fnNode) Out() []engine.Symbol {
+	return n.out
+}
+func (n fnNode) Pure() bool { return false }
+func (n fnNode) Run(ctx context.Context, in engine.Inputs) (engine.Outputs, error) {
+	return n.run(ctx, in)
+}
+
+// newTestPort builds a port over a trivial runtime: one leaf `x` (a scalar
+// cell) whose value the head holds. Enough to exercise set/subscribe/values
+// without a generated notebook.
+func newTestPort(t *testing.T) (*port, *engine.Runtime) {
+	t.Helper()
+	x := fnNode{
+		id: "x", out: []engine.Symbol{"x"},
+		run: func(_ context.Context, in engine.Inputs) (engine.Outputs, error) {
+			if v, ok := in["x"]; ok {
+				return engine.Outputs{"x": v}, nil
+			}
+			return engine.Outputs{"x": 1.0}, nil // default
+		},
+	}
+	rt := engine.NewRuntime(engine.Config{
+		Nodes:  []engine.Node{x},
+		Leaves: []engine.LeafID{"x"},
+	}, engine.NewHead(), engine.NewMemoStore())
+	meta := []engine.CellMeta{{ID: "x", Leaf: "x"}}
+	return &port{rt: rt, meta: meta}, rt
+}
+
+// TestPortSubscribeFanoutAndUnsub pins the OUT half of the named port: an event
+// reaches every live subscriber, and the returned unsubscribe function stops
+// delivery to just that one. This is the contract cmd/notebook/wasm_ui.go and a
+// foreign host page both depend on. pump is driven synchronously (close the
+// channel so it drains and returns) — deterministic, no goroutine scheduling
+// under Node's single thread.
+func TestPortSubscribeFanoutAndUnsub(t *testing.T) {
+	p, _ := newTestPort(t)
+
+	countA, countB := 0, 0
+	fnA := js.FuncOf(func(_ js.Value, _ []js.Value) any { countA++; return nil })
+	fnB := js.FuncOf(func(_ js.Value, _ []js.Value) any { countB++; return nil })
+
+	unsubA := p.subscribe(fnA.Value).(js.Func)
+	p.subscribe(fnB.Value)
+
+	// First wave: one event, both subscribers live → each invoked once.
+	ch1 := make(chan engine.Event, 1)
+	ch1 <- engine.Event{Epoch: 1, Cell: "x", State: engine.StateDone}
+	close(ch1)
+	p.pump(ch1)
+	if countA != 1 || countB != 1 {
+		t.Fatalf("after first event: countA=%d countB=%d, want 1,1", countA, countB)
+	}
+
+	// A unsubscribes; a second event reaches only B.
+	unsubA.Invoke()
+	ch2 := make(chan engine.Event, 1)
+	ch2 <- engine.Event{Epoch: 2, Cell: "x", State: engine.StateDone}
+	close(ch2)
+	p.pump(ch2)
+	if countA != 1 {
+		t.Errorf("unsubscribed callback still received events: countA = %d, want 1", countA)
+	}
+	if countB != 2 {
+		t.Errorf("live callback missed an event: countB = %d, want 2", countB)
+	}
+}
+
+// TestPortValuesReflectsSet pins the IN→snapshot round trip: after a leaf is
+// Set and the wave settles, notebook.values() reports the new value. This is the
+// pull form of the value channel — the seed a control starts at, with no
+// separate seed channel to poll (the ritual the F1 spike flagged).
+func TestPortValuesReflectsSet(t *testing.T) {
+	p, rt := newTestPort(t)
+	rt.RunAll(context.Background()) // first wave: x = default 1.0
+	if got := p.values()["x"]; got != 1.0 {
+		t.Fatalf("values()[x] after first wave = %v, want 1.0 (the default seed)", got)
+	}
+	rt.Set(context.Background(), "x", 42.0)
+	if got := p.values()["x"]; got != 42.0 {
+		t.Errorf("values()[x] after Set = %v, want 42.0 (the pull channel didn't reflect the edit)", got)
+	}
+}
 
 // TestFromJSArray pins the browser write path's one non-obvious conversion: a
 // JS array (what a widget selection or a grip drag's flat point set arrives as)

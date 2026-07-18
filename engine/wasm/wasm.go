@@ -7,21 +7,37 @@
 // Everything below the transport is unchanged: the same registry, engine,
 // scheduler, head, and cache the SSE path uses. This package subscribes to the
 // engine's Event channel and pushes each event into a JS callback, and it
-// registers a JS-callable function that funnels edits through the head's single
-// Set chokepoint. If anything here required changing engine's public API, that
-// would be a finding (the transport-independence claim would be false); it does
-// not.
+// funnels edits through the head's single Set chokepoint. If anything here
+// required changing engine's public API, that would be a finding (the
+// transport-independence claim would be false); it does not.
 //
-// The JS contract (both directions are plain data — JS never sees a Go type):
+// # The port
 //
-//	globalThis.__notebook_meta   → JSON string of []CellMeta, set once at start
-//	globalThis.__notebook_event(ev)  ← called per cell update: {epoch,cell,state,mime,data,err}
-//	globalThis.notebookSet(leaf, value)  → JS calls this to edit a leaf
+// The whole host-facing surface is ONE named object, globalThis.notebook — the
+// component API a stranger's page holds. It is plain data both directions; JS
+// never sees a Go type. A host that wants its own layout imports nothing of ours
+// (no internal/webui, no NB); it reads notebook.meta, calls notebook.set to edit
+// a leaf, and notebook.subscribe to receive values — that is the entire contract.
+//
+//	notebook.meta          []CellMeta — the graph, labels, leaf symbols, widget kinds
+//	notebook.provenance    build identity (or null) — what produced this .wasm
+//	notebook.set(leaf, v)  edit a leaf (data in); v is a JS scalar/array
+//	notebook.subscribe(fn) fn(ev) per cell update (data out); returns an unsubscribe fn
+//	                       ev = {epoch, cell, state, mime, data, err}
+//	notebook.values()      snapshot {leaf: value} of every cell's latest value (Finals)
+//	notebook.start()       run the first wave, so cells paint their defaults
+//
+// The value channel IS the subscription: every cell's value (a rendered picture
+// for eyes, a scalar readout, a widget's state) arrives as an event. There is no
+// separate seed channel to poll — subscribe before start and the defaults come
+// on the stream. notebook.values() is the same information as a synchronous
+// snapshot, for a program that wants to pull rather than subscribe.
 package wasm
 
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"syscall/js"
 
 	"github.com/scttfrdmn/go-notebook/engine"
@@ -33,17 +49,17 @@ import (
 type SetFunc func(ctx context.Context, rt *engine.Runtime, leaf string, raw any)
 
 // Run wires a runtime to the browser and blocks forever (a wasm main must not
-// return). It publishes the cell metadata, starts pumping events to JS, runs an
-// initial wave so the page renders, and installs the JS-callable set function.
-// It publishes no provenance; use [RunNotebook] to show build identity.
+// return). It publishes the port (globalThis.notebook) and pumps engine events
+// to every subscriber. It publishes no provenance; use [RunNotebook] to show
+// build identity.
 func Run(rt *engine.Runtime, meta []engine.CellMeta, set SetFunc) {
 	RunNotebook(rt, meta, engine.Provenance{}, set)
 }
 
-// RunNotebook is [Run] plus build provenance, published to JS as
-// __notebook_provenance so the page can show what produced this .wasm — the
-// content identity that a fixed URL cannot convey. Run delegates here with an
-// empty Provenance, so the older signature is unchanged.
+// RunNotebook is [Run] plus build provenance, exposed as notebook.provenance so
+// the host can show what produced this .wasm — the content identity a fixed URL
+// cannot convey. Run delegates here with an empty Provenance, so the older
+// signature is unchanged.
 func RunNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, set SetFunc) {
 	if set == nil {
 		set = func(ctx context.Context, rt *engine.Runtime, leaf string, raw any) {
@@ -51,110 +67,144 @@ func RunNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provena
 		}
 	}
 
-	// Publish metadata once (labels, leaf symbols, directives) as JSON.
-	if b, err := json.Marshal(meta); err == nil {
-		js.Global().Set("__notebook_meta", string(b))
-	}
-	// Publish provenance for the page footer (best-effort; empty is fine).
-	if b, err := json.Marshal(prov); err == nil {
-		js.Global().Set("__notebook_provenance", string(b))
-	}
+	p := &port{rt: rt, meta: meta, set: set}
 
-	// Pump events → JS. A goroutine reads the engine's channel and calls the
-	// JS sink for each event; JS renders {cell, mime, data}.
-	go pump(rt.Subscribe())
+	// One goroutine reads the engine's channel and fans each event out to every
+	// JS subscriber. Started before the port is published, so no event a host
+	// subscribes for (it subscribes before start()) is lost.
+	go p.pump(rt.Subscribe())
 
-	// Install the edit entry point: JS calls notebookSet(leaf, value).
-	js.Global().Set("notebookSet", js.FuncOf(func(_ js.Value, args []js.Value) any {
-		if len(args) != 2 {
+	// meta and provenance are published as PARSED JS values (arrays/objects), not
+	// JSON strings the host must re-parse: the port hands data, not encodings.
+	obj := map[string]any{
+		"meta":       jsonToJS(meta),
+		"provenance": jsonToJS(prov),
+		"set": js.FuncOf(func(_ js.Value, args []js.Value) any {
+			if len(args) != 2 {
+				return nil
+			}
+			leaf := args[0].String()
+			raw := fromJS(args[1])
+			go set(context.Background(), rt, leaf, raw)
 			return nil
-		}
-		leaf := args[0].String()
-		raw := fromJS(args[1])
-		go set(context.Background(), rt, leaf, raw)
-		return nil
-	}))
-
-	// The initial wave runs only when the client says its cell elements exist —
-	// NOT on a timer. If we ran it on __notebook_ready, its events would race
-	// buildUI() and the first render (the initial chart) would be dropped before
-	// the DOM element existed. notebookStart() closes that race: the client
-	// calls it after building the UI, and only then does the first wave paint.
-	js.Global().Set("notebookStart", js.FuncOf(func(_ js.Value, _ []js.Value) any {
-		go func() {
-			rt.RunAll(context.Background())
-			// The initial wave ran every leaf's body for its default; those values
-			// are now in Finals under each leaf symbol. Publish them so the client
-			// can show each control's starting value instead of a blank readout.
-			// Finals is already public — no new engine surface.
-			publishLeaves(rt, meta)
-		}()
-		return nil
-	}))
-
-	// Signal that meta + functions are installed; the client builds its UI and
-	// then calls notebookStart to trigger the first wave.
-	js.Global().Set("__notebook_ready", js.ValueOf(true))
+		}),
+		"subscribe": js.FuncOf(func(_ js.Value, args []js.Value) any {
+			if len(args) != 1 || args[0].Type() != js.TypeFunction {
+				return nil
+			}
+			return p.subscribe(args[0])
+		}),
+		"values": js.FuncOf(func(_ js.Value, _ []js.Value) any {
+			// Round-trip through JSON, not js.ValueOf directly: a leaf value is
+			// often a NAMED numeric type (PerHour, USD, Probability over float64),
+			// which js.ValueOf rejects — its type switch matches only the exact
+			// basic kinds. JSON flattens the named type to a plain number, exactly
+			// as meta/provenance are published, and can never panic here.
+			return jsonToJS(p.values())
+		}),
+		// The initial wave runs only when the host says so — NOT on a timer. If it
+		// ran eagerly its events would race the host building its UI and the first
+		// render (the initial chart) would be dropped before its DOM element
+		// existed. start() closes that race: the host subscribes, builds, then
+		// calls start(), and only then does the first wave paint.
+		"start": js.FuncOf(func(_ js.Value, _ []js.Value) any {
+			go rt.RunAll(context.Background())
+			return nil
+		}),
+	}
+	js.Global().Set("notebook", js.ValueOf(obj))
 
 	select {} // block forever; the JS event loop drives us from here
 }
 
-// pump forwards engine events to the JS sink, one call per event. The wire shape
-// is built from the shared [engine.ToWire] projection — the SAME source the SSE
-// server encodes — via its Map form, because js.ValueOf cannot marshal a struct.
-// This is the single source of truth the two transports previously duplicated.
-func pump(sub <-chan engine.Event) {
-	sink := js.Global().Get("__notebook_event")
+// port holds the JS-facing state: the runtime, the notebook metadata, the leaf
+// coercer, and the set of live event subscribers.
+type port struct {
+	rt   *engine.Runtime
+	meta []engine.CellMeta
+	set  SetFunc
+
+	mu   sync.Mutex
+	subs map[int]js.Value // subscriber id -> JS callback
+	next int
+}
+
+// subscribe registers a JS callback to receive every subsequent event and
+// returns a JS function that unregisters it. Multiple subscribers are supported
+// so a host can drive the notebook and observe it from independent listeners;
+// the engine's own Subscribe channel stays a single reader (this goroutine).
+func (p *port) subscribe(fn js.Value) any {
+	p.mu.Lock()
+	if p.subs == nil {
+		p.subs = map[int]js.Value{}
+	}
+	id := p.next
+	p.next++
+	p.subs[id] = fn
+	p.mu.Unlock()
+
+	return js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		p.mu.Lock()
+		delete(p.subs, id)
+		p.mu.Unlock()
+		return nil
+	})
+}
+
+// pump forwards engine events to every JS subscriber, one call per event. The
+// wire shape is built from the shared [engine.ToWire] projection — the SAME
+// source the SSE server encodes — via its Map form, because js.ValueOf cannot
+// marshal a struct. This is the single source of truth the two transports share.
+func (p *port) pump(sub <-chan engine.Event) {
 	for ev := range sub {
-		obj := engine.ToWire(ev).Map()
-		// Re-fetch the sink each time in case JS installed it after start.
-		if !sink.Truthy() {
-			sink = js.Global().Get("__notebook_event")
+		obj := js.ValueOf(engine.ToWire(ev).Map())
+		p.mu.Lock()
+		subs := make([]js.Value, 0, len(p.subs))
+		for _, fn := range p.subs {
+			subs = append(subs, fn)
 		}
-		if sink.Type() == js.TypeFunction {
-			sink.Invoke(js.ValueOf(obj))
+		p.mu.Unlock()
+		for _, fn := range subs {
+			fn.Invoke(obj)
 		}
 	}
 }
 
-// publishLeaves hands the client each leaf's current value, keyed by leaf
-// symbol, via globalThis.__notebook_leaves. The client reads it to seed each
-// control's initial position and readout — otherwise a slider sits at a browser
-// default and the readout is blank until first drag. Read from Finals (public),
-// so this adds no engine surface.
-func publishLeaves(rt *engine.Runtime, meta []engine.CellMeta) {
-	finals := rt.Finals()
+// values returns a snapshot of every leaf's current value, keyed by leaf symbol.
+// It reads from Finals (public), so it adds no engine surface, and it is a live
+// getter — a host can pull the current state at any time after start() has run a
+// wave, with no separate seed channel to poll. The seed values a control starts
+// at are the same values that arrive on subscribe; this is the pull form of that
+// one channel. The caller (values in the port object) hands the result through
+// jsonToJS, which flattens named numeric types to plain numbers.
+func (p *port) values() map[string]any {
+	finals := p.rt.Finals()
 	vals := map[string]any{}
-	for _, m := range meta {
+	for _, m := range p.meta {
 		if m.Leaf == "" {
 			continue
 		}
 		if v, ok := finals[m.Leaf]; ok {
-			vals[string(m.Leaf)] = jsValue(v)
+			vals[string(m.Leaf)] = v
 		}
 	}
-	if b, err := json.Marshal(vals); err == nil {
-		js.Global().Set("__notebook_leaves", string(b))
-	}
-	if fn := js.Global().Get("__notebook_leaves_ready"); fn.Type() == js.TypeFunction {
-		fn.Invoke()
-	}
+	return vals
 }
 
-// jsValue reduces a leaf value to a JSON-friendly scalar. Leaf defaults are the
-// scalar controls (numbers, bools, strings); a named numeric type like PerHour
-// is an untyped number to JSON, which is exactly what the control wants.
-func jsValue(v any) any {
-	switch x := v.(type) {
-	case float32:
-		return float64(x)
-	case int:
-		return float64(x)
-	case int64:
-		return float64(x)
-	default:
-		return x
+// jsonToJS round-trips a Go value through JSON into a plain JS value (object,
+// array, number, string), so the port hands the host parsed data rather than a
+// JSON string it must decode. meta and provenance are the callers; both are
+// json-marshalable by construction. A marshal failure yields JS null.
+func jsonToJS(v any) any {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil
 	}
+	var decoded any
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		return nil
+	}
+	return js.ValueOf(decoded)
 }
 
 // fromJS converts a JS value to the plain Go value the head stores. JS numbers

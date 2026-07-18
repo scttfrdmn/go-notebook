@@ -51,7 +51,10 @@ func TestBuildWASMCapacity(t *testing.T) {
 	if !strings.Contains(string(html), wasmName) {
 		t.Errorf("index.html must reference the content-addressed %q", wasmName)
 	}
-	for _, want := range []string{"wasm_exec.js", "notebookSet", "__notebook_event"} {
+	// The host page must consume the named port (globalThis.notebook) — the same
+	// surface a foreign page holds — through its set/subscribe/start calls. If
+	// these drift, the glue and the port have forked.
+	for _, want := range []string{"wasm_exec.js", "globalThis.notebook", "nb.set", "nb.subscribe", "nb.start"} {
 		if !strings.Contains(string(html), want) {
 			t.Errorf("index.html missing %q", want)
 		}
