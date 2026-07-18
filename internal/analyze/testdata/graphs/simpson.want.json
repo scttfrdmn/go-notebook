@@ -1,0 +1,387 @@
+{
+  "order": [
+    "aSmallCases",
+    "aLargeCases",
+    "bSmallCases",
+    "bLargeCases",
+    "aSmallRate",
+    "aLargeRate",
+    "bSmallRate",
+    "bLargeRate",
+    "aPooled",
+    "bPooled",
+    "paradox",
+    "table",
+    "pooledBars",
+    "intro"
+  ],
+  "helpers": [
+    "pool",
+    "cell",
+    "cellStrong",
+    "banner",
+    "pct1"
+  ],
+  "producer": {
+    "aLarge": "aLargeCases",
+    "aLargeR": "aLargeRate",
+    "aOverall": "aPooled",
+    "aSmall": "aSmallCases",
+    "aSmallR": "aSmallRate",
+    "bLarge": "bLargeCases",
+    "bLargeR": "bLargeRate",
+    "bOverall": "bPooled",
+    "bSmall": "bSmallCases",
+    "bSmallR": "bSmallRate",
+    "bars": "pooledBars",
+    "grid": "table",
+    "md": "intro",
+    "state": "paradox"
+  },
+  "cells": {
+    "aLargeCases": {
+      "label": "Treatment A cases in the LARGE-stone (hard) group.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "400",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "aLarge",
+          "type": "int"
+        }
+      ]
+    },
+    "aLargeRate": {
+      "label": "Treatment A, large stones: the hard case; still ahead of B.",
+      "pure": true,
+      "isLeaf": true,
+      "params": null,
+      "results": [
+        {
+          "name": "aLargeR",
+          "type": "Pct"
+        }
+      ]
+    },
+    "aPooled": {
+      "label": "Treatment A, pooled across both groups: successes / cases.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "aSmall",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "aLarge",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "aSmallR",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "aLargeR",
+          "type": "Pct",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "aOverall",
+          "type": "Pct"
+        }
+      ]
+    },
+    "aSmallCases": {
+      "label": "Treatment A cases in the SMALL-stone (easy) group.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "400",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "aSmall",
+          "type": "int"
+        }
+      ]
+    },
+    "aSmallRate": {
+      "label": "Treatment A, small stones: the easy case, done well.",
+      "pure": true,
+      "isLeaf": true,
+      "params": null,
+      "results": [
+        {
+          "name": "aSmallR",
+          "type": "Pct"
+        }
+      ]
+    },
+    "bLargeCases": {
+      "label": "Treatment B cases in the LARGE-stone (hard) group.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "400",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "bLarge",
+          "type": "int"
+        }
+      ]
+    },
+    "bLargeRate": {
+      "label": "Treatment B, large stones: behind A here too.",
+      "pure": true,
+      "isLeaf": true,
+      "params": null,
+      "results": [
+        {
+          "name": "bLargeR",
+          "type": "Pct"
+        }
+      ]
+    },
+    "bPooled": {
+      "label": "Treatment B, pooled across both groups.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "bSmall",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "bLarge",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "bSmallR",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "bLargeR",
+          "type": "Pct",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "bOverall",
+          "type": "Pct"
+        }
+      ]
+    },
+    "bSmallCases": {
+      "label": "Treatment B cases in the SMALL-stone (easy) group.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "400",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "bSmall",
+          "type": "int"
+        }
+      ]
+    },
+    "bSmallRate": {
+      "label": "Treatment B, small stones: a hair behind A.",
+      "pure": true,
+      "isLeaf": true,
+      "params": null,
+      "results": [
+        {
+          "name": "bSmallR",
+          "type": "Pct"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Orientation.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "paradox": {
+      "label": "The verdict: does the pooled winner CONTRADICT the per-group winner?",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "aSmallR",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "aLargeR",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "bSmallR",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "bLargeR",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "aOverall",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "bOverall",
+          "type": "Pct",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "state",
+          "type": "Verdict"
+        }
+      ]
+    },
+    "pooledBars": {
+      "label": "A small companion chart: the pooled success bars, so the aggregate has a\npicture beside the table. (A chart alone would hide the paradox — that is the\nwhole point — so it plays second to the table.)",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "table",
+        "height": "200"
+      },
+      "params": [
+        {
+          "name": "aOverall",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "bOverall",
+          "type": "Pct",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "bars",
+          "type": "Chart"
+        }
+      ]
+    },
+    "table": {
+      "label": "The table itself — the design deferred to HTML.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "table",
+        "height": "360"
+      },
+      "params": [
+        {
+          "name": "aSmall",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "aLarge",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "bSmall",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "bLarge",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "aSmallR",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "aLargeR",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "bSmallR",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "bLargeR",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "aOverall",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "bOverall",
+          "type": "Pct",
+          "kind": "wired"
+        },
+        {
+          "name": "state",
+          "type": "Verdict",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "grid",
+          "type": "Table"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,421 @@
+{
+  "order": [
+    "instances",
+    "hours",
+    "rateCents",
+    "spotPercent",
+    "egressTB",
+    "commitTier",
+    "computeGross",
+    "spotCredit",
+    "egressCost",
+    "subtotal",
+    "commitCredit",
+    "tax",
+    "total",
+    "bill",
+    "intro"
+  ],
+  "helpers": [
+    "commitRate",
+    "commitLabel",
+    "row",
+    "rule",
+    "dollars",
+    "money2",
+    "itoa"
+  ],
+  "producer": {
+    "cents": "rateCents",
+    "commit": "commitCredit",
+    "due": "total",
+    "egress": "egressCost",
+    "gross": "computeGross",
+    "h": "hours",
+    "md": "intro",
+    "n": "instances",
+    "pct": "spotPercent",
+    "spot": "spotCredit",
+    "statement": "bill",
+    "sub": "subtotal",
+    "t": "tax",
+    "tb": "egressTB",
+    "tier": "commitTier"
+  },
+  "cells": {
+    "bill": {
+      "label": "The bill itself: a value that renders as an HTML invoice.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "bill",
+        "height": "520"
+      },
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "h",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "cents",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "gross",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "spot",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "egress",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "sub",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "commit",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "t",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "due",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "pct",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "tier",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "statement",
+          "type": "Invoice"
+        }
+      ]
+    },
+    "commitCredit": {
+      "label": "Committed-use discount: a credit on the subtotal, sized by the tier.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "sub",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "tier",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "commit",
+          "type": "USD"
+        }
+      ]
+    },
+    "commitTier": {
+      "label": "Committed-use discount tier: 0 = none, 1 = 1-year (~30% off), 2 = 3-year (~55% off).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "2",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "tier",
+          "type": "int"
+        }
+      ]
+    },
+    "computeGross": {
+      "label": "Compute cost before any discount: the on-demand fleet, per hour, times hours.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "h",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "cents",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "gross",
+          "type": "USD"
+        }
+      ]
+    },
+    "egressCost": {
+      "label": "Egress cost: the first terabyte is free, the rest bill at a flat per-TB rate.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "tb",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "egress",
+          "type": "USD"
+        }
+      ]
+    },
+    "egressTB": {
+      "label": "Outbound data transfer this month, in terabytes (egress is the line nobody budgets).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "200",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "tb",
+          "type": "int"
+        }
+      ]
+    },
+    "hours": {
+      "label": "Hours each instance runs this month (730 = always-on).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "730",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "h",
+          "type": "int"
+        }
+      ]
+    },
+    "instances": {
+      "label": "Number of instances in the fleet.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "500",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    },
+    "intro": {
+      "label": "A one-line orientation shown above the bill.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "rateCents": {
+      "label": "On-demand price per instance-hour, in cents (so the slider is integer-clean).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "1000",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "cents",
+          "type": "int"
+        }
+      ]
+    },
+    "spotCredit": {
+      "label": "Spot savings: the spot slice of the fleet costs ~30% of on-demand, so the\nsaving is 70% of that slice's gross.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "gross",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "pct",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "spot",
+          "type": "USD"
+        }
+      ]
+    },
+    "spotPercent": {
+      "label": "Fraction of the fleet running on spot capacity (spot ≈ 70% off on-demand).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "100",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "pct",
+          "type": "int"
+        }
+      ]
+    },
+    "subtotal": {
+      "label": "The subtotal: compute (net of spot) plus egress, before the committed-use\ndiscount and tax.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "gross",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "spot",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "egress",
+          "type": "USD",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "sub",
+          "type": "USD"
+        }
+      ]
+    },
+    "tax": {
+      "label": "Tax on the discounted subtotal (a flat rate, applied last).",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "sub",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "commit",
+          "type": "USD",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "t",
+          "type": "USD"
+        }
+      ]
+    },
+    "total": {
+      "label": "The total due — the number on the last line, the one finance approves.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "sub",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "commit",
+          "type": "USD",
+          "kind": "wired"
+        },
+        {
+          "name": "t",
+          "type": "USD",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "due",
+          "type": "USD"
+        }
+      ]
+    }
+  }
+}

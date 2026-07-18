@@ -1,0 +1,276 @@
+{
+  "order": [
+    "servers",
+    "keys",
+    "addServer",
+    "vnodes",
+    "baseRing",
+    "grownRing",
+    "churn",
+    "ringView",
+    "verdict",
+    "intro"
+  ],
+  "helpers": [
+    "buildRing",
+    "ownerOf",
+    "hashUnit",
+    "itoa",
+    "pct0"
+  ],
+  "producer": {
+    "add": "addServer",
+    "base": "baseRing",
+    "grown": "grownRing",
+    "k": "keys",
+    "md": "intro",
+    "moved": "churn",
+    "n": "servers",
+    "plot": "ringView",
+    "report": "verdict",
+    "v": "vnodes"
+  },
+  "cells": {
+    "addServer": {
+      "label": "Add one server?",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "1",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "add",
+          "type": "int"
+        }
+      ]
+    },
+    "baseRing": {
+      "label": "The base ring: n servers (each with v virtual nodes) placed by hashing their\nnames onto [0,1), plus k keys placed the same way.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "k",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "v",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "base",
+          "type": "Ring"
+        }
+      ]
+    },
+    "churn": {
+      "label": "How many keys changed owner between the base ring and the grown one — the\nconsistent-hashing cost of adding a server.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "base",
+          "type": "Ring",
+          "kind": "wired"
+        },
+        {
+          "name": "grown",
+          "type": "Ring",
+          "kind": "wired"
+        },
+        {
+          "name": "k",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "add",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "moved",
+          "type": "Churn"
+        }
+      ]
+    },
+    "grownRing": {
+      "label": "The grown ring: the SAME keys, but with `add` more servers.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "k",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "v",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "add",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "grown",
+          "type": "Ring"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Orientation.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "keys": {
+      "label": "Number of keys placed on the ring.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "400",
+        "min": "10",
+        "slider": "",
+        "step": "10"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "k",
+          "type": "int"
+        }
+      ]
+    },
+    "ringView": {
+      "label": "The ring drawing — an SVG of the servers (labelled ticks) and keys (dots),\neach key colored by its owning server, so an arc of one color is one server's\nshare.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "ring",
+        "height": "420"
+      },
+      "params": [
+        {
+          "name": "grown",
+          "type": "Ring",
+          "kind": "wired"
+        },
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "add",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "plot",
+          "type": "RingChart"
+        }
+      ]
+    },
+    "servers": {
+      "label": "Number of servers on the ring.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "12",
+        "min": "2",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    },
+    "verdict": {
+      "label": "The verdict: keys moved, consistent vs modulo, stated plainly.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "verdict",
+        "height": "150"
+      },
+      "params": [
+        {
+          "name": "moved",
+          "type": "Churn",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "vnodes": {
+      "label": "Virtual nodes per server — replicas of each server around the ring.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "16",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "v",
+          "type": "int"
+        }
+      ]
+    }
+  }
+}

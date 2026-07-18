@@ -100,7 +100,7 @@
 
   <header>
     <img src="assets/logo.png" alt="go-notebook — a cell is a function">
-    <p class="tag">Reactive notebooks that compile. Drag a slider below and watch the wave move through the dependency graph at the top of the demo — that graph is derived by the Go type checker, and it's compiled Go running in your browser, no server. Then browse the corpus: thirty you can drag right here, and a few more that run on a cluster.</p>
+    <p class="tag">Reactive notebooks that compile. Drag a slider below and watch the wave move through the dependency graph at the top of the demo — that graph is derived by the Go type checker, and it's compiled Go running in your browser, no server. Then browse the corpus: thirty-four you can drag right here.</p>
   </header>
 
   <!-- ONE DEMO FIRST. Drag before you read a single word of prose. -->
@@ -138,8 +138,8 @@
        batch tiles are the same file, built for a cluster instead. -->
 
   <section class="corpus">
-    <h2>The corpus — thirty-five notebooks, one shape</h2>
-    <p class="lead">Every notebook is a plain Go package. Twenty-one run right here in your browser as WebAssembly; the rest are the same file built as a static binary for a cluster — a notebook is browser-portable only if it touches no <code>net</code>, <code>os</code>, or cgo, and the toolchain derives that from the call graph. Several were ported from marimo's gallery (porting them found real bugs); others are originals built to put one mechanism on stage.</p>
+    <h2>The corpus — thirty-four notebooks you can drag</h2>
+    <p class="lead">Every notebook is a plain Go package, compiled to WebAssembly and running right here in your browser — a notebook is browser-portable only if it touches no <code>net</code>, <code>os</code>, or cgo, and the toolchain derives that from the call graph. Several were ported from marimo's gallery (porting them found real bugs); others are originals built to put one mechanism on stage — including a few that render not a chart but a <em>document</em>: an invoice, a table, a heatmap, drawn in HTML because that is the medium the answer takes.</p>
     <div class="tiles">
 
       <a class="tile" href="demos/capacity/index.html">
@@ -352,8 +352,36 @@
         <span class="go">Open demo</span>
       </a>
 
+      <a class="tile" href="demos/invoice/index.html">
+        <div class="top"><h3>invoice</h3><span class="tag">design in HTML</span></div>
+        <p class="what">A cloud bill, not a chart. Drag the fleet knobs — instances, spot mix, egress, committed-use tier — and a styled HTML invoice re-totals live, line items to the bold TOTAL DUE. Go owns the pricing; the view is deferred to HTML because the answer is a document. The same file you'd run as a batch job to emit the number finance approves.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <span class="go">Open demo</span>
+      </a>
+
+      <a class="tile" href="demos/simpson/index.html">
+        <div class="top"><h3>simpson</h3><span class="tag">design in HTML</span></div>
+        <p class="what">Simpson's paradox, on the real 1986 kidney-stone data: Treatment A wins the small-stone group and the large-stone group, yet loses the pool. The reveal is a table — you read A, A … then the TOTAL row flips to B — so the view is an HTML table a bar chart couldn't be. Drag the case mix and watch the paradox switch on and off.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <span class="go">Open demo</span>
+      </a>
+
+      <a class="tile" href="demos/consistenthash/index.html">
+        <div class="top"><h3>consistenthash</h3><span class="tag">distributed</span></div>
+        <p class="what">Add a server, move a few keys — not all of them. Servers and keys sit on a hash ring; a key belongs to the next server clockwise. Toggle "add a server" and compare: consistent hashing moves ~1/N of the keys, plain <code>key % N</code> moves nearly all. The ring is the picture, colored by owner; the churn count is the proof.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <span class="go">Open demo</span>
+      </a>
+
+      <a class="tile" href="demos/punchcard/index.html">
+        <div class="top"><h3>punchcard</h3><span class="tag">design in HTML</span></div>
+        <p class="what">When is the cluster busy? A 7 × 24 utilization heatmap — one box per hour of the week, darker = busier — that answers "where's the headroom?" at a glance. The load model is pure Go; the picture is a CSS grid with hover, because a heatmap is a grid of colored boxes and HTML does that natively. Drag the knobs to reshape the week.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <span class="go">Open demo</span>
+      </a>
+
     </div>
-    <p class="lead" style="margin-top:1.25rem">A handful more — the marimo ports that fetch data over the network, stream a file too big for memory, or benchmark across real cores — need a laptop or a cluster, not a tab. Same language, same shape; they just call for ingredients a sealed browser doesn't have. <a href="https://github.com/scttfrdmn/go-notebook/tree/main/examples">All thirty-five, in the repo →</a></p>
+    <p class="lead" style="margin-top:1.25rem">A handful more — the marimo ports that fetch data over the network, stream a file too big for memory, or benchmark across real cores — need a laptop or a cluster, not a tab. Same language, same shape; they just call for ingredients a sealed browser doesn't have. <a href="https://github.com/scttfrdmn/go-notebook/tree/main/examples">All in the repo →</a></p>
   </section>
 
   <!-- THE THESIS: the graph is the artifact. Named, after you've already seen it move. -->
