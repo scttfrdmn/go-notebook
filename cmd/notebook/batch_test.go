@@ -229,6 +229,51 @@ func TestBatchSetFailsLoud(t *testing.T) {
 	}
 }
 
+// TestBatchHandleLeafDeliversNewData is KC17 end-to-end: a content-addressed
+// handle crosses into a BUILT notebook via --set, with no rebuild, and every
+// downstream aggregate recomputes over the new dataset. taxi's trips leaf is a
+// Rel[Trip] handle (settable because Rel carries Reconcile); pointing it at a
+// different source changes the whole graph. Driving the built binary (not the
+// engine) is the point — it exercises the real coerce + Reconcile + Open + Scan
+// path a host's set(dataLeaf, handle) would.
+func TestBatchHandleLeafDeliversNewData(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds a binary; skipped in -short mode")
+	}
+	root := repoRoot(t)
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "taxinb")
+	if code := cmdBuild([]string{"-o", bin, filepath.Join(root, "examples", "taxi")}); code != 0 {
+		t.Fatalf("build returned %d", code)
+	}
+
+	run := func(sets ...string) map[string]any {
+		args := []string{"--headless", "--json", "--head", filepath.Join(tmp, "h"+strings.Join(sets, "_")+".json")}
+		for _, s := range sets {
+			args = append(args, "--set", s)
+		}
+		out, err := exec.Command(bin, args...).Output()
+		if err != nil {
+			t.Fatalf("run %v: %v", sets, err)
+		}
+		return jsonValues(t, out)
+	}
+
+	base := run()                                    // default day dataset
+	night := run(`all={"Source":"trips-night.csv"}`) // hand it a new handle
+
+	// The SAME built binary, no rebuild: the handle's row count changed, so the
+	// dataset genuinely changed — Scan read the source the new handle names.
+	if fmt.Sprint(base["rows"]) == fmt.Sprint(night["rows"]) {
+		t.Errorf("scale rows unchanged (%v) after setting a new handle — the dataset did not cross", base["rows"])
+	}
+	// And a downstream aggregate recomputed (not just the leaf): the worst hour
+	// shifts from the day rush to the late-night shift.
+	if fmt.Sprint(base["bad"]) == fmt.Sprint(night["bad"]) {
+		t.Error("the saturated-hours readout did not recompute over the new dataset")
+	}
+}
+
 // jsonValues parses the batch --json envelope and returns its "values" submap
 // (the cell results), failing the test if the shape is wrong.
 func jsonValues(t *testing.T, out []byte) map[string]any {
