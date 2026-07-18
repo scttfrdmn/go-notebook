@@ -1,0 +1,193 @@
+{
+  "order": [
+    "weekdayPeak",
+    "weekendFraction",
+    "batchIntensity",
+    "baseline",
+    "grid",
+    "extremes",
+    "punchcard",
+    "intro"
+  ],
+  "helpers": [
+    "bell",
+    "itoa",
+    "dayName",
+    "hourLabel",
+    "shade",
+    "lerp"
+  ],
+  "producer": {
+    "batch": "batchIntensity",
+    "card": "punchcard",
+    "floor": "baseline",
+    "frac": "weekendFraction",
+    "g": "grid",
+    "md": "intro",
+    "peak": "weekdayPeak",
+    "report": "extremes"
+  },
+  "cells": {
+    "baseline": {
+      "label": "Baseline load floor (percent) — always-on services that never idle to zero.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "60",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "floor",
+          "type": "int"
+        }
+      ]
+    },
+    "batchIntensity": {
+      "label": "Nightly batch window intensity (percent) — the 1–4am ETL/backup spike that\nruns every day regardless of the business cycle.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "100",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "batch",
+          "type": "int"
+        }
+      ]
+    },
+    "extremes": {
+      "label": "The busiest and quietest hours of the week — the scheduling answer, stated.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "g",
+          "type": "Grid",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "grid": {
+      "label": "The full 7×24 grid of utilization, computed from the model.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "peak",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "frac",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "batch",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "floor",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "g",
+          "type": "Grid"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Orientation.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "punchcard": {
+      "label": "The punchcard view: the grid, shaded, as an HTML/CSS heatmap.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "card",
+        "height": "340"
+      },
+      "params": [
+        {
+          "name": "g",
+          "type": "Grid",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "card",
+          "type": "Heatmap"
+        }
+      ]
+    },
+    "weekdayPeak": {
+      "label": "Peak weekday utilization at the busiest hour (percent).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "100",
+        "min": "10",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "peak",
+          "type": "int"
+        }
+      ]
+    },
+    "weekendFraction": {
+      "label": "Weekend load as a fraction of the weekday peak (percent) — how much quieter\nSaturday and Sunday are.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "knobs",
+        "max": "100",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "frac",
+          "type": "int"
+        }
+      ]
+    }
+  }
+}
