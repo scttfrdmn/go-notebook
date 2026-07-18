@@ -316,13 +316,13 @@ func (tl Timeline) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, w-2*pad, h-2*pad)
 
 	// capacity line
-	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#cbd5e1" stroke-dasharray="5 4"/>`,
+	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#5b6472" stroke-dasharray="5 4"/>`,
 		pad, sy(capacity), w-pad, sy(capacity))
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#94a3b8">capacity %.0f</text>`,
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#5b6472">capacity %.0f</text>`,
 		w-pad-70, sy(capacity)-5, capacity)
 
 	line := func(series []float64, color string, width float64) {
@@ -336,12 +336,12 @@ func (tl Timeline) Render() Rendered {
 		}
 		fmt.Fprintf(&b, `<path d=%q fill="none" stroke=%q stroke-width="%.1f"/>`, d.String(), color, width)
 	}
-	line(r.Offered, "#94a3b8", 1.8) // offered load
-	line(r.Good, "#dc2626", 2.6)    // goodput — the thing that cliffs
+	line(r.Offered, "#5b6472", 1.8) // offered load
+	line(r.Good, "#d03b3b", 2.6)    // goodput — the thing that cliffs
 
-	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#334155">offered load &amp; goodput vs time (load ramps up, then back down)</text>`, pad)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#64748b">offered</text>`, pad+6, pad+16)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#dc2626">goodput</text>`, pad+60, pad+16)
+	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#1b3a6b">offered load &amp; goodput vs time (load ramps up, then back down)</text>`, pad)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#5b6472">offered</text>`, pad+6, pad+16)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#d03b3b">goodput</text>`, pad+60, pad+16)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }
@@ -368,13 +368,13 @@ func (lp Loop) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, w-2*pad, h-2*pad)
 
 	// the "healthy" diagonal: goodput == offered (what a system with no collapse traces)
-	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#cbd5e1" stroke-dasharray="4 4"/>`,
+	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#5b6472" stroke-dasharray="4 4"/>`,
 		sx(0), sy(0), sx(math.Min(hx, hy)), sy(math.Min(hx, hy)))
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#94a3b8">goodput = offered (healthy)</text>`,
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#5b6472">goodput = offered (healthy)</text>`,
 		sx(hx*0.55), sy(hx*0.62))
 
 	// the swept path, colored up (red) vs down (blue) so the loop reads directionally.
@@ -390,13 +390,13 @@ func (lp Loop) Render() Rendered {
 		fmt.Fprintf(&b, `<path d=%q fill="none" stroke=%q stroke-width="2.4"/>`, d.String(), color)
 	}
 	peakT := ticks / 2
-	seg(0, peakT, "#dc2626")       // up-sweep
-	seg(peakT, ticks-1, "#2563eb") // down-sweep
+	seg(0, peakT, "#d03b3b")       // up-sweep
+	seg(peakT, ticks-1, "#2a78d6") // down-sweep
 
-	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#334155">phase loop — goodput vs offered (the enclosed area is the hysteresis)</text>`, pad)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#dc2626">load rising</text>`, pad+6, h-pad-24)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#2563eb">load falling</text>`, pad+6, h-pad-8)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#64748b">offered load →</text>`, w-pad-90, h-pad+22)
+	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#1b3a6b">phase loop — goodput vs offered (the enclosed area is the hysteresis)</text>`, pad)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#d03b3b">load rising</text>`, pad+6, h-pad-24)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#2a78d6">load falling</text>`, pad+6, h-pad-8)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#5b6472">offered load →</text>`, w-pad-90, h-pad+22)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }
@@ -411,11 +411,11 @@ func (r Readout) Render() Rendered {
 	var b strings.Builder
 	b.WriteString(`<div style="display:flex;gap:16px;flex-wrap:wrap">`)
 	for _, c := range r.Cards {
-		b.WriteString(`<div style="flex:1;min-width:160px;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">`)
-		fmt.Fprintf(&b, `<div style="font-size:12px;color:#64748b">%s</div>`, esc(c.Label))
-		fmt.Fprintf(&b, `<div style="font-size:24px;font-weight:700;color:#1e293b;margin:2px 0">%s</div>`, esc(c.Value))
+		b.WriteString(`<div style="flex:1;min-width:160px;border:1px solid #e7ebf0;border-radius:8px;padding:12px 14px">`)
+		fmt.Fprintf(&b, `<div style="font-size:12px;color:#5b6472">%s</div>`, esc(c.Label))
+		fmt.Fprintf(&b, `<div style="font-size:24px;font-weight:700;color:#1b3a6b;margin:2px 0">%s</div>`, esc(c.Value))
 		if c.Caption != "" {
-			fmt.Fprintf(&b, `<div style="font-size:11px;color:#94a3b8">%s</div>`, esc(c.Caption))
+			fmt.Fprintf(&b, `<div style="font-size:11px;color:#5b6472">%s</div>`, esc(c.Caption))
 		}
 		b.WriteString(`</div>`)
 	}

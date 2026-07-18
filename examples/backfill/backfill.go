@@ -334,13 +334,13 @@ func (g Gantt) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="#f8fafc" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="#e7ebf0" stroke="#e7ebf0"/>`,
 		pad, pad, plotW, plotH)
 
 	// node gridlines
 	for n := 0; n <= p.Nodes; n++ {
 		y := pad + float64(n)*rowH
-		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#eef2f7"/>`, pad, y, w-pad, y)
+		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#e7ebf0"/>`, pad, y, w-pad, y)
 	}
 
 	// Place bars greedily onto free node-rows over each job's [start, start+dur). We
@@ -392,19 +392,19 @@ func (g Gantt) Render() Rendered {
 		y0 := pad + float64(base)*rowH
 		bh := float64(j.Width) * rowH
 		// color: wide (blocking) jobs stand out; narrow jobs muted.
-		fill := "#93c5fd"
+		fill := "#2a78d6"
 		if j.Width >= p.Nodes {
-			fill = "#dc2626" // full-width blocker
+			fill = "#d03b3b" // full-width blocker
 		} else if float64(j.Width) >= float64(p.Nodes)*0.6 {
-			fill = "#f59e0b" // wide
+			fill = "#fab219" // wide
 		}
 		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="2" fill=%q stroke="#fff" stroke-width="0.7"/>`,
 			x0, y0+1, x1-x0, bh-2, fill)
 	}
 
-	fmt.Fprintf(&b, `<text x="%.0f" y="24" font-family="sans-serif" font-size="12" fill="#334155">Gantt — jobs on the node×time grid (height = nodes held, red = full-width blocker)</text>`, pad)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#94a3b8">time →</text>`, w-pad-46, h-pad+22)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#94a3b8" transform="rotate(-90 %.1f %.1f)">nodes</text>`,
+	fmt.Fprintf(&b, `<text x="%.0f" y="24" font-family="sans-serif" font-size="12" fill="#1b3a6b">Gantt — jobs on the node×time grid (height = nodes held, red = full-width blocker)</text>`, pad)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#5b6472">time →</text>`, w-pad-46, h-pad+22)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#5b6472" transform="rotate(-90 %.1f %.1f)">nodes</text>`,
 		float64(14), pad+plotH/2, float64(14), pad+plotH/2)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
@@ -420,11 +420,11 @@ func (r Readout) Render() Rendered {
 	var b strings.Builder
 	b.WriteString(`<div style="display:flex;gap:16px;flex-wrap:wrap">`)
 	for _, c := range r.Cards {
-		b.WriteString(`<div style="flex:1;min-width:160px;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">`)
-		fmt.Fprintf(&b, `<div style="font-size:12px;color:#64748b">%s</div>`, esc(c.Label))
-		fmt.Fprintf(&b, `<div style="font-size:24px;font-weight:700;color:#1e293b;margin:2px 0">%s</div>`, esc(c.Value))
+		b.WriteString(`<div style="flex:1;min-width:160px;border:1px solid #e7ebf0;border-radius:8px;padding:12px 14px">`)
+		fmt.Fprintf(&b, `<div style="font-size:12px;color:#5b6472">%s</div>`, esc(c.Label))
+		fmt.Fprintf(&b, `<div style="font-size:24px;font-weight:700;color:#1b3a6b;margin:2px 0">%s</div>`, esc(c.Value))
 		if c.Caption != "" {
-			fmt.Fprintf(&b, `<div style="font-size:11px;color:#94a3b8">%s</div>`, esc(c.Caption))
+			fmt.Fprintf(&b, `<div style="font-size:11px;color:#5b6472">%s</div>`, esc(c.Caption))
 		}
 		b.WriteString(`</div>`)
 	}

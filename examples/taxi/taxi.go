@@ -279,7 +279,7 @@ func (c Chart) Render() Rendered {
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
 	if c.Rule > 0 {
-		fmt.Fprintf(&b, `<line x1="%.0f" y1="%.1f" x2="%.0f" y2="%.1f" stroke="#dc2626" stroke-dasharray="5 4"/>`,
+		fmt.Fprintf(&b, `<line x1="%.0f" y1="%.1f" x2="%.0f" y2="%.1f" stroke="#d03b3b" stroke-dasharray="5 4"/>`,
 			pad, sy(c.Rule), w-pad, sy(c.Rule))
 	}
 	var d strings.Builder
@@ -290,7 +290,7 @@ func (c Chart) Render() Rendered {
 		}
 		fmt.Fprintf(&d, "%s%.1f %.1f", verb, sx(c.X[i]), sy(v))
 	}
-	fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#4338ca" stroke-width="2.5"/>`, d.String())
+	fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#2a78d6" stroke-width="2.5"/>`, d.String())
 	fmt.Fprintf(&b, `<text x="%.0f" y="22" font-family="sans-serif" font-size="12">%s</text>`, pad, c.Title)
 	b.WriteString(`</svg>`)
 	return Rendered{"image/svg+xml", b.String()}

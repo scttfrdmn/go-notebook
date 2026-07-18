@@ -363,7 +363,7 @@ func (c WaveChart) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<line x1="%.0f" y1="%.1f" x2="%.0f" y2="%.1f" stroke="#e2e8f0"/>`, pad, h/2, w-pad, h/2)
+	fmt.Fprintf(&b, `<line x1="%.0f" y1="%.1f" x2="%.0f" y2="%.1f" stroke="#e7ebf0"/>`, pad, h/2, w-pad, h/2)
 	var d strings.Builder
 	for i, v := range c.Samples {
 		verb := " L"
@@ -372,8 +372,8 @@ func (c WaveChart) Render() Rendered {
 		}
 		fmt.Fprintf(&d, "%s%.1f %.1f", verb, sx(i), sy(v))
 	}
-	fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#4338ca" stroke-width="1"/>`, d.String())
-	fmt.Fprintf(&b, `<text x="%.0f" y="16" font-family="sans-serif" font-size="12" fill="#334155">waveform</text>`, pad)
+	fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#2a78d6" stroke-width="1"/>`, d.String())
+	fmt.Fprintf(&b, `<text x="%.0f" y="16" font-family="sans-serif" font-size="12" fill="#1b3a6b">waveform</text>`, pad)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }
@@ -397,10 +397,10 @@ func (c SpectrumChart) Render() Rendered {
 	for i, v := range c.Mag {
 		x := pad + float64(i)*bw
 		top := sy(v)
-		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#3ea6ff"/>`,
+		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#2a78d6"/>`,
 			x, top, math.Max(bw-0.5, 0.5), h-pad-top)
 	}
-	fmt.Fprintf(&b, `<text x="%.0f" y="16" font-family="sans-serif" font-size="12" fill="#334155">spectrum (magnitude vs Hz)</text>`, pad)
+	fmt.Fprintf(&b, `<text x="%.0f" y="16" font-family="sans-serif" font-size="12" fill="#1b3a6b">spectrum (magnitude vs Hz)</text>`, pad)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }

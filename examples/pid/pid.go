@@ -323,13 +323,13 @@ func (c Chart) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, w-2*pad, h-2*pad)
 
 	// target line
-	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#94a3b8" stroke-dasharray="5 4"/>`,
+	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#5b6472" stroke-dasharray="5 4"/>`,
 		pad, sy(target), w-pad, sy(target))
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#64748b">target %.0f</text>`,
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#5b6472">target %.0f</text>`,
 		w-pad-56, sy(target)-5, target)
 
 	line := func(series []float64, color string, width float64) {
@@ -343,12 +343,12 @@ func (c Chart) Render() Rendered {
 		}
 		fmt.Fprintf(&b, `<path d=%q fill="none" stroke=%q stroke-width="%.1f"/>`, d.String(), color, width)
 	}
-	line(r.Reps, "#f59e0b", 1.5)  // replica count — what the controller is DOING
-	line(r.Depth, "#4338ca", 2.5) // queue depth — the controlled signal (drawn on top)
+	line(r.Reps, "#eda100", 1.5)  // replica count — what the controller is DOING
+	line(r.Depth, "#2a78d6", 2.5) // queue depth — the controlled signal (drawn on top)
 
-	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#334155">queue depth &amp; replica count vs time (step response)</text>`, pad)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#4338ca">queue depth</text>`, pad+6, h-pad-8)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#d97706">replicas</text>`, pad+96, h-pad-8)
+	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#1b3a6b">queue depth &amp; replica count vs time (step response)</text>`, pad)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#2a78d6">queue depth</text>`, pad+6, h-pad-8)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#eda100">replicas</text>`, pad+96, h-pad-8)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }
@@ -364,11 +364,11 @@ func (r Readout) Render() Rendered {
 	var b strings.Builder
 	b.WriteString(`<div style="display:flex;gap:16px;flex-wrap:wrap">`)
 	for _, c := range r.Cards {
-		b.WriteString(`<div style="flex:1;min-width:150px;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">`)
-		fmt.Fprintf(&b, `<div style="font-size:12px;color:#64748b">%s</div>`, esc(c.Label))
-		fmt.Fprintf(&b, `<div style="font-size:26px;font-weight:700;color:#1e293b;margin:2px 0">%s</div>`, esc(c.Value))
+		b.WriteString(`<div style="flex:1;min-width:150px;border:1px solid #e7ebf0;border-radius:8px;padding:12px 14px">`)
+		fmt.Fprintf(&b, `<div style="font-size:12px;color:#5b6472">%s</div>`, esc(c.Label))
+		fmt.Fprintf(&b, `<div style="font-size:26px;font-weight:700;color:#1b3a6b;margin:2px 0">%s</div>`, esc(c.Value))
 		if c.Caption != "" {
-			fmt.Fprintf(&b, `<div style="font-size:11px;color:#94a3b8">%s</div>`, esc(c.Caption))
+			fmt.Fprintf(&b, `<div style="font-size:11px;color:#5b6472">%s</div>`, esc(c.Caption))
 		}
 		b.WriteString(`</div>`)
 	}

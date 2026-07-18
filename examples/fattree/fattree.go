@@ -275,9 +275,9 @@ func (t Tree2D) Render() Rendered {
 		// amber marks a link the tree oversubscribes: its capacity is less than the
 		// non-blocking ideal for that tier (full = 2^level). Only the node links (row 0)
 		// and a full-fat tree stay blue.
-		color := "#3b82f6"
+		color := "#2a78d6"
 		if row > 0 && tree.Fatness < 1.0 {
-			color = "#f59e0b"
+			color = "#fab219"
 		}
 		for i := 0; i < cnt; i++ {
 			parent := i * parentCnt / cnt
@@ -290,9 +290,9 @@ func (t Tree2D) Render() Rendered {
 
 	// bisection cut: a dashed horizontal line just below the root.
 	cutY := rowY(tree.Depth) + (rowY(tree.Depth-1)-rowY(tree.Depth))*0.4
-	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#dc2626" stroke-dasharray="6 4" stroke-width="1.5"/>`,
+	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#d03b3b" stroke-dasharray="6 4" stroke-width="1.5"/>`,
 		pad, cutY, w-pad, cutY)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#dc2626">bisection cut: %.1f (of %.0f non-blocking)</text>`,
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#d03b3b">bisection cut: %.1f (of %.0f non-blocking)</text>`,
 		pad+2, cutY-4, r.Bisection, r.FullBisect)
 
 	// Draw nodes (row 0) and switches (rows 1..depth).
@@ -302,16 +302,16 @@ func (t Tree2D) Render() Rendered {
 		for i := 0; i < cnt; i++ {
 			x := xAt(i, cnt)
 			if row == 0 {
-				fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="9" height="9" rx="1.5" fill="#1e293b"/>`, x-4.5, y-4.5)
+				fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="9" height="9" rx="1.5" fill="#1b3a6b"/>`, x-4.5, y-4.5)
 			} else {
-				fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="6" fill="#fff" stroke="#475569" stroke-width="1.5"/>`, x, y)
+				fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="6" fill="#fff" stroke="#5b6472" stroke-width="1.5"/>`, x, y)
 			}
 		}
 	}
 
-	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#334155">fat-tree: %d nodes, %d tiers — link width ∝ capacity (amber = oversubscribed)</text>`,
+	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#1b3a6b">fat-tree: %d nodes, %d tiers — link width ∝ capacity (amber = oversubscribed)</text>`,
 		pad, tree.Nodes, tree.Depth)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#94a3b8">nodes</text>`, pad, h-pad+18)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#5b6472">nodes</text>`, pad, h-pad+18)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }
@@ -326,11 +326,11 @@ func (r Readout) Render() Rendered {
 	var b strings.Builder
 	b.WriteString(`<div style="display:flex;gap:14px;flex-wrap:wrap">`)
 	for _, c := range r.Cards {
-		b.WriteString(`<div style="flex:1;min-width:150px;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">`)
-		fmt.Fprintf(&b, `<div style="font-size:12px;color:#64748b">%s</div>`, esc(c.Label))
-		fmt.Fprintf(&b, `<div style="font-size:20px;font-weight:700;color:#1e293b;margin:2px 0">%s</div>`, esc(c.Value))
+		b.WriteString(`<div style="flex:1;min-width:150px;border:1px solid #e7ebf0;border-radius:8px;padding:12px 14px">`)
+		fmt.Fprintf(&b, `<div style="font-size:12px;color:#5b6472">%s</div>`, esc(c.Label))
+		fmt.Fprintf(&b, `<div style="font-size:20px;font-weight:700;color:#1b3a6b;margin:2px 0">%s</div>`, esc(c.Value))
 		if c.Caption != "" {
-			fmt.Fprintf(&b, `<div style="font-size:11px;color:#94a3b8">%s</div>`, esc(c.Caption))
+			fmt.Fprintf(&b, `<div style="font-size:11px;color:#5b6472">%s</div>`, esc(c.Caption))
 		}
 		b.WriteString(`</div>`)
 	}

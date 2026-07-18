@@ -294,7 +294,7 @@ func (s Surface) Render() Rendered {
 
 	// Boundary line: where W0·x' + W1·y' + B = 0. Draw it across the plane.
 	if x0, y0, x1, y1, ok := boundarySegment(s.Model); ok {
-		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#0f172a" stroke-width="2"/>`,
+		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#1b3a6b" stroke-width="2"/>`,
 			sx(x0), sy(y0), sx(x1), sy(y1))
 	}
 
@@ -306,8 +306,8 @@ func (s Surface) Render() Rendered {
 				`data-grip=%q style="cursor:grab"/>`, sx(hnd.At.X), sy(hnd.At.Y), fill, string(ref))
 		}
 	}
-	drawPts(s.A, "#2563eb") // class A, blue
-	drawPts(s.B, "#dc2626") // class B, red
+	drawPts(s.A, "#2a78d6") // class A, blue
+	drawPts(s.B, "#e34948") // class B, red
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }

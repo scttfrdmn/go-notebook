@@ -334,25 +334,25 @@ func (c PopChart) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, w-2*pad, h-2*pad)
 	bw := (w - 2*pad) / float64(bins)
 	for _, bar := range c.Bars {
 		x := sx(bar.X - 0.5)
 		top := sy(bar.H)
-		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#93a4c9" fill-opacity="0.7"/>`,
+		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#2a78d6" fill-opacity="0.7"/>`,
 			x+1, top, bw-2, h-pad-top)
 	}
 	// mean marker
-	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.0f" x2="%.1f" y2="%.0f" stroke="#c026d3" stroke-width="1.5" stroke-dasharray="4 3"/>`,
+	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.0f" x2="%.1f" y2="%.0f" stroke="#0797b8" stroke-width="1.5" stroke-dasharray="4 3"/>`,
 		sx(c.Mean), pad, sx(c.Mean), h-pad)
 	// grips at bar tops
 	for _, g := range c.Grips {
 		ref, _ := g.Ref.MarshalText()
-		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="6" fill="#fff" stroke="#4338ca" stroke-width="2" `+
+		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="6" fill="#fff" stroke="#2a78d6" stroke-width="2" `+
 			`data-grip=%q style="cursor:ns-resize"/>`, sx(g.At.X), sy(g.At.Y), string(ref))
 	}
-	fmt.Fprintf(&b, `<text x="%.0f" y="22" font-family="sans-serif" font-size="12" fill="#334155">population — drag the bars</text>`, pad)
+	fmt.Fprintf(&b, `<text x="%.0f" y="22" font-family="sans-serif" font-size="12" fill="#1b3a6b">population — drag the bars</text>`, pad)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }
@@ -384,14 +384,14 @@ func (c MeansChart) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, w-2*pad, h-2*pad)
 	// histogram of means
 	bw := (w - 2*pad) / float64(meansBins)
 	for i, v := range c.Hist {
 		x := pad + float64(i)*bw
 		top := sy(v)
-		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#3ea6ff" fill-opacity="0.55"/>`,
+		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#2a78d6" fill-opacity="0.55"/>`,
 			x, top, bw, h-pad-top)
 	}
 	// predicted normal curve
@@ -407,9 +407,9 @@ func (c MeansChart) Render() Rendered {
 			}
 			fmt.Fprintf(&d, "%s%.1f %.1f", verb, sx(xv), sy(y))
 		}
-		fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#c026d3" stroke-width="2.5"/>`, d.String())
+		fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#0797b8" stroke-width="2.5"/>`, d.String())
 	}
-	fmt.Fprintf(&b, `<text x="%.0f" y="22" font-family="sans-serif" font-size="12" fill="#334155">distribution of the mean — with N(μ, σ²/n)</text>`, pad)
+	fmt.Fprintf(&b, `<text x="%.0f" y="22" font-family="sans-serif" font-size="12" fill="#1b3a6b">distribution of the mean — with N(μ, σ²/n)</text>`, pad)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }

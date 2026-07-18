@@ -281,7 +281,7 @@ type Saw struct{ Flow Flow }
 func (s Saw) Render() Rendered {
 	return plotSeries(
 		"congestion window vs round trip — the AIMD sawtooth",
-		[]series{{s.Flow.Cwnd, "#2563eb", "cwnd"}},
+		[]series{{s.Flow.Cwnd, "#2a78d6", "cwnd"}},
 		true,
 	)
 }
@@ -297,8 +297,8 @@ func (f Fair) Render() Rendered {
 	return plotSeries(
 		title,
 		[]series{
-			{f.Pair.A, "#2563eb", "flow A"},
-			{f.Pair.B, "#f59e0b", "flow B"},
+			{f.Pair.A, "#2a78d6", "flow A"},
+			{f.Pair.B, "#0797b8", "flow B"},
 		},
 		true,
 	)
@@ -338,13 +338,13 @@ func plotSeries(title string, ss []series, showCap bool) Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, plotW, plotH)
 
 	if showCap {
-		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#94a3b8" stroke-dasharray="5 4"/>`,
+		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#5b6472" stroke-dasharray="5 4"/>`,
 			pad, sy(capacity), w-pad, sy(capacity))
-		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#64748b">pipe capacity %.0f</text>`,
+		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#5b6472">pipe capacity %.0f</text>`,
 			w-pad-104, sy(capacity)-5, capacity)
 	}
 
@@ -360,7 +360,7 @@ func plotSeries(title string, ss []series, showCap bool) Rendered {
 		fmt.Fprintf(&b, `<path d=%q fill="none" stroke=%q stroke-width="2.2"/>`, d.String(), s.color)
 	}
 
-	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#334155">%s</text>`, pad, esc(title))
+	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#1b3a6b">%s</text>`, pad, esc(title))
 	lx := pad + 6
 	for _, s := range ss {
 		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill=%q>%s</text>`,
@@ -381,11 +381,11 @@ func (r Readout) Render() Rendered {
 	var b strings.Builder
 	b.WriteString(`<div style="display:flex;gap:14px;flex-wrap:wrap">`)
 	for _, c := range r.Cards {
-		b.WriteString(`<div style="flex:1;min-width:150px;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">`)
-		fmt.Fprintf(&b, `<div style="font-size:12px;color:#64748b">%s</div>`, esc(c.Label))
-		fmt.Fprintf(&b, `<div style="font-size:20px;font-weight:700;color:#1e293b;margin:2px 0">%s</div>`, esc(c.Value))
+		b.WriteString(`<div style="flex:1;min-width:150px;border:1px solid #e7ebf0;border-radius:8px;padding:12px 14px">`)
+		fmt.Fprintf(&b, `<div style="font-size:12px;color:#5b6472">%s</div>`, esc(c.Label))
+		fmt.Fprintf(&b, `<div style="font-size:20px;font-weight:700;color:#1b3a6b;margin:2px 0">%s</div>`, esc(c.Value))
 		if c.Caption != "" {
-			fmt.Fprintf(&b, `<div style="font-size:11px;color:#94a3b8">%s</div>`, esc(c.Caption))
+			fmt.Fprintf(&b, `<div style="font-size:11px;color:#5b6472">%s</div>`, esc(c.Caption))
 		}
 		b.WriteString(`</div>`)
 	}

@@ -179,12 +179,12 @@ func (c Chart) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, w-2*pad, h-2*pad)
 
 	// shade the memory-bound region (left of the ridge) faintly.
 	ridgeX := lx(clampX(r.Ridge, xlo, xhi))
-	fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#fde8e8" fill-opacity="0.6"/>`,
+	fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#d03b3b" fill-opacity="0.6"/>`,
 		pad, pad, ridgeX-pad, h-2*pad)
 
 	// the roofline: bandwidth slope from xlo up to the ridge, then flat peak to xhi.
@@ -195,25 +195,25 @@ func (c Chart) Render() Rendered {
 		lx(x0), ly(slopeAt(x0)), lx(r.Ridge), ly(r.Peak), lx(xhi), ly(r.Peak))
 
 	// ridge marker
-	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#94a3b8" stroke-dasharray="3 3"/>`,
+	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#5b6472" stroke-dasharray="3 3"/>`,
 		ridgeX, pad, ridgeX, h-pad)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#64748b" text-anchor="middle">ridge %.1f</text>`,
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#5b6472" text-anchor="middle">ridge %.1f</text>`,
 		ridgeX, pad-4, r.Ridge)
 
 	// the kernel: a dot sitting ON its ceiling at its intensity.
 	kx, ky := lx(clampX(r.Intensity, xlo, xhi)), ly(r.Attainable)
-	col := "#dc2626" // memory-bound: red
+	col := "#d03b3b" // memory-bound: critical red
 	if !r.MemoryBound {
-		col = "#237a2b" // compute-bound: green
+		col = "#0ca30c" // compute-bound: good green
 	}
 	fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="6" fill=%q stroke="#fff" stroke-width="1.5"/>`, kx, ky, col)
 	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="12" font-weight="600" fill=%q>%s GFLOP/s</text>`,
 		kx+9, ky+4, col, f0(r.Attainable))
 
 	// axis labels
-	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#334155">performance (GFLOP/s) vs arithmetic intensity (FLOP/byte) — log-log</text>`, pad)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#b45309">memory-bound</text>`, pad+8, h-pad-8)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#237a2b" text-anchor="end">compute-bound</text>`, w-pad-8, pad+16)
+	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#1b3a6b">performance (GFLOP/s) vs arithmetic intensity (FLOP/byte) — log-log</text>`, pad)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#d03b3b">memory-bound</text>`, pad+8, h-pad-8)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#0ca30c" text-anchor="end">compute-bound</text>`, w-pad-8, pad+16)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }

@@ -139,7 +139,7 @@ func sim(prev Prev[Sim], tick Tick, seed int64, lambda, mu PerHour, c int) (stat
 //
 //notebook:height=300
 func depth(state Sim) (plot Chart) {
-	plot = Chart{Title: "jobs waiting (violet) · servers busy (indigo)"}
+	plot = Chart{Title: "jobs waiting (blue) · servers busy (aqua)"}
 	for _, h := range state.History {
 		plot.Queue = append(plot.Queue, float64(h.Queue))
 		plot.Busy = append(plot.Busy, float64(h.Busy)/float64(max(h.Servers, 1)))
@@ -278,8 +278,8 @@ func (c Chart) Render() Rendered {
 	for _, v := range c.Queue {
 		qmax = math.Max(qmax, v)
 	}
-	line(c.Busy, 1, "#4338ca") // utilization, already a fraction
-	line(c.Queue, qmax, "#c026d3")
+	line(c.Busy, 1, "#0797b8") // utilization, already a fraction
+	line(c.Queue, qmax, "#2a78d6")
 	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12">%s</text>`,
 		pad, c.Title)
 	b.WriteString(`</svg>`)

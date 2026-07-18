@@ -226,15 +226,15 @@ func (d Diagram) Render() Rendered {
 			cx, cy+14, sub)
 	}
 	arrow := func(x0, x1, y float64) {
-		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#94a3b8" stroke-width="2"/>`, x0, y, x1, y)
-		fmt.Fprintf(&b, `<path d="M%.1f %.1f l-7 -4 l0 8 z" fill="#94a3b8"/>`, x1, y)
+		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#5b6472" stroke-width="2"/>`, x0, y, x1, y)
+		fmt.Fprintf(&b, `<path d="M%.1f %.1f l-7 -4 l0 8 z" fill="#5b6472"/>`, x1, y)
 	}
 
 	midY := 130.0
 	lbX, appX, dbX := 110.0, 400.0, 690.0
 
 	// load balancer
-	block(lbX, midY, 150, 54, "load balancer", pctString(s.LB.A), "#eef4ff")
+	block(lbX, midY, 150, 54, "load balancer", pctString(s.LB.A), "#e7ebf0")
 	arrow(lbX+82, appX-95, midY)
 
 	// app tier — N stacked replica boxes, bracketed
@@ -244,15 +244,15 @@ func (d Diagram) Render() Rendered {
 	top := midY - totalH/2
 	for i := 0; i < n; i++ {
 		cy := top + float64(i)*(repH+gap) + repH/2
-		block(appX, cy, repW, repH, "app server", pctString(s.AppEach), "#eafaf1")
+		block(appX, cy, repW, repH, "app server", pctString(s.AppEach), "#e7ebf0")
 	}
 	// tier label under the stack
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#237a2b" text-anchor="middle">app tier — %s (%s)</text>`,
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#0ca30c" text-anchor="middle">app tier — %s (%s)</text>`,
 		appX, top+totalH+22, redundancyLabel(n), pctString(s.App.A))
 	arrow(appX+82, dbX-77, midY)
 
 	// database
-	block(dbX, midY, 130, 54, "database", pctString(s.DB.A), "#eef4ff")
+	block(dbX, midY, 130, 54, "database", pctString(s.DB.A), "#e7ebf0")
 
 	// system total, prominent, at the bottom
 	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="15" font-weight="700" fill="#1b3a6b" text-anchor="middle">system: %s</text>`,

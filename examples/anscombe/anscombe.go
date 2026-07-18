@@ -274,12 +274,12 @@ func (c Chart) Render() Rendered {
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
 
 	// Frame.
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, w-2*pad, h-2*pad)
 
 	// The least-squares line — the thing that stays put.
 	if len(c.Fit) == 2 {
-		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#c026d3" `+
+		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#0797b8" `+
 			`stroke-width="2" stroke-dasharray="5 4"/>`,
 			sx(c.Fit[0].X), sy(c.Fit[0].Y), sx(c.Fit[1].X), sy(c.Fit[1].Y))
 	}
@@ -288,7 +288,7 @@ func (c Chart) Render() Rendered {
 	// is how the client routes a drag to the leaf this handle writes.
 	for _, g := range c.Grips {
 		ref, _ := g.Ref.MarshalText()
-		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="5" fill="#4338ca" fill-opacity="0.75" `+
+		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="5" fill="#2a78d6" fill-opacity="0.75" `+
 			`stroke="#fff" stroke-width="1" data-grip=%q style="cursor:grab"/>`,
 			sx(g.At.X), sy(g.At.Y), string(ref))
 	}

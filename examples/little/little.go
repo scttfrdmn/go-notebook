@@ -153,17 +153,17 @@ func (c Chart) Render() Rendered {
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
 
 	// axes
-	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#94a3b8"/>`, x0, y0, w-pad, y0)
-	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#94a3b8"/>`, x0, y0, x0, pad)
+	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#5b6472"/>`, x0, y0, w-pad, y0)
+	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#5b6472"/>`, x0, y0, x0, pad)
 
 	// the area box
-	fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#4338ca" fill-opacity="0.18" stroke="#4338ca" stroke-width="2"/>`,
+	fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#1b3a6b" fill-opacity="0.18" stroke="#1b3a6b" stroke-width="2"/>`,
 		x0, y0-boxH, boxW, boxH)
 
 	// labels
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="12" fill="#4338ca" text-anchor="middle">λ = %s req/s</text>`,
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="12" fill="#1b3a6b" text-anchor="middle">λ = %s req/s</text>`,
 		x0+boxW/2, y0+22, f0(float64(c.Lambda)))
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="12" fill="#4338ca" transform="rotate(-90 %.1f %.1f)" text-anchor="middle">W = %s ms</text>`,
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="12" fill="#1b3a6b" transform="rotate(-90 %.1f %.1f)" text-anchor="middle">W = %s ms</text>`,
 		x0-20, y0-boxH/2, x0-20, y0-boxH/2, f0(float64(c.W)*1000))
 	// Label just above the box's top edge, so it never sits on the border even when
 	// the box is short.

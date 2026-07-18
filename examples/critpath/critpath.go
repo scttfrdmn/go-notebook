@@ -272,26 +272,26 @@ func (c Chart) Render() Rendered {
 			pad-8, y+rowH*0.5, t.Name)
 		x0 := sx(t.ES)
 		bw := float64(t.Dur) * scale
-		fill, stroke := "#c7d2fe", "#4338ca"
+		fill, stroke := "#e7ebf0", "#5b6472"
 		if t.Slack == 0 {
-			fill, stroke = "#4338ca", "#312e81" // critical: solid, dark
+			fill, stroke = "#2a78d6", "#1b3a6b" // critical: solid, dark
 		}
 		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="4" fill=%q stroke=%q stroke-width="1.5"/>`,
 			x0, y+4, bw, rowH-14, fill, stroke)
 		// duration label inside/after the bar
-		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#0f172a">%ds</text>`,
+		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#1b3a6b">%ds</text>`,
 			x0+bw+4, y+rowH*0.5+2, t.Dur)
 		// slack tail (hollow), the room to slip
 		if t.Slack > 0 {
-			fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="4" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 2"/>`,
+			fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="4" fill="none" stroke="#5b6472" stroke-width="1" stroke-dasharray="3 2"/>`,
 				x0+bw, y+4, float64(t.Slack)*scale, rowH-14)
 		}
 	}
 	// finish line at the critical-path total
 	fx := sx(p.Total)
-	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#dc2626" stroke-width="2" stroke-dasharray="4 3"/>`,
+	fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#d03b3b" stroke-width="2" stroke-dasharray="4 3"/>`,
 		fx, top-6, fx, h-24)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="12" font-weight="700" fill="#dc2626" text-anchor="middle">finish: %d s</text>`,
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="12" font-weight="700" fill="#d03b3b" text-anchor="middle">finish: %d s</text>`,
 		fx, h-8, p.Total)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}

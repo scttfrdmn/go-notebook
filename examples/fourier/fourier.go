@@ -351,13 +351,13 @@ func (c Chart) Render() Rendered {
 			fmt.Fprintf(&d, "%s%.1f %.1f", verb, sx(p.X), sy(p.Y))
 		}
 		d.WriteString(" Z")
-		fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 3"/>`, d.String())
+		fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#e7ebf0" stroke-width="1.5" stroke-dasharray="4 3"/>`, d.String())
 	}
 
 	// Frozen epicycle chain — the circles and the radius spokes.
 	for _, circ := range c.Chain {
 		if circ.R > 0.4 { // skip invisibly-tiny circles
-			fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="%.1f" fill="none" stroke="#e5b3f0" stroke-width="1"/>`,
+			fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="%.1f" fill="none" stroke="#0797b8" stroke-width="1"/>`,
 				sx(circ.CX), sy(circ.CY), circ.R/plane*box)
 		}
 	}
@@ -371,7 +371,7 @@ func (c Chart) Render() Rendered {
 		fmt.Fprintf(&spoke, "%s%.1f %.1f", verb, sx(circ.CX), sy(circ.CY))
 	}
 	fmt.Fprintf(&spoke, " L%.1f %.1f", sx(c.TipX), sy(c.TipY))
-	fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#c026d3" stroke-width="1" stroke-opacity="0.7"/>`, spoke.String())
+	fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#0797b8" stroke-width="1" stroke-opacity="0.7"/>`, spoke.String())
 
 	// Reconstruction — bold.
 	if len(c.Recon) > 1 {
@@ -383,16 +383,16 @@ func (c Chart) Render() Rendered {
 			}
 			fmt.Fprintf(&d, "%s%.1f %.1f", verb, sx(p.X), sy(p.Y))
 		}
-		fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#4338ca" stroke-width="2.5"/>`, d.String())
+		fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#2a78d6" stroke-width="2.5"/>`, d.String())
 	}
 
 	// Draggable vertices.
 	for _, g := range c.Grips {
 		ref, _ := g.Ref.MarshalText()
-		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="6" fill="#fff" stroke="#4338ca" stroke-width="2" `+
+		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="6" fill="#fff" stroke="#2a78d6" stroke-width="2" `+
 			`data-grip=%q style="cursor:grab"/>`, sx(g.At.X), sy(g.At.Y), string(ref))
 	}
-	fmt.Fprintf(&b, `<text x="12" y="22" font-family="sans-serif" font-size="12" fill="#334155">drag the vertices · scrub the circles</text>`)
+	fmt.Fprintf(&b, `<text x="12" y="22" font-family="sans-serif" font-size="12" fill="#1b3a6b">drag the vertices · scrub the circles</text>`)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }
