@@ -86,7 +86,7 @@ const CSS = `
   .controls label { font-weight: 600; color: var(--navy); }
   .cell { margin: 1rem 0; padding: .5rem 0 .5rem .6rem; border-top: 1px solid #eee;
           border-left: 3px solid transparent; transition: border-color .15s, opacity .15s; }
-  /* Cells sharing a //notebook:row=<name> directive lay side by side; each flexes
+  /* Cells sharing a //notebook:area=<name> directive lay side by side; each flexes
      equally and clamps to a min width so charts don't crush, wrapping to stacked on
      a narrow viewport. min-width:0 lets a flex child shrink below its content. */
   .cellrow { display: flex; flex-wrap: wrap; gap: 0 1.5rem; align-items: flex-start; }
@@ -373,12 +373,15 @@ const NB = (function () {
     if (LAYOUT && LAYOUT.length) { buildArranged(); return; }
     const controls = document.getElementById('controls');
     const cells = document.getElementById('cells');
-    // A //notebook:row=<name> directive lays consecutive same-named cells side by
-    // side. We open a .cellrow flex container on the first cell of a run and append
-    // siblings into it; a different (or absent) row value closes it. Grouping only
-    // CONSECUTIVE cells keeps two separate row=panels blocks from merging.
+    // With no //notebook:layout block, an //notebook:area=<name> directive lays
+    // consecutive same-named cells side by side — the inline grouping shorthand
+    // (a "row" is an area shown horizontally). We open a .cellrow flex container
+    // on the first cell of a run and append siblings into it; a different (or
+    // absent) area value closes it. Grouping only CONSECUTIVE cells keeps two
+    // separate area=panels blocks from merging. (When a layout block IS present,
+    // buildArranged handles areas globally instead — see above.)
     let rowEl = null, rowName = null;
-    const rowOf = (m) => (m.Directives && m.Directives.row) || null;
+    const rowOf = (m) => (m.Directives && m.Directives.area) || null;
     const container = (m) => {
       const r = rowOf(m);
       if (r && r === rowName) return rowEl;      // continue the open row

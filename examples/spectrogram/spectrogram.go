@@ -24,7 +24,7 @@
 //
 // Pure Go throughout: the DFT is hand-rolled over complex128, so it compiles to wasm.
 // The spectrum and spectrogram are pure functions of (signal, window), so a slider
-// scrubs exactly. The three panels share `//notebook:row=panels`.
+// scrubs exactly. The three panels share `//notebook:area=panels`.
 
 package spectrogram
 
@@ -140,7 +140,7 @@ func spectrogram(sig Signal, win Select[Window]) (grid Spectrogram) {
 
 // The waveform — amplitude over time. The raw signal all three views come from.
 //
-//notebook:row=panels
+//notebook:area=panels
 //notebook:height=300
 func waveform(sig Signal) (wave WaveChart) {
 	return WaveChart{Samples: sig.Samples}
@@ -149,7 +149,7 @@ func waveform(sig Signal) (wave WaveChart) {
 // The spectrum — the tones the signal is made of. Watch each peak's skirt collapse
 // when you switch to the Hann window: that skirt was leakage, not signal.
 //
-//notebook:row=panels
+//notebook:area=panels
 //notebook:height=300
 func spectrumView(spec Spectrum) (chart SpectrumChart) {
 	return SpectrumChart{Mag: spec.Mag}

@@ -122,7 +122,7 @@ func posterior(prefix Prefix, n int, alpha, beta float64) (post Posterior) {
 
 // Weight space. The prior contracts onto the truth (the cross) as evidence arrives.
 //
-//notebook:row=panels
+//notebook:area=panels
 func parameterSpace(post Posterior) (wspace Chart) {
 	c := Chart{Title: "posterior over (w₀, w₁)", XLo: -1, XHi: 1, YLo: -1, YHi: 1}
 	// Density on a grid — a 2×2 Gaussian, evaluated directly. No scipy required.
@@ -138,7 +138,7 @@ func parameterSpace(post Posterior) (wspace Chart) {
 
 // Data space. Six lines drawn from the posterior, plus the observations so far.
 //
-//notebook:row=panels
+//notebook:area=panels
 func dataSpace(points Draggable[Pt], n int, post Posterior, seed int64) (xspace Chart) {
 	c := Chart{Title: "lines sampled from the posterior", XLo: -1, XHi: 1, YLo: -1.5, YHi: 1.5}
 

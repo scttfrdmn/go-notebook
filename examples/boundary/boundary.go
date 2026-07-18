@@ -28,7 +28,7 @@
 //     training state to carry, so the boundary is always exactly the fit for what's
 //     on screen. Scrub regularization up and down and it's exact both ways.
 //
-// The surface and points share a `//notebook:row=panels` slot with the readout.
+// The surface and points share a `//notebook:area=panels` slot with the readout.
 
 package boundary
 
@@ -130,7 +130,7 @@ func fit(a Draggable[Pt], b Draggable[Pt], lambda int) (model Model) {
 // draggable grip. This is the picture of what the model learned — and you can grab
 // any point and change it.
 //
-//notebook:row=panels
+//notebook:area=panels
 //notebook:height=460
 func surface(a Draggable[Pt], b Draggable[Pt], model Model) (plot Surface) {
 	plot = Surface{Model: model}
@@ -147,7 +147,7 @@ func surface(a Draggable[Pt], b Draggable[Pt], model Model) (plot Surface) {
 // surface is — L2 pulls this down), and the boundary's angle. Watch |w| shrink as
 // you turn regularization up.
 //
-//notebook:row=panels
+//notebook:area=panels
 func readout(a Draggable[Pt], b Draggable[Pt], model Model) (report Readout) {
 	acc := accuracy(a.Value, b.Value, model)
 	wmag := math.Hypot(model.W0, model.W1)
