@@ -8,8 +8,8 @@
 
 **Evidence, today, in the tree:**
 
-- The WASM transport already installs a data-only JS surface: `notebookSet(leaf, value)` in (edits in), `__notebook_event(ev)` (values out), `__notebook_meta` (the graph + labels), `__notebook_leaves` (initial values). See `engine/wasm/wasm.go`. These are plain-data both directions; JS never sees a Go type.
-- The default UI already *consumes* that surface through one entry point: `NB.init(meta, {onEdit})` + `NB.render(ev)` in `internal/webui/webui.go`. The transport glue is thin; the client is shared across SSE and WASM.
+- The WASM transport installs a data-only JS surface as **one named object, `globalThis.notebook`** (#148): `notebook.meta` (the graph + labels + leaf symbols), `notebook.provenance` (build identity), `notebook.set(leaf, value)` (edits in), `notebook.subscribe(fn)` → unsubscribe (values out), `notebook.values()` (current snapshot), `notebook.start()` (run the first wave). See `engine/wasm/wasm.go`. These are plain data both directions; JS never sees a Go type. This *is* the component API — the surface a stranger's page holds.
+- The default UI *consumes* that port as one consumer among equals: `cmd/notebook/wasm_ui.go` reads `notebook.meta`, wires `notebook.set`/`notebook.subscribe`/`notebook.start`, and feeds the shared client (`NB.init`/`NB.render` in `internal/webui/webui.go`). It holds no privileged surface a foreign page lacks.
 
 **Claim, not yet evidence:**
 
@@ -66,6 +66,16 @@ The spine is clean, but three edges re-express it, and two of the three are impo
 - **F3 — push-out is excluded (anti-goal).** A notebook publishing to a webhook/queue would put the impure edge *inside* a cell. Keep the rule: the transport owns the impure boundary; a cell is subscribed/pulled, never pushes.
 
 **Sequence (no big bang):** rank 1 → F1 spike (drive a bare host page with `NB` removed; whatever breaks *is* the SQ1 measurement) → rank 3 → SQ2 experiment (`set(dataLeaf, RelHandleJSON)`, no rebuild, assert downstream recompute) → rank 2 (build the typed-value surface only when a program-consumer KC actually needs live values, not speculatively). Each step converts one cluster of claims to evidence and is independently revertible. **No KC ticks until observed end-to-end against a real consumer.**
+
+### Progress (claims converted to evidence)
+
+*Appended as each step lands. This is the ledger; the reasoning above is left intact as the record of how the shape was found.*
+
+- **Rank 1 — DONE (#146).** One `engine.WireEvent`/`ToWire`; server and wasm share it. Byte-parity tests freeze the shape.
+- **Rank 3 — DONE (#147).** `--set` routes through `CoerceWire`/`setLeafValue`; the weak `setLeaf` is deleted; composite leaves set from the CLI; uncoercible/unknown/wrong-kind fail loud. The "headless input is a weaker parallel path" asterisk is closed.
+- **F1 — REFUTED, then NAMED (#99 spike, #148).** The spike drove `capacity` from a bare host page with `NB` absent and *no* `#controls`/`#cells`/`#graph`, and it worked: the port touches no DOM, so no structural cut in `internal/webui` was needed. `NB.init` owns the DOM only for *our* consumer; the port sits below it already. **KC16 is observed** — a foreign page holds `globalThis.notebook` (`{meta, provenance, set, subscribe, values, start}`) and drives compute; `webui.NB` is one consumer of that port (`cmd/notebook/wasm_ui.go`), not privileged. The old six ad-hoc globals collapsed into the one named object; the seed-ordering ritual dissolved — the value channel *is* the subscription, and `notebook.values()` is its pull form. Two spike findings on the OUT side remain open: values arrive as rendered strings (rank 2), and the seed race is gone but the OUT typed-value gap is not.
+- **Rank 2 — not started.** The typed value-out surface; open until a program-consumer KC needs live values.
+- **F2 / SQ2 — not started.** The handle-over-the-wire experiment.
 
 ---
 

@@ -138,7 +138,7 @@ func (s *Server) handleSet(w http.ResponseWriter, r *http.Request) {
 // handleLeaves returns each leaf's current value keyed by leaf symbol, so the
 // client can seed every control's initial position and readout — otherwise a
 // slider sits at a browser default and the readout is blank until first drag
-// (the wasm host publishes the same via __notebook_leaves; this is the SSE
+// (the wasm port exposes the same via notebook.values(); this is the SSE
 // parallel). Values come from Finals (public), so this adds no engine surface.
 // A wave is run first if none has yet, so Finals is populated even before any
 // /events client connects.

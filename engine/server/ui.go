@@ -27,7 +27,7 @@ NB.init(META, {
 });
 // Seed each control with its leaf's initial value, so a slider starts at its
 // real position and the readout is populated before any drag (the SSE parallel
-// to the wasm host's __notebook_leaves).
+// to the wasm port's notebook.values()).
 fetch('/leaves').then(r => r.json()).then(v => NB.seedLeaves(v)).catch(() => {});
 const es = new EventSource('/events');
 es.onmessage = (e) => { try { NB.render(JSON.parse(e.data)); } catch (_) {} };`,

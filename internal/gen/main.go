@@ -137,7 +137,7 @@ func leaves() []engine.LeafID {
 }
 
 // writeSetLeafValue emits setLeafValue(): the ONE leaf coercer, shared by every
-// write path — the SSE /set handler, the wasm notebookSet bridge, and the CLI
+// write path — the SSE /set handler, the wasm notebook.set bridge, and the CLI
 // --set flag. JSON numbers arrive as float64; this converts each leaf's raw
 // value to its static Go type before writing through the head, so downstream
 // cells' type assertions are safe.

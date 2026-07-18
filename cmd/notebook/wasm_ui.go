@@ -4,10 +4,15 @@ import "github.com/scttfrdmn/go-notebook/internal/webui"
 
 // indexHTMLWASM is the browser host for a --target=wasm notebook. The page shell
 // and the client are assembled by internal/webui and shared with the SSE server,
-// so this supplies only the WASM transport glue: bootstrap the Go wasm runtime,
-// take metadata from __notebook_meta, deliver events via __notebook_event, edit
-// leaves via notebookSet, seed initial values from __notebook_leaves, and report
-// iframe height for the landing page.
+// so this supplies only the WASM transport glue.
+//
+// This glue is a CONSUMER of the port (globalThis.notebook), not a privileged
+// part of it — the same standing a foreign host page has. It reads notebook.meta,
+// sends edits with notebook.set, subscribes for values with notebook.subscribe,
+// pulls initial control positions with notebook.values, and triggers the first
+// wave with notebook.start. Our default UI (webui.NB) sits on top of exactly the
+// surface a stranger would hold; that it can be rebuilt on any other renderer is
+// the point of naming the port.
 //
 // __NB_NAME__ is replaced with the notebook name (by string replace, not
 // Sprintf, because the assembled page contains literal %).
@@ -28,28 +33,27 @@ function reportHeight() {
 }
 window.addEventListener('resize', reportHeight);
 
-// The engine calls this per cell update; hand it straight to the shared renderer.
-globalThis.__notebook_event = (ev) => NB.render(ev);
-
-// The engine publishes leaf defaults after the initial wave; seed the controls.
-globalThis.__notebook_leaves_ready = () => {
-  try { NB.seedLeaves(JSON.parse(globalThis.__notebook_leaves || '{}')); } catch (_) {}
-};
-
-function start() {
-  const META = JSON.parse(globalThis.__notebook_meta || '[]');
-  let prov = null;
-  try { prov = JSON.parse(globalThis.__notebook_provenance || 'null'); } catch (_) {}
-  NB.init(META, {
-    onEdit: (leaf, value) => globalThis.notebookSet(leaf, value),
+// Build the UI on the port. This runs once the port exists (after go.run).
+function start(nb) {
+  NB.init(nb.meta, {
+    onEdit: (leaf, value) => nb.set(leaf, value),
     afterRender: reportHeight,
-    provenance: prov,
+    provenance: nb.provenance,
   });
+  // The value channel IS the subscription: every cell's value arrives here, and
+  // a scalar control seeds its starting position from its OWN first event (the
+  // read-path analogue of the write path — init and update are one path, not a
+  // separate seed channel that can race or be empty). Subscribe BEFORE start so
+  // no initial render is missed.
+  nb.subscribe((ev) => NB.render(ev));
   status.textContent = 'ready — compiled Go, no server';
   reportHeight();
-  // UI is built and cell elements exist — now trigger the initial wave, so its
-  // first render lands in a DOM element that's already there (no drop race).
-  globalThis.notebookStart();
+  // UI built and subscribed — now trigger the first wave so its renders land in
+  // DOM elements that already exist (no drop race). Seeding needs no separate
+  // step: the wave's events carry each control's default. notebook.values() is
+  // the pull form of the same channel, for a host that wants a synchronous
+  // snapshot instead of subscribing.
+  nb.start();
 }
 
 const go = new Go();
@@ -65,8 +69,10 @@ async function instantiate() {
 }
 instantiate().then((r) => {
   go.run(r.instance);
+  // The port is published synchronously by RunNotebook once go.run starts the
+  // program; poll briefly for it, then build once.
   const wait = setInterval(() => {
-    if (globalThis.__notebook_ready) { clearInterval(wait); start(); }
+    if (globalThis.notebook) { clearInterval(wait); start(globalThis.notebook); }
   }, 5);
 }).catch((e) => { status.textContent = 'wasm load failed: ' + e; });`,
 })
