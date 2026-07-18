@@ -106,8 +106,9 @@ func TestPlotRendersWithGrips(t *testing.T) {
 	if got := strings.Count(data, "data-grip"); got != 3 {
 		t.Errorf("%d grips, want 3 (one per centroid)", got)
 	}
-	// at least two distinct cluster colours are used (points really are grouped)
-	if !strings.Contains(data, "#2563eb") || !strings.Contains(data, "#dc2626") {
+	// at least two distinct cluster colours are used (points really are grouped) —
+	// the first two brand categorical slots (blue, aqua)
+	if !strings.Contains(data, "#2a78d6") || !strings.Contains(data, "#0797b8") {
 		t.Error("plot does not colour points by cluster")
 	}
 }

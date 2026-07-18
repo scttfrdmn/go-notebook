@@ -121,7 +121,7 @@ func capacityCurve(lambda, mu PerHour, price USD) (curve Chart) {
 		costs = append(costs, float64(c)*float64(price))
 	}
 	return Chart{
-		Title: "Cost (indigo) vs. queue wait (violet) as servers scale",
+		Title: "Cost (blue) vs. queue wait (aqua) as servers scale",
 		X:     xs,
 		Y1:    waits, // seconds
 		Y2:    costs, // $/hr
@@ -202,7 +202,7 @@ func svg(ch Chart) string {
 		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`+
 			`<rect width="%.0f" height="%.0f" fill="white"/>%s%s`+
 			`<text x="%.0f" y="20" font-family="sans-serif" font-size="13">%s</text></svg>`,
-		w, h, w, h, line(ch.Y2, "#4338ca"), line(ch.Y1, "#c026d3"), pad, ch.Title)
+		w, h, w, h, line(ch.Y2, "#2a78d6"), line(ch.Y1, "#0797b8"), pad, ch.Title)
 }
 
 // ===========================================================================

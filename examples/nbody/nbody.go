@@ -362,7 +362,7 @@ func (c OrbitChart) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, w-2*pad, h-2*pad)
 
 	drawPaths := func(tr Trajectory, color string, width float64) {
@@ -382,18 +382,18 @@ func (c OrbitChart) Render() Rendered {
 				d.String(), color, width)
 		}
 	}
-	drawPaths(c.Euler, "#d0433b", 1.0)  // Euler — the one that drifts, in red
-	drawPaths(c.Verlet, "#4338ca", 1.6) // Verlet — correct, in indigo
+	drawPaths(c.Euler, "#d03b3b", 1.0)  // Euler — the one that drifts, in red
+	drawPaths(c.Verlet, "#2a78d6", 1.6) // Verlet — correct, in blue
 
 	// Draggable starting positions.
 	for _, g := range c.Grips {
 		ref, _ := g.Ref.MarshalText()
-		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="7" fill="#fff" stroke="#0f172a" `+
+		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="7" fill="#fff" stroke="#1b3a6b" `+
 			`stroke-width="2" data-grip=%q style="cursor:grab"/>`, sx(g.At.X), sy(g.At.Y), string(ref))
 	}
 	// Legend.
-	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="12" fill="#d0433b">Euler</text>`, pad+6, pad+16)
-	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="12" fill="#4338ca">Verlet</text>`, pad+56, pad+16)
+	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="12" fill="#d03b3b">Euler</text>`, pad+6, pad+16)
+	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="12" fill="#2a78d6">Verlet</text>`, pad+56, pad+16)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }
@@ -430,7 +430,7 @@ func (c EnergyChart) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, w-2*pad, h-2*pad)
 
 	line := func(series []float64, color string, width float64) {
@@ -447,12 +447,12 @@ func (c EnergyChart) Render() Rendered {
 		}
 		fmt.Fprintf(&b, `<path d=%q fill="none" stroke=%q stroke-width="%.1f"/>`, d.String(), color, width)
 	}
-	line(c.Euler, "#d0433b", 2)
-	line(c.Verlet, "#4338ca", 2)
+	line(c.Euler, "#d03b3b", 2)
+	line(c.Verlet, "#2a78d6", 2)
 
-	fmt.Fprintf(&b, `<text x="%.0f" y="22" font-family="sans-serif" font-size="12" fill="#334155">total energy vs time</text>`, pad)
-	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="12" fill="#d0433b">Euler (drifts up)</text>`, pad+6, h-pad-10)
-	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="12" fill="#4338ca">Verlet (flat)</text>`, pad+6, h-pad-26)
+	fmt.Fprintf(&b, `<text x="%.0f" y="22" font-family="sans-serif" font-size="12" fill="#1b3a6b">total energy vs time</text>`, pad)
+	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="12" fill="#d03b3b">Euler (drifts up)</text>`, pad+6, h-pad-10)
+	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="12" fill="#2a78d6">Verlet (flat)</text>`, pad+6, h-pad-26)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }

@@ -304,23 +304,23 @@ func (c Chart) Render() Rendered {
 				continue
 			}
 			fmt.Fprintf(&b, `<rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" `+
-				`fill="#4338ca" fill-opacity="%.3f"/>`,
+				`fill="#2a78d6" fill-opacity="%.3f"/>`,
 				sx(f.X)-cw/2, sy(f.Y)-cw/2, cw+0.5, cw+0.5, math.Min(f.V, 1)*0.85)
 		}
 	}
 	for _, l := range c.Lines {
 		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" `+
-			`stroke="#c026d3" stroke-width="1.5" stroke-opacity="0.65"/>`,
+			`stroke="#0797b8" stroke-width="1.5" stroke-opacity="0.65"/>`,
 			sx(l[0].X), sy(l[0].Y), sx(l[1].X), sy(l[1].Y))
 	}
 	for _, g := range c.Grips {
-		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="5" fill="#fff" stroke="#0f172a" `+
+		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="5" fill="#fff" stroke="#1b3a6b" `+
 			`stroke-width="1.5" data-grip=%q style="cursor:grab"/>`, sx(g.At.X), sy(g.At.Y), g.Ref)
 	}
 	if c.Cross != nil {
 		x, y := sx(c.Cross.X), sy(c.Cross.Y)
 		fmt.Fprintf(&b, `<path d="M%.1f %.1f L%.1f %.1f M%.1f %.1f L%.1f %.1f" `+
-			`stroke="#f8fafc" stroke-width="2.5"/>`, x-7, y, x+7, y, x, y-7, x, y+7)
+			`stroke="#e7ebf0" stroke-width="2.5"/>`, x-7, y, x+7, y, x, y-7, x, y+7)
 	}
 	fmt.Fprintf(&b, `<text x="%.0f" y="18" font-family="sans-serif" font-size="11">%s</text>`,
 		pad, c.Title)

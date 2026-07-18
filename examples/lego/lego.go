@@ -351,7 +351,7 @@ func svg(c Chart) string {
 
 	if c.Region.Active {
 		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" `+
-			`fill="#4338ca" fill-opacity="0.08" stroke="#4338ca" stroke-dasharray="4 3"/>`,
+			`fill="#5b6472" fill-opacity="0.08" stroke="#5b6472" stroke-dasharray="4 3"/>`,
 			sx(c.Region.X1), sy(c.Region.Y2),
 			sx(c.Region.X2)-sx(c.Region.X1), sy(c.Region.Y1)-sy(c.Region.Y2))
 	}
@@ -433,7 +433,7 @@ func cmpFloat(a, b float64) int {
 }
 
 func palette(i int) string {
-	c := []string{"#4338ca", "#c026d3", "#0891b2", "#ea580c", "#65a30d"}
+	c := []string{"#2a78d6", "#0797b8", "#eda100", "#008300", "#4a3aa7"}
 	return c[i%len(c)]
 }
 

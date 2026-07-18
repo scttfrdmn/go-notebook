@@ -140,7 +140,7 @@ func performance(lots Table[Lot], bars Prices) (series []Snapshot, err error) {
 //
 //notebook:height=300
 func valueChart(series []Snapshot) (plot Chart) {
-	plot = Chart{Title: "value (indigo) vs. invested (dashed)", Unit: "$"}
+	plot = Chart{Title: "value (blue) vs. invested (dashed)", Unit: "$"}
 	for _, s := range series {
 		plot.A = append(plot.A, float64(s.Value))
 		plot.B = append(plot.B, float64(s.Invested))
@@ -519,15 +519,15 @@ func (c Chart) Render() Rendered {
 			d.String(), color, dash)
 	}
 	if c.Zero && lo < 0 {
-		fmt.Fprintf(&b, `<line x1="%.0f" y1="%.1f" x2="%.0f" y2="%.1f" stroke="#cbd5e1"/>`,
+		fmt.Fprintf(&b, `<line x1="%.0f" y1="%.1f" x2="%.0f" y2="%.1f" stroke="#e7ebf0"/>`,
 			pad, sy(0), w-pad, sy(0))
 	}
-	line(c.B, "#0f172a", "5 4")
-	line(c.A, "#4338ca", "")
+	line(c.B, "#0797b8", "5 4")
+	line(c.A, "#2a78d6", "")
 	fmt.Fprintf(&b, `<text x="%.0f" y="22" font-family="sans-serif" font-size="12">%s</text>`,
 		pad, c.Title)
 	fmt.Fprintf(&b, `<text x="%.0f" y="%.1f" font-family="sans-serif" font-size="10" `+
-		`fill="#64748b">%s%.0f</text>`, 6.0, sy(hi)+4, c.Unit, hi)
+		`fill="#5b6472">%s%.0f</text>`, 6.0, sy(hi)+4, c.Unit, hi)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }

@@ -223,7 +223,7 @@ func f0(v float64) string { return strconv.FormatFloat(v, 'f', 0, 64) }
 
 // palette maps a cluster index to a distinct colour. Unnamed return so it's a helper.
 func palette(i int) string {
-	colors := []string{"#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed", "#0891b2"}
+	colors := []string{"#2a78d6", "#0797b8", "#eda100", "#008300", "#4a3aa7", "#e34948"}
 	return colors[i%len(colors)]
 }
 
@@ -299,11 +299,11 @@ func (c Chart) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, box, box)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, box, box)
-	fmt.Fprintf(&b, `<rect x="1" y="1" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`, box-2, box-2)
+	fmt.Fprintf(&b, `<rect x="1" y="1" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`, box-2, box-2)
 
 	// points, coloured by assignment
 	for i, p := range c.Points {
-		col := "#94a3b8"
+		col := "#5b6472"
 		if i < len(c.Assign) {
 			col = palette(c.Assign[i])
 		}
@@ -319,10 +319,10 @@ func (c Chart) Render() Rendered {
 	// draggable initial centroids as ringed grips
 	for _, g := range c.Grips {
 		ref, _ := g.Ref.MarshalText()
-		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="9" fill="none" stroke="#0f172a" stroke-width="2" `+
+		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="9" fill="none" stroke="#1b3a6b" stroke-width="2" `+
 			`stroke-dasharray="3 2" data-grip=%q style="cursor:grab"/>`, sx(g.At.X), sy(g.At.Y), string(ref))
 	}
-	fmt.Fprintf(&b, `<text x="12" y="24" font-family="sans-serif" font-size="12" fill="#334155">`+
+	fmt.Fprintf(&b, `<text x="12" y="24" font-family="sans-serif" font-size="12" fill="#1b3a6b">`+
 		`dashed = initial (drag me) · ✕ = settled centroid</text>`)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}

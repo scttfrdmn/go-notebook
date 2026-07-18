@@ -229,23 +229,23 @@ func (c Chart) Render() Rendered {
 	drawPanel := func(x float64, title, big, sub string, accent string) {
 		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="13" fill="#5b6472">%s</text>`, x, 40.0, title)
 		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="34" font-weight="700" fill=%q>%s</text>`, x, 84.0, accent, big)
-		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="12" fill="#64748b">%s</text>`, x, 108.0, sub)
+		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="12" fill="#5b6472">%s</text>`, x, 108.0, sub)
 	}
-	drawPanel(cx, "monthly cost", money(c.Bill.Total), "spot vs on-demand mix", "#1b3a6b")
-	drawPanel(cx+panelW+40, "monthly carbon", tonnes(c.Em.Total), f0(float64(c.Em.Energy))+" kWh of energy", "#237a2b")
+	drawPanel(cx, "monthly cost", money(c.Bill.Total), "spot vs on-demand mix", "#2a78d6")
+	drawPanel(cx+panelW+40, "monthly carbon", tonnes(c.Em.Total), f0(float64(c.Em.Energy))+" kWh of energy", "#0797b8")
 
-	// cost stacked bar (spot green portion, on-demand navy).
+	// cost stacked bar (spot yellow portion, on-demand blue).
 	barY, barH := 150.0, 40.0
 	total := float64(c.Bill.Total)
 	if total > 0 {
 		odFrac := float64(c.Bill.OnDemand) / total
 		odW := odFrac * (w - 2*pad)
-		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#1b3a6b"/>`, pad, barY, odW, barH)
-		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#3fa845"/>`, pad+odW, barY, (w-2*pad)-odW, barH)
+		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#2a78d6"/>`, pad, barY, odW, barH)
+		fmt.Fprintf(&b, `<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#eda100"/>`, pad+odW, barY, (w-2*pad)-odW, barH)
 		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#fff">on-demand %s</text>`, pad+6, barY+24, money(c.Bill.OnDemand))
-		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#fff" text-anchor="end">spot %s</text>`, w-pad-6, barY+24, money(c.Bill.Spot))
+		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#1b3a6b" text-anchor="end">spot %s</text>`, w-pad-6, barY+24, money(c.Bill.Spot))
 	}
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="12" fill="#64748b">the bar splits the bill by pricing; carbon has no such split — it's one number set by energy and the grid.</text>`,
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="12" fill="#5b6472">the bar splits the bill by pricing; carbon has no such split — it's one number set by energy and the grid.</text>`,
 		pad, barY+80)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}

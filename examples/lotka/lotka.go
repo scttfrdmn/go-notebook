@@ -318,7 +318,7 @@ func (c TimeChart) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, w-2*pad, h-2*pad)
 	line := func(s []float64, color string) {
 		if len(s) < 2 {
@@ -334,11 +334,11 @@ func (c TimeChart) Render() Rendered {
 		}
 		fmt.Fprintf(&b, `<path d=%q fill="none" stroke=%q stroke-width="2"/>`, d.String(), color)
 	}
-	line(c.Prey, "#3ea6ff") // prey, blue
-	line(c.Pred, "#f26b21") // predators, orange
-	fmt.Fprintf(&b, `<text x="%.0f" y="24" font-family="sans-serif" font-size="12" fill="#334155">populations over time</text>`, pad)
-	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="12" fill="#3ea6ff">prey</text>`, pad+6, h-pad-24)
-	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="12" fill="#f26b21">predators</text>`, pad+6, h-pad-8)
+	line(c.Prey, "#2a78d6") // prey, blue
+	line(c.Pred, "#0797b8") // predators, aqua
+	fmt.Fprintf(&b, `<text x="%.0f" y="24" font-family="sans-serif" font-size="12" fill="#1b3a6b">populations over time</text>`, pad)
+	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="12" fill="#2a78d6">prey</text>`, pad+6, h-pad-24)
+	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="12" fill="#0797b8">predators</text>`, pad+6, h-pad-8)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }
@@ -361,7 +361,7 @@ func (c PhaseChart) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, w-2*pad, h-2*pad)
 	if len(c.Prey) >= 2 {
 		var d strings.Builder
@@ -372,14 +372,14 @@ func (c PhaseChart) Render() Rendered {
 			}
 			fmt.Fprintf(&d, "%s%.1f %.1f", verb, sx(c.Prey[i]), sy(c.Pred[i]))
 		}
-		fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#4338ca" stroke-width="1.6" stroke-opacity="0.85"/>`, d.String())
+		fmt.Fprintf(&b, `<path d=%q fill="none" stroke="#2a78d6" stroke-width="1.6" stroke-opacity="0.85"/>`, d.String())
 	}
 	// The draggable starting point.
 	ref, _ := c.Grip.Ref.MarshalText()
-	fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="7" fill="#fff" stroke="#4338ca" stroke-width="2.5" `+
+	fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="7" fill="#fff" stroke="#2a78d6" stroke-width="2.5" `+
 		`data-grip=%q style="cursor:grab"/>`, sx(c.Grip.At.X), sy(c.Grip.At.Y), string(ref))
-	fmt.Fprintf(&b, `<text x="%.0f" y="24" font-family="sans-serif" font-size="12" fill="#334155">phase portrait — prey vs predators</text>`, pad)
-	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="11" fill="#94a3b8">prey →</text>`, w-pad-44, h-pad+16)
+	fmt.Fprintf(&b, `<text x="%.0f" y="24" font-family="sans-serif" font-size="12" fill="#1b3a6b">phase portrait — prey vs predators</text>`, pad)
+	fmt.Fprintf(&b, `<text x="%.0f" y="%.0f" font-family="sans-serif" font-size="11" fill="#5b6472">prey →</text>`, w-pad-44, h-pad+16)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }

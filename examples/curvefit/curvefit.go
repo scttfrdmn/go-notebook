@@ -357,10 +357,10 @@ func (c Chart) Render() Rendered {
 			d.String(), stroke, width, dash)
 	}
 
-	path(c.Hull, "#c026d3", "5 4", 1) // control polygon
-	path(c.Curve, "#4338ca", "", 2.5) // the fitted curve
+	path(c.Hull, "#0797b8", "5 4", 1) // control polygon
+	path(c.Curve, "#2a78d6", "", 2.5) // the fitted curve
 	for _, p := range c.Samples {
-		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="2.5" fill="#0f172a" fill-opacity="0.45"/>`,
+		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="2.5" fill="#1b3a6b" fill-opacity="0.45"/>`,
 			sx(p.X), sy(p.Y))
 	}
 	// Grips. data-grip = "leaf:index" is how the client routes a drag to the leaf
@@ -368,7 +368,7 @@ func (c Chart) Render() Rendered {
 	// stamped it, Grip carries it, MarshalText renders it here).
 	for _, g := range c.Grips {
 		ref, _ := g.Ref.MarshalText()
-		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="7" fill="#fff" stroke="#c026d3" `+
+		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="7" fill="#fff" stroke="#0797b8" `+
 			`stroke-width="2.5" data-grip=%q style="cursor:grab"/>`,
 			sx(g.At.X), sy(g.At.Y), string(ref))
 	}

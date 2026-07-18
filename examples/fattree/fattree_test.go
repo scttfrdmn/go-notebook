@@ -127,12 +127,12 @@ func TestViewsRender(t *testing.T) {
 		}
 	}
 	// oversubscribed tree should draw amber links.
-	if !strings.Contains(d.Data, "#f59e0b") {
+	if !strings.Contains(d.Data, "#fab219") {
 		t.Error("oversubscribed diagram should have amber (oversubscribed) links")
 	}
 	// a non-blocking tree should NOT.
 	full := diagram(res(4, 100)).Render()
-	if strings.Contains(full.Data, "#f59e0b") {
+	if strings.Contains(full.Data, "#fab219") {
 		t.Error("non-blocking diagram should have no amber links")
 	}
 

@@ -186,14 +186,14 @@ func (c Chart) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, w-2*pad, h-2*pad)
 
 	// ceiling asymptote
 	if m.Ceiling > 0 && m.Ceiling <= ymax {
-		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="5 4"/>`,
+		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#d03b3b" stroke-width="1.5" stroke-dasharray="5 4"/>`,
 			pad, sy(m.Ceiling), w-pad, sy(m.Ceiling))
-		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#dc2626">ceiling %s×</text>`,
+		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#d03b3b">ceiling %s×</text>`,
 			w-pad-70, sy(m.Ceiling)-5, f1(m.Ceiling))
 	}
 
@@ -213,19 +213,19 @@ func (c Chart) Render() Rendered {
 		}
 		fmt.Fprintf(&b, `<path d=%q fill="none" stroke=%q stroke-width="%.1f"/>`, d.String(), color, width)
 	}
-	line(m.Gustafson, "#94a3b8", 1.5, true) // Gustafson: the pale, near-linear line
-	line(m.Amdahl, "#4338ca", 2.5, false)   // Amdahl: the bold curve bending to the ceiling
+	line(m.Gustafson, "#0797b8", 1.5, true) // Gustafson: the near-linear contrast line, aqua
+	line(m.Amdahl, "#2a78d6", 2.5, false)   // Amdahl: the bold curve bending to the ceiling, blue
 
 	// marker at n cores
 	mx, my := sx(m.N-1), sy(m.SpeedupAtN)
-	fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="5" fill="#4338ca"/>`, mx, my)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="12" font-weight="600" fill="#4338ca">%s× at %d cores</text>`,
+	fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="5" fill="#2a78d6"/>`, mx, my)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="12" font-weight="600" fill="#2a78d6">%s× at %d cores</text>`,
 		mx+8, my-6, f1(m.SpeedupAtN), m.N)
 
 	// labels
-	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#334155">speedup vs cores</text>`, pad)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#4338ca">Amdahl (fixed problem)</text>`, pad+6, h-pad-24)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#94a3b8">Gustafson (grow problem)</text>`, pad+6, h-pad-8)
+	fmt.Fprintf(&b, `<text x="%.0f" y="20" font-family="sans-serif" font-size="12" fill="#1b3a6b">speedup vs cores</text>`, pad)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#2a78d6">Amdahl (fixed problem)</text>`, pad+6, h-pad-24)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#0797b8">Gustafson (grow problem)</text>`, pad+6, h-pad-8)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }

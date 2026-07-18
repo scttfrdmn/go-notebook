@@ -322,7 +322,7 @@ func (ch Chart) Render() Rendered {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %.0f %.0f">`, w, h)
 	fmt.Fprintf(&b, `<rect width="%.0f" height="%.0f" fill="#fff"/>`, w, h)
-	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e2e8f0"/>`,
+	fmt.Fprintf(&b, `<rect x="%.0f" y="%.0f" width="%.0f" height="%.0f" fill="none" stroke="#e7ebf0"/>`,
 		pad, pad, plotW, plotH)
 
 	// x decade gridlines + labels (1KB, 1MB, 1GB)
@@ -334,21 +334,21 @@ func (ch Chart) Render() Rendered {
 			continue
 		}
 		x := lx(d.kb)
-		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#f1f5f9"/>`, x, pad, x, h-pad)
-		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">%s</text>`,
+		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#e7ebf0"/>`, x, pad, x, h-pad)
+		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#5b6472" text-anchor="middle">%s</text>`,
 			x, h-pad+16, d.lbl)
 	}
 
 	// crossover marker (where the two links tie)
 	if c.Crossover >= xlo && c.Crossover <= xhi {
 		cx := lx(c.Crossover)
-		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#10b981" stroke-width="1.5"/>`, cx, pad, cx, h-pad)
-		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#059669" text-anchor="middle">crossover</text>`, cx, pad-6)
+		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#008300" stroke-width="1.5"/>`, cx, pad, cx, h-pad)
+		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#008300" text-anchor="middle">crossover</text>`, cx, pad-6)
 	}
 	// selected-size marker
 	if float64(c.Marker) >= xlo && float64(c.Marker) <= xhi {
 		mx := lx(float64(c.Marker))
-		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#cbd5e1" stroke-dasharray="4 4"/>`, mx, pad, mx, h-pad)
+		fmt.Fprintf(&b, `<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#5b6472" stroke-dasharray="4 4"/>`, mx, pad, mx, h-pad)
 	}
 
 	line := func(xs, ys []float64, color string) {
@@ -362,13 +362,13 @@ func (ch Chart) Render() Rendered {
 		}
 		fmt.Fprintf(&b, `<path d=%q fill="none" stroke=%q stroke-width="2.4"/>`, d.String(), color)
 	}
-	line(c.Sizes, c.TimeA, "#2563eb") // Link A
-	line(c.Sizes, c.TimeB, "#f59e0b") // Link B
+	line(c.Sizes, c.TimeA, "#2a78d6") // Link A
+	line(c.Sizes, c.TimeB, "#0797b8") // Link B
 
-	fmt.Fprintf(&b, `<text x="%.0f" y="24" font-family="sans-serif" font-size="12" fill="#334155">transfer time vs size (log-log) — flat = latency-bound, rising = bandwidth-bound</text>`, pad)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#2563eb">Link A (near)</text>`, pad+6, pad+16)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#d97706">Link B (fat/far)</text>`, pad+96, pad+16)
-	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#94a3b8" transform="rotate(-90 %.1f %.1f)">transfer time</text>`,
+	fmt.Fprintf(&b, `<text x="%.0f" y="24" font-family="sans-serif" font-size="12" fill="#1b3a6b">transfer time vs size (log-log) — flat = latency-bound, rising = bandwidth-bound</text>`, pad)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#2a78d6">Link A (near)</text>`, pad+6, pad+16)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="11" fill="#0797b8">Link B (fat/far)</text>`, pad+96, pad+16)
+	fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" font-family="sans-serif" font-size="10" fill="#5b6472" transform="rotate(-90 %.1f %.1f)">transfer time</text>`,
 		float64(16), pad+plotH/2, float64(16), pad+plotH/2)
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
@@ -384,11 +384,11 @@ func (r Readout) Render() Rendered {
 	var b strings.Builder
 	b.WriteString(`<div style="display:flex;gap:14px;flex-wrap:wrap">`)
 	for _, c := range r.Cards {
-		b.WriteString(`<div style="flex:1;min-width:130px;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">`)
-		fmt.Fprintf(&b, `<div style="font-size:12px;color:#64748b">%s</div>`, esc(c.Label))
-		fmt.Fprintf(&b, `<div style="font-size:20px;font-weight:700;color:#1e293b;margin:2px 0">%s</div>`, esc(c.Value))
+		b.WriteString(`<div style="flex:1;min-width:130px;border:1px solid #e7ebf0;border-radius:8px;padding:12px 14px">`)
+		fmt.Fprintf(&b, `<div style="font-size:12px;color:#5b6472">%s</div>`, esc(c.Label))
+		fmt.Fprintf(&b, `<div style="font-size:20px;font-weight:700;color:#1b3a6b;margin:2px 0">%s</div>`, esc(c.Value))
 		if c.Caption != "" {
-			fmt.Fprintf(&b, `<div style="font-size:11px;color:#94a3b8">%s</div>`, esc(c.Caption))
+			fmt.Fprintf(&b, `<div style="font-size:11px;color:#5b6472">%s</div>`, esc(c.Caption))
 		}
 		b.WriteString(`</div>`)
 	}
