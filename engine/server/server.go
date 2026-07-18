@@ -16,6 +16,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 
@@ -192,14 +193,36 @@ func Serve(ctx context.Context, addr string, rt *engine.Runtime, meta []engine.C
 // binary — e.g. one scp'd to a login node months ago — can say what it is. Serve
 // delegates here with an empty Provenance, so the older signature is unchanged.
 func ServeNotebook(ctx context.Context, addr string, rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, set SetFunc) error {
+	return ServeNotebookReady(ctx, addr, rt, meta, prov, set, nil)
+}
+
+// ServeNotebookReady is [ServeNotebook] that binds the listener BEFORE serving
+// and reports the resolved address through onReady, so a caller (or a launcher
+// reading the process's stdout) learns the real port even when addr requested an
+// OS-assigned one (host:0). This is the addressing half of the notebook-as-service
+// seam (docs/notebook-as-service.md): the process picks its port — only it knows
+// what is free on the box — but ANNOUNCES it rather than fixing it, so a parent
+// never has to poll-and-hope. onReady is called once, with the bound host:port,
+// just before the accept loop starts; a nil onReady preserves the old behavior.
+func ServeNotebookReady(ctx context.Context, addr string, rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, set SetFunc, onReady func(addr string)) error {
 	s := NewNotebook(rt, meta, prov, set)
-	srv := &http.Server{Addr: addr, Handler: s.Handler()}
+	// Listen first, so a host:0 request resolves to a concrete port we can report.
+	// http.Server.ListenAndServe hides the listener, which is exactly why :0 is
+	// useless there — the chosen port is never surfaced.
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("listening on %s: %w", addr, err)
+	}
+	srv := &http.Server{Handler: s.Handler()}
 	go func() {
 		<-ctx.Done()
 		_ = srv.Close()
 	}()
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return fmt.Errorf("serving on %s: %w", addr, err)
+	if onReady != nil {
+		onReady(ln.Addr().String())
+	}
+	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("serving on %s: %w", ln.Addr(), err)
 	}
 	return nil
 }
