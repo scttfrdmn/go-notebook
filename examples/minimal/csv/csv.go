@@ -4,21 +4,23 @@
 //
 // This is the shape most data work actually takes, and the one the other
 // examples skip: parse rows, drop the ones you don't want, compute a few
-// numbers, and look at the result as a table and a picture. It uses the stdlib
-// encoding/csv to parse and the optional nb/chart package to summarize and draw —
-// no dataframe, no query language, just Go.
+// numbers, and look at the result as a table and a picture. No dataframe, no
+// query language — the standard library and the optional nb/chart package.
 //
-// The CSV lives in a string constant (not a file) so the notebook stays
-// WASM-able and runs in the browser: encoding/csv reads any io.Reader, and a
-// strings.Reader touches neither the filesystem nor the network. Point it at a
-// real file the same way in a native/headless run — os.Open returns an io.Reader
-// too — but then the cell reading it is no longer browser-portable, which is the
-// honest tradeoff, visible in the type.
+// The CSV lives in a string constant (not a file) and is split with strings, so
+// the notebook is WASM-able and runs in the browser — strings touches neither the
+// filesystem nor the network. A note on the stdlib encoding/csv: it is the right
+// parser for real quoted/escaped CSV, but it transitively reaches os (through
+// fmt), so a cell that imports it is NOT browser-portable and the WASM gate will
+// refuse it. Use encoding/csv in a native/headless run (where you'd os.Open a
+// real file anyway); for the simple unquoted data here, a strings.Split parser is
+// both enough and portable. That tradeoff is the point, and it is visible in what
+// each cell is allowed to import.
 //
 //	go tool notebook run ./examples/minimal/csv
 //
-// Demonstrates: stdlib CSV parsing in a cell, filtering, nb/chart stats + Table +
-// Bar. See https://go-notebook.dev/docs/reference-charts.html.
+// Demonstrates: CSV parsing + filtering in a cell, nb/chart stats + Table + Bar,
+// and the WASM portability line. See https://go-notebook.dev/docs/reference-charts.html.
 //
 //notebook:layout intro
 //notebook:layout summary | byRegion
@@ -27,7 +29,6 @@
 package csv
 
 import (
-	"encoding/csv"
 	"strconv"
 	"strings"
 
@@ -37,7 +38,7 @@ import (
 
 // The dataset, inlined so the notebook runs anywhere. Quarterly sales rows:
 // region, quarter, units, revenue. In a native run this would be os.Open(path)
-// piped to the same parser.
+// piped to a parser.
 const salesCSV = `region,quarter,units,revenue
 North,Q1,1200,54000
 North,Q2,1350,60750
@@ -62,21 +63,19 @@ West,Q3,780,35100`
 //notebook:slider min=0 max=60000 step=5000
 func minRevenue() (floor float64) { return 0 }
 
-// Parse the CSV and keep the rows at or above the floor. encoding/csv over a
-// strings.Reader is pure and WASM-able — no file, no socket. Parsing lives in one
-// cell so everything downstream receives typed [Sale] rows, not strings.
+// Parse the CSV and keep the rows at or above the floor. Split on newlines and
+// commas with strings — pure and WASM-able, no file and no socket (see the note
+// at the top on why encoding/csv would not be). Parsing lives in one cell so
+// everything downstream receives typed [Sale] rows, not raw strings.
 func rows(floor float64) (sales []Sale) {
-	r := csv.NewReader(strings.NewReader(salesCSV))
-	records, err := r.ReadAll()
-	if err != nil || len(records) < 2 {
-		return nil
-	}
-	for _, rec := range records[1:] { // skip the header
+	lines := strings.Split(strings.TrimSpace(salesCSV), "\n")
+	for _, line := range lines[1:] { // skip the header
+		rec := strings.Split(line, ",")
 		if len(rec) < 4 {
 			continue
 		}
-		units, _ := strconv.Atoi(rec[2])
-		rev, _ := strconv.ParseFloat(rec[3], 64)
+		units, _ := strconv.Atoi(strings.TrimSpace(rec[2]))
+		rev, _ := strconv.ParseFloat(strings.TrimSpace(rec[3]), 64)
 		if rev < floor {
 			continue
 		}
@@ -142,9 +141,10 @@ func byRegion(sales []Sale) (bars chart.BarChart) {
 // not (nb.HTML/nb.Markdown are meant to be called inside a Render, not returned
 // as the cell result).
 func intro() (md Markdown) {
-	return `**Normal analysis, no dataframe.** A CSV in a string, parsed with
-the standard library's ` + "`encoding/csv`" + `, filtered with a plain ` + "`if`" + `,
-summarized and charted with the optional ` + "`nb/chart`" + ` package.
+	return `**Normal analysis, no dataframe.** A CSV in a string, parsed with the
+standard library (` + "`strings.Split`" + ` — see the source note on ` + "`encoding/csv`" + `
+and the browser), filtered with a plain ` + "`if`" + `, summarized and charted with
+the optional ` + "`nb/chart`" + ` package.
 
 Drag **min revenue** above: the parse-and-filter cell reruns, and the table, the
 summary, and the bars downstream of it all recompute — because each is a function

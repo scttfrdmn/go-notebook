@@ -83,6 +83,12 @@ The craft is the value, and it is the part a hand-rolled SVG usually skips:
 
 You do not configure any of this. It is the same on every chart, which is what lets a notebook's charts read as one system.
 
+## Try it
+
+The [`minimal/csv`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/csv) example — the "normal analysis" workflow, parse → filter → summarize → chart — compiled to WebAssembly and running right here. Drag **min revenue**: the parse-and-filter cell reruns, and the summary cards, the region bars, and the filtered table all recompute downstream.
+
+<div class="demoframe"><iframe src="../demos/csv/index.html" loading="lazy" title="the minimal/csv notebook, live"></iframe></div>
+
 ## The boundary
 
 > `nb/chart` draws five forms well and will never grow a sixth axis, subplots, secondary y-axes, custom themes, animation, or a legend DSL. It is the 1% done excellently, not a plotting library. When you need more: the raw HTML/SVG `Render()` escape hatch (always there) or import `gonum/plot`. The toolchain never depends on this package.

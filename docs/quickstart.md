@@ -58,6 +58,15 @@ code.
   directive just refines it into a slider).
 - `doubled` is a **derived** cell: it takes a parameter, so it sits downstream.
 
+## See one run
+
+Your two-cell notebook is deliberately tiny. Here is the next step — the
+Celsius→Fahrenheit notebook the [first-notebook walkthrough](authoring.html)
+builds — compiled to WebAssembly and running right here. Same rule (a result
+named `c` feeds the parameter `c`), one more cell, a rendered gauge. Drag it:
+
+<div class="demoframe"><iframe src="../demos/tempconv/index.html" loading="lazy" title="the tempconv notebook, live"></iframe></div>
+
 ## Next
 
 - [Write your first notebook](authoring.html) — the same idea, then rendering,

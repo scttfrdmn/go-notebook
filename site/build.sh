@@ -18,8 +18,11 @@ for nb in capacity curvefit bayes anscombe nbody turing surface gpulife percolat
 done
 
 # tempconv is the notebook the authoring tutorial builds; it's embedded in that
-# doc page as a working view (graph collapsed at end, not showcased).
+# doc page (and teased at the end of the quickstart) as a working view.
 /tmp/notebook-build build --target=wasm -o "site/demos/tempconv" "examples/tempconv"
+
+# csv is the "normal analysis" example embedded live in the charts doc page.
+/tmp/notebook-build build --target=wasm --showcase -o "site/demos/csv" "examples/minimal/csv"
 
 # Render the curated docs (docs/*.md → site/docs/*.html), styled to match.
 go run ./site/docgen

@@ -88,7 +88,13 @@ func main() {
 
 		var body bytes.Buffer
 		must(md.Convert(srcBytes, &body))
-		content := rewriteLinks(body.String()) + pager(i)
+		// Lift the github-dark comment color: its #007f7f teal is too dark on our
+		// #0f1524 code background, and comments carry weight here (//go:notebook,
+		// the directives). This one hex is comments-only in the theme, so a
+		// targeted swap to a lighter teal of the same hue is safe and leaves every
+		// other token untouched.
+		lit := strings.ReplaceAll(body.String(), "color:#007f7f", "color:#4db6ac")
+		content := rewriteLinks(lit) + pager(i)
 		out := shell(p.title, navLinks(p.slug), content, p.slug, p.blurb)
 		must(os.WriteFile(filepath.Join(outDir, p.slug+".html"), []byte(out), 0o644))
 		fmt.Printf("docs: wrote site/docs/%s.html\n", p.slug)
@@ -396,7 +402,10 @@ const docCSS = `
     --mono:"Atkinson Hyperlegible Mono", "SF Mono", ui-monospace, Menlo, monospace;
   }
   * { box-sizing:border-box; }
-  html { scroll-behavior:smooth; }
+  /* scrollbar-gutter keeps a stable gutter whether or not a page scrolls, so the
+     centered layout doesn't shift left/right as you move between short and long
+     docs pages. */
+  html { scroll-behavior:smooth; scrollbar-gutter:stable; }
   body { font-family:var(--font); font-size:1.0625rem; line-height:1.7; color:var(--ink);
     background:var(--bg); margin:0; -webkit-font-smoothing:antialiased; }
   a { color:var(--blue); }
