@@ -60,7 +60,7 @@ The graph is not something you maintain alongside the code — it is *derived fr
 
 Before you go further, the rules that will trip you up once and never again. Each is a direct consequence of "a cell is a function," and `go tool notebook check .` catches most of them with a pointed message.
 
-1. **A cell is a documented function with *named* results.** `func celsius() (c int)` is a cell; `func celsius() int` is not (no named result = no edge = not a cell). This is also how you write a **helper**: give it *unnamed* returns and it stays ordinary Go, invisible to the graph — e.g. `func clamp(v, lo, hi int) int`.
+1. **A cell is a top-level function with *named* results.** `func celsius() (c int)` is a cell; `func celsius() int` is not (no named result = no edge = not a cell). The named result is the marker — *not* the doc comment, which only supplies the human label. This is also how you write a **helper**: give it *unnamed* returns and it stays ordinary Go, invisible to the graph — e.g. `func clamp(v, lo, hi int) int`. (A documented function with unnamed returns is still a helper; an undocumented function with a named result is still a cell, just labelled from its function name. Documenting cells is strongly recommended for the label and tooltip — but it is not what makes them cells.)
 
 2. **The result name *is* the edge.** To wire a value into a consumer, the producer's result must be named exactly what the consumer's parameter is named. Rename `celsius`'s result from `c` to `temp` and the build fails with:
 
@@ -173,4 +173,4 @@ That is the whole loop: **one Go file is a live browser app, a batch job, and a 
 
 - [The paper](paper.html) — the system, end to end, and why it is shaped this way.
 - [The design](design.html) — the full design record.
-- The [`examples/` directory](https://github.com/scttfrdmn/go-notebook/tree/main/examples) — ~39 notebooks on GitHub, from an M/M/c queue to a Simpson's-paradox table; read them as Go.
+- The [`examples/` directory](https://github.com/scttfrdmn/go-notebook/tree/main/examples) — 44 notebooks on GitHub, from an M/M/c queue to a Simpson's-paradox table; read them as Go.

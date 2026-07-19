@@ -56,7 +56,7 @@ Two exceptions, both narrow and both idiomatic:
 - **A trailing `error` result is not an edge.** It marks the cell failed and blocks downstream cells, which display "blocked upstream" rather than a wrong number. Errors are values in the graph, not process death.
 - **A `context.Context` parameter is injected, not wired.** It is the one parameter with no upstream cell. Cells that want to be cancellable ask for it; cells that don't, don't.
 
-**Undocumented top-level functions are not cells.** They are ordinary helpers. The doc comment is the marker, and it is also the label — you'd have written it anyway.
+**A named result is the marker; the doc comment is the label.** A top-level function is a cell iff it produces at least one named, non-`error` result — the named result *is* an edge, so a function that names none produces no edge and stays an ordinary helper (its unnamed returns keep it out of the graph). The doc comment is not what makes a cell; it supplies the human label (first sentence). Write `func clamp(v, lo, hi int) int` and it is a helper whether or not you document it; write `func celsius() (c int)` and it is a cell whether or not you document it — you just get a plainer label from the function name. This is rung 1 of the degradation ladder below.
 
 Implementation: `go/types` over the synthesized package, `Info.Defs` and `Info.Uses`, cross-referenced against cell spans. The type checker has already done the semantics. Migrate to a headless `gopls` when incremental re-checking on keystroke starts to hurt — which it will, and which is the first real engineering risk in this document.
 
