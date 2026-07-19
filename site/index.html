@@ -20,13 +20,25 @@
     font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     color: var(--ink); background: var(--bg); margin: 0;
   }
-  .wrap { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
   a { color: var(--blue); }
   code, pre { font-family: "SF Mono", ui-monospace, "Cascadia Code", Menlo, monospace; }
 
-  header { padding: 3.5rem 0 1.5rem; text-align: center; }
-  header img { max-width: 560px; width: 100%; height: auto; display: block; margin: 0 auto; }
-  .tag { color: var(--muted); font-size: 1.05rem; margin: .75rem auto 0; max-width: 60ch; }
+  /* Top nav bar — sticky, hairline-bottomed, links to docs + GitHub. */
+  .nav { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.9);
+         backdrop-filter: saturate(140%) blur(8px); border-bottom: 1px solid var(--line); }
+  .nav .inner { max-width: 1080px; margin: 0 auto; padding: .6rem 24px;
+                display: flex; align-items: center; gap: 1.25rem; }
+  .nav .brand { font-weight: 700; color: var(--navy); text-decoration: none; letter-spacing: -.01em; }
+  .nav .brand .fn { color: var(--go); }
+  .nav .links { margin-left: auto; display: flex; align-items: center; gap: 1.1rem; }
+  .nav .links a { color: var(--muted); text-decoration: none; font-size: .92rem; }
+  .nav .links a:hover { color: var(--navy); }
+  .nav .links a.gh { color: var(--navy); font-weight: 600; }
+
+  header { padding: 2rem 0 1rem; text-align: center; }
+  header img { max-width: 440px; width: 100%; height: auto; display: block; margin: 0 auto; }
+  .hero-tag { color: var(--muted); font-size: .98rem; line-height: 1.5; margin: .6rem auto 0; max-width: 58ch; }
 
   /* Demos come first — drag before you read. */
   .demo { margin: 2.5rem 0 3.5rem; border-top: 1px solid var(--line); padding-top: 1.75rem; }
@@ -40,7 +52,7 @@
   .corpus { border-top: 1px solid var(--line); padding: 2rem 0 1rem; }
   .corpus h2 { color: var(--navy); font-size: 1.35rem; margin: 0 0 .3rem; }
   .corpus .lead { color: var(--muted); margin: 0 0 1.5rem; max-width: 64ch; }
-  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
   .tile { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px;
           padding: 1rem 1.1rem; background: #fff; box-shadow: 0 1px 3px rgba(20,30,60,.05);
           text-decoration: none; color: inherit; transition: border-color .12s, box-shadow .12s, transform .12s; }
@@ -96,11 +108,25 @@
 </style>
 </head>
 <body>
+
+<nav class="nav">
+  <div class="inner">
+    <a class="brand" href="/">go-notebook <span class="fn">·  a cell is a function</span></a>
+    <div class="links">
+      <a href="#corpus">Demos</a>
+      <a href="https://github.com/scttfrdmn/go-notebook/blob/main/docs/authoring.md">Get started</a>
+      <a href="https://github.com/scttfrdmn/go-notebook/blob/main/docs/paper.md">Paper</a>
+      <a href="https://github.com/scttfrdmn/go-notebook/tree/main/docs">Docs</a>
+      <a class="gh" href="https://github.com/scttfrdmn/go-notebook">GitHub ↗</a>
+    </div>
+  </div>
+</nav>
+
 <div class="wrap">
 
   <header>
     <img src="assets/logo.png" alt="go-notebook — a cell is a function">
-    <p class="tag">Reactive notebooks that compile. Drag a slider below and watch the wave move through the dependency graph at the top of the demo — that graph is derived by the Go type checker, and it's compiled Go running in your browser, no server. Then browse the corpus: thirty-eight you can drag right here.</p>
+    <p class="hero-tag">Reactive notebooks that compile — a cell is a function, the dependency graph is derived by the Go type checker, and it all runs as compiled Go in your browser with no server. Drag a slider below; then browse thirty-eight you can drag right here.</p>
   </header>
 
   <!-- ONE DEMO FIRST. Drag before you read a single word of prose. -->
@@ -137,7 +163,7 @@
   <!-- THE CORPUS. One tile per notebook. Live tiles run in your browser;
        batch tiles are the same file, built for a cluster instead. -->
 
-  <section class="corpus">
+  <section class="corpus" id="corpus">
     <h2>The corpus — thirty-eight notebooks you can drag</h2>
     <p class="lead">Every notebook is a plain Go package, compiled to WebAssembly and running right here in your browser — a notebook is browser-portable only if it touches no <code>net</code>, <code>os</code>, or cgo, and the toolchain derives that from the call graph. Several were ported from marimo's gallery (porting them found real bugs); others are originals built to put one mechanism on stage — including a few that render not a chart but a <em>document</em>: an invoice, a table, a heatmap, drawn in HTML because that is the medium the answer takes.</p>
     <div class="tiles">
@@ -165,7 +191,7 @@
 
       <a class="tile" href="demos/anscombe/index.html">
         <div class="top"><h3>anscombe</h3><span class="tag">grips</span></div>
-        <p class="what">Summary statistics lie. Drag the scatter into any shape — a dinosaur, a line — and the mean, variance, correlation, and fitted line scarcely move. The graph is the only honest witness. Every point is a grip.</p>
+        <p class="what">Summary statistics lie. Drag the scatter into any shape — a dinosaur, a line — and the mean, variance, correlation, and fitted line scarcely move. Only the plot shows what the numbers hide. Every point is a grip.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
         <span class="go">Open demo</span>
       </a>
@@ -420,10 +446,10 @@
     <p>That's why the demos lead with it, and why watching a wave propagate through it is the best debugger in the system: <span class="key">you can see exactly what recomputes and in what order</span>, live, with no server and no instrumentation. No other notebook can show you this, because in every other notebook the graph is incidental. It's the artifact.</p>
   </section>
 
-  <!-- NUMBERS, including the one that doesn't flatter. -->
+  <!-- NUMBERS — measured, reproduced in CI. -->
 
   <section class="numbers">
-    <h2>The numbers — measured, including the ones that don't flatter</h2>
+    <h2>The numbers — measured, reproduced in CI</h2>
     <div class="grid">
       <div class="stat"><div class="n">~1 MB</div><div class="l">gzipped .wasm (whole notebook + engine)</div></div>
       <div class="stat"><div class="n">~40 ms</div><div class="l">cold load to an interactive slider</div></div>
@@ -431,7 +457,7 @@
       <div class="stat"><div class="n">0</div><div class="l">servers, kernels, or notebook files</div></div>
     </div>
     <p class="stand">A Pyodide-based notebook ships 10 MB+ of interpreter before your code and cold-starts in seconds — <b>because it ships an interpreter, and this ships a compiled program.</b></p>
-    <p class="caveat"><b>The honest caveat:</b> in the browser, <code>GOOS=js</code> is single-threaded. The scheduler's goroutine fan-out — the one place Go's concurrency pays a real dividend — is <b>absent</b> here; independent cells run serially. It's invisible on these demos and would matter on a compute-heavy notebook. Native builds (your laptop, an HPC node) do fan out across cores.</p>
+    <p class="caveat"><b>One limit worth naming:</b> in the browser, <code>GOOS=js</code> is single-threaded, so independent cells run serially — the scheduler's goroutine fan-out is a native-only dividend. It's invisible on these demos and would matter on a compute-heavy notebook; native builds (your laptop, an HPC node) fan out across cores.</p>
   </section>
 
   <!-- THE SECOND ACT: the differentiated thing, not the shiny thing. -->
@@ -449,7 +475,7 @@
 
   <footer>
     <p><a href="https://github.com/scttfrdmn/go-notebook">github.com/scttfrdmn/go-notebook</a> · Apache 2.0 · a cell is a function.</p>
-    <p>Built and measured, not promised: five kill criteria on the board, a glitch-free scheduler with a sabotage test guarding it, and every number here reproduced in CI. If something reads as too good, the source is one click away.</p>
+    <p>Five kill criteria on the board, a glitch-free scheduler guarded by a sabotage test, and every number here reproduced in CI. The source is one click away.</p>
   </footer>
 
 </div>
