@@ -200,6 +200,58 @@ func TestSupervisorServesSource(t *testing.T) {
 	}
 }
 
+// TestSupervisorWritesSource is A2's unit falsification: POST /__source replaces
+// the file atomically and rejects an over-cap body before touching disk. (The
+// rebuild it triggers is exercised end-to-end in service_test.go against the
+// real loop; here we prove the write itself is correct and bounded.)
+func TestSupervisorWritesSource(t *testing.T) {
+	const orig = "//go:notebook\npackage demo\n\nfunc x() (n int) { return 1 }\n"
+	const edited = "//go:notebook\npackage demo\n\nfunc x() (n int) { return 999 }\n"
+	dir := t.TempDir()
+	path := filepath.Join(dir, "demo.go")
+	if err := os.WriteFile(path, []byte(orig), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sup := httptest.NewServer(newSupervisor(&status{}, path))
+	defer sup.Close()
+
+	// A valid POST replaces the file and 204s.
+	resp, err := http.Post(sup.URL+"/__source", "text/plain", strings.NewReader(edited))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("POST /__source status = %d, want 204", resp.StatusCode)
+	}
+	on, _ := os.ReadFile(path)
+	if string(on) != edited {
+		t.Errorf("file after POST =\n%q\nwant\n%q", on, edited)
+	}
+	// No staging temp files are left behind in the directory.
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".notebook-src-") {
+			t.Errorf("leftover temp file after write: %s", e.Name())
+		}
+	}
+
+	// An over-cap body is rejected and the file is left untouched.
+	big := strings.Repeat("x", maxSourceBytes+1)
+	r2, err := http.Post(sup.URL+"/__source", "text/plain", strings.NewReader(big))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = r2.Body.Close()
+	if r2.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Errorf("oversize POST status = %d, want 413", r2.StatusCode)
+	}
+	on2, _ := os.ReadFile(path)
+	if string(on2) != edited {
+		t.Errorf("oversize POST must not touch the file; got\n%q", on2)
+	}
+}
+
 // readAllRaw reads the full body verbatim (bytes preserved, unlike readAll which
 // scans line by line and drops newlines).
 func readAllRaw(t *testing.T, resp *http.Response) string {

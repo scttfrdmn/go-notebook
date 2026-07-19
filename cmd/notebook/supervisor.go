@@ -10,6 +10,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -220,31 +221,94 @@ func (s *supervisor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.proxy.ServeHTTP(w, r)
 }
 
-// handleSource serves the notebook's raw .go source. A1 implements GET (read the
-// file verbatim from disk); POST (write) arrives in A2. When no source path is
-// configured (srcPath == "", e.g. a multi-file package the editor can't safely
-// target), it 404s so the client feature-detects the editor as unavailable and
-// falls back to read-only source.
+// maxSourceBytes caps a POSTed source file. A notebook is one human-written Go
+// file; a megabyte is already far past any real one, and the cap keeps a bad or
+// hostile client from writing an unbounded file to disk.
+const maxSourceBytes = 1 << 20 // 1 MiB
+
+// handleSource serves and writes the notebook's raw .go source. GET reads the
+// file verbatim from disk (A1); POST replaces it (A2), which then triggers a
+// rebuild via the existing mtime watcher — the supervisor writes the file
+// exactly as an external editor would, and pokes nothing it understands. When no
+// source path is configured (srcPath == "", e.g. a multi-file package the editor
+// can't safely target), both verbs 404 so the client feature-detects the editor
+// as unavailable and falls back to read-only source.
 func (s *supervisor) handleSource(w http.ResponseWriter, r *http.Request) {
 	if s.srcPath == "" {
 		http.Error(w, "source editing unavailable", http.StatusNotFound)
 		return
 	}
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", "GET")
+	switch r.Method {
+	case http.MethodGet:
+		// Read fresh every request — an external editor may have changed it, and
+		// the point is the current on-disk source, not a cached copy.
+		src, err := os.ReadFile(s.srcPath)
+		if err != nil {
+			http.Error(w, "read source: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(src)
+	case http.MethodPost:
+		s.writeSource(w, r)
+	default:
+		w.Header().Set("Allow", "GET, POST")
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
 	}
-	// Read the file fresh on every request — an external editor may have changed
-	// it, and the point is to show the current on-disk source, not a cached copy.
-	src, err := os.ReadFile(s.srcPath)
+}
+
+// writeSource replaces the notebook file with the POSTed body. This is the ONLY
+// code in the toolchain that mutates the user's .go source — every other write
+// targets a throwaway overlay dir — so it is deliberately the single chokepoint,
+// and it is careful:
+//
+//   - it reads at most maxSourceBytes and rejects an over-cap body before any
+//     disk write (reject-before-disk);
+//   - it writes to a temp file in the SAME directory and renames it over the
+//     original, so the write is atomic: the watcher (and the compiler behind it)
+//     can never observe a half-written file, even if the request is torn
+//     mid-body.
+//
+// It does not itself trigger the rebuild: the rename bumps the file's mtime, and
+// the parent's existing watchFiles poller catches that exactly as it catches an
+// external editor's save. The supervisor stays ignorant of what a rebuild is.
+func (s *supervisor) writeSource(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxSourceBytes+1))
 	if err != nil {
-		http.Error(w, "read source: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "read body: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	_, _ = w.Write(src)
+	if len(body) > maxSourceBytes {
+		http.Error(w, "source too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+
+	dir := filepath.Dir(s.srcPath)
+	tmp, err := os.CreateTemp(dir, ".notebook-src-*.tmp")
+	if err != nil {
+		http.Error(w, "stage write: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	tmpName := tmp.Name()
+	// Best-effort cleanup if we bail before the rename; after a successful rename
+	// the temp name no longer exists, so the remove is a harmless no-op.
+	defer func() { _ = os.Remove(tmpName) }()
+
+	if _, err := tmp.Write(body); err != nil {
+		_ = tmp.Close()
+		http.Error(w, "stage write: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := tmp.Close(); err != nil {
+		http.Error(w, "stage write: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := os.Rename(tmpName, s.srcPath); err != nil {
+		http.Error(w, "commit write: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // pickFreePort asks the OS for an unused localhost TCP port for the child. The
