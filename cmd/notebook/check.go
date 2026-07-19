@@ -40,6 +40,15 @@ func cmdCheck(args []string) int {
 		return 1
 	}
 
+	// Refine purity so the [pure]/[impure] tag reflects the real call-graph
+	// verdict rather than the pre-refinement impure default. The graph derivation
+	// above (KC1, timed) deliberately excludes this heavy NeedDeps load; check
+	// runs it after, so the timing stays honest and the tag stops lying. On
+	// failure every cell shows impure — the safe default — so it never aborts.
+	if err := analyze.RefineGraphPurity(dir, g); err != nil {
+		fmt.Fprintf(os.Stderr, "notebook check: purity analysis skipped (%v); cells shown impure\n", err)
+	}
+
 	io.WriteString(os.Stdout, renderGraph(g)) //nolint:errcheck // stdout
 
 	if len(diags) > 0 {

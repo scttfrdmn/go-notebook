@@ -303,6 +303,11 @@ func buildBinary(dir, moduleRoot string) (bin string, cleanup func(), err error)
 		}
 		fmt.Fprintln(os.Stderr, d.String())
 	}
+	// Derive purity so the built binary's cache fires (see cmdBuild). Best-effort:
+	// on failure the cells stay impure (a cache miss, never a wrong result).
+	if err := analyze.RefineGraphPurity(dir, res.Graph); err != nil {
+		fmt.Fprintf(os.Stderr, "notebook run: purity analysis skipped (%v); cache disabled\n", err)
+	}
 	overlay, err := gen.Build(res.Graph, res.Package, moduleRoot)
 	if err != nil {
 		return "", nil, err
