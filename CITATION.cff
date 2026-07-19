@@ -25,7 +25,7 @@ keywords:
   - literate computing
   - reproducibility
 license: Apache-2.0
-version: 0.1.0
+version: 0.2.0
 date-released: "2026-07-19"
 # After enabling the Zenodo–GitHub integration and cutting a release, Zenodo mints
 # a DOI. Add it here so "Cite this repository" and downstream tools surface it:
