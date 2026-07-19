@@ -59,7 +59,9 @@ func Page(opts PageOpts) string {
 	b.WriteString(CSS)
 	b.WriteString("</style>\n")
 	b.WriteString(opts.HeadExtra)
-	b.WriteString("\n</head>\n<body>\n<h1>")
+	b.WriteString("\n</head>\n<body>\n")
+	b.WriteString(`<a class="skip" href="#cells">Skip to results</a>` + "\n")
+	b.WriteString("<h1>")
 	b.WriteString(opts.Title)
 	if opts.Subtitle != "" {
 		b.WriteString(` <span style="font-weight:400;color:#888">`)
@@ -68,7 +70,7 @@ func Page(opts PageOpts) string {
 	}
 	b.WriteString("</h1>\n")
 	if opts.Status {
-		b.WriteString(`<div id="status">loading…</div>` + "\n")
+		b.WriteString(`<div id="status" role="status" aria-live="polite">loading…</div>` + "\n")
 	}
 	b.WriteString(opts.BodyPre)
 	// The graph lives in a <details> so it is legible and dismissable. A showcase
@@ -130,6 +132,16 @@ const CSS = `
           --font:"Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
           --mono:"Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", Menlo, monospace; }
   body { font: 14px/1.5 var(--font); margin: 2rem auto; max-width: 900px; padding: 0 24px; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  /* Accessibility: skip link (appears on focus), visible focus rings, and honoring
+     reduced-motion — the recompute-wave transitions are decorative, so drop them. */
+  .skip { position: absolute; left: -999px; top: 0; z-index: 100; background: var(--navy);
+          color: #fff; padding: .5rem .9rem; border-radius: 0 0 8px 0; text-decoration: none; }
+  .skip:focus { left: 0; }
+  a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible {
+    outline: 3px solid var(--run); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
   /* label | slider | value. The label column is minmax(0, 2fr) so a long label
      WRAPS instead of consuming the row; the slider column has a hard min so it can
      never collapse to zero width (which left only the thumb, undraggable). */
@@ -624,6 +636,14 @@ const NB = (function () {
     const svg = document.createElementNS(svgns, 'svg');
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
     svg.setAttribute('width', W); svg.setAttribute('height', H);
+    // Accessibility: the graph is an image with a named description, so assistive
+    // tech announces it rather than reading a wall of coordinate paths.
+    svg.setAttribute('role', 'img');
+    const cellCount = META.length;
+    svg.setAttribute('aria-label', 'Dependency graph: ' + cellCount + ' cells, drawn left to right from inputs to results; each node lights up as it recomputes.');
+    const titleEl = document.createElementNS(svgns, 'title');
+    titleEl.textContent = 'Notebook dependency graph';
+    svg.appendChild(titleEl);
     // An arrowhead marker so edges are directional (A feeds B), not just curves.
     const defs = document.createElementNS(svgns, 'defs');
     const marker = document.createElementNS(svgns, 'marker');

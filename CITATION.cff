@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+title: "go-notebook: A Reactive Notebook Where a Cell Is a Function"
+message: "If you use this software, please cite it using these metadata."
+type: software
+authors:
+  - family-names: Friedman
+    given-names: Scott
+    orcid: "https://orcid.org/0000-0003-1480-765X"
+repository-code: "https://github.com/scttfrdmn/go-notebook"
+url: "https://github.com/scttfrdmn/go-notebook"
+abstract: >-
+  go-notebook is a reactive notebook toolchain for Go in which a notebook is an
+  ordinary Go package and a cell is a top-level function. The reactive dependency
+  graph is derived by the Go type checker from function signatures — a cell's named
+  result feeds any cell that takes a parameter of the same name and type — so it
+  cannot drift from the code. The same file runs three ways from one source:
+  interactive in a browser over WebAssembly, headless as a batch job, or served over
+  HTTP, distinguished only by where the compiler is pointed. The artifact is a single
+  static binary with no interpreter, kernel, or environment to reconstitute.
+keywords:
+  - reactive notebook
+  - Go
+  - WebAssembly
+  - dataflow
+  - literate computing
+  - reproducibility
+license: Apache-2.0
+version: 0.1.0
+date-released: "2026-07-19"
+# After enabling the Zenodo–GitHub integration and cutting a release, Zenodo mints
+# a DOI. Add it here so "Cite this repository" and downstream tools surface it:
+# doi: 10.5281/zenodo.XXXXXXX

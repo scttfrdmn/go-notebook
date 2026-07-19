@@ -15,6 +15,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"html"
 	"os"
@@ -80,7 +81,7 @@ func main() {
 
 		var body bytes.Buffer
 		must(md.Convert(srcBytes, &body))
-		out := shell(p.title, navLinks(p.slug), rewriteLinks(body.String()))
+		out := shell(p.title, navLinks(p.slug), rewriteLinks(body.String()), p.slug, p.blurb)
 		must(os.WriteFile(filepath.Join(outDir, p.slug+".html"), []byte(out), 0o644))
 		fmt.Printf("docs: wrote site/docs/%s.html\n", p.slug)
 	}
@@ -107,11 +108,60 @@ func main() {
 		navLinks(""),
 		`<h1>Documentation</h1>
 <p class="lead">New here? Start with <b>Write your first notebook</b>. The <b>Reference</b> covers every feature; the <b>Deep reads</b> explain why the system is shaped this way.</p>
-`+cards.String())
+`+cards.String(),
+		"index", "Documentation for go-notebook — the guide, a full feature reference, and the design and paper.")
 	must(os.WriteFile(filepath.Join(outDir, "index.html"), []byte(index), 0o644))
 	fmt.Println("docs: wrote site/docs/index.html")
 
 	checkLinks(outDir)
+	writeDiscoveryFiles(filepath.Join(root, "site"))
+}
+
+// baseURL is the site's canonical origin (a custom domain on GitHub Pages). Used
+// for absolute URLs in the sitemap, llms.txt, and JSON-LD.
+const baseURL = "https://go-notebook.dev"
+
+// writeDiscoveryFiles emits the crawler/LLM discovery files — robots.txt,
+// sitemap.xml, llms.txt — from the SAME page list the docs are built from, so they
+// cannot drift from what actually exists. All three live at the site root.
+func writeDiscoveryFiles(siteDir string) {
+	// Every canonical URL: the landing page + each generated doc page.
+	urls := []string{baseURL + "/"}
+	for _, p := range pages {
+		urls = append(urls, baseURL+"/docs/"+p.slug+".html")
+	}
+
+	// robots.txt — allow everything, point at the sitemap.
+	robots := "User-agent: *\nAllow: /\n\nSitemap: " + baseURL + "/sitemap.xml\n"
+	must(os.WriteFile(filepath.Join(siteDir, "robots.txt"), []byte(robots), 0o644))
+
+	// sitemap.xml
+	var sm strings.Builder
+	sm.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
+	sm.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
+	for _, u := range urls {
+		fmt.Fprintf(&sm, "  <url><loc>%s</loc></url>\n", html.EscapeString(u))
+	}
+	sm.WriteString("</urlset>\n")
+	must(os.WriteFile(filepath.Join(siteDir, "sitemap.xml"), []byte(sm.String()), 0o644))
+
+	// llms.txt — a structured, plain-text index for language models: what the
+	// project is, then a linked list of the docs with one-line descriptions.
+	// (Convention: https://llmstxt.org)
+	var lm strings.Builder
+	lm.WriteString("# go-notebook\n\n")
+	lm.WriteString("> A reactive notebook toolchain for Go. A notebook is an ordinary Go package and a cell is a top-level function; the dependency graph is derived by the Go type checker from function signatures. The same file compiles to an interactive WebAssembly app, a headless batch binary, or an HTTP-served page.\n\n")
+	lm.WriteString("Key idea: a cell's named result feeds any cell that takes a parameter of the same name and type, so the graph cannot drift from the code. The artifact is a single static binary — no interpreter, kernel, or environment to reconstitute.\n\n")
+	lm.WriteString("## Documentation\n\n")
+	for _, p := range pages {
+		fmt.Fprintf(&lm, "- [%s](%s/docs/%s.html): %s\n", p.title, baseURL, p.slug, p.blurb)
+	}
+	lm.WriteString("\n## Source\n\n")
+	lm.WriteString("- [Repository](https://github.com/scttfrdmn/go-notebook): the full source, Apache-2.0.\n")
+	lm.WriteString("- [Examples](https://github.com/scttfrdmn/go-notebook/tree/main/examples): ~39 notebooks read as Go.\n")
+	must(os.WriteFile(filepath.Join(siteDir, "llms.txt"), []byte(lm.String()), 0o644))
+
+	fmt.Println("docs: wrote robots.txt, sitemap.xml, llms.txt")
 }
 
 // hrefLocal matches href="something.html" (and #anchors) that point at a sibling
@@ -173,20 +223,36 @@ func rewriteLinks(htmlBody string) string {
 }
 
 // shell wraps rendered doc HTML in the page chrome: the same nav bar, palette,
-// and self-hosted Atkinson fonts as the landing page, plus a docs sidebar.
-func shell(title, sidebar, content string) string {
+// and self-hosted Atkinson fonts as the landing page, plus a docs sidebar. slug
+// and desc drive the per-page canonical URL, meta description, and JSON-LD so each
+// page is individually discoverable (AI-readiness) and legible to assistive tech.
+func shell(title, sidebar, content, slug, desc string) string {
+	canonical := baseURL + "/docs/" + slug + ".html"
+	if slug == "index" {
+		canonical = baseURL + "/docs/"
+	}
+	// JSON-LD: a TechArticle node for each doc page, in the site's software context.
+	jsonLD := `{"@context":"https://schema.org","@type":"TechArticle",` +
+		`"headline":` + jsonStr(title) + `,"description":` + jsonStr(desc) +
+		`,"url":` + jsonStr(canonical) +
+		`,"author":{"@type":"Person","name":"Scott Friedman"},` +
+		`"isPartOf":{"@type":"SoftwareSourceCode","name":"go-notebook","codeRepository":"https://github.com/scttfrdmn/go-notebook"}}`
 	return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>` + html.EscapeString(title) + ` — go-notebook docs</title>
+<meta name="description" content="` + html.EscapeString(desc) + `">
+<link rel="canonical" href="` + canonical + `">
+<script type="application/ld+json">` + jsonLD + `</script>
 <style>
 ` + docCSS + `
 </style>
 </head>
 <body>
-<nav class="nav">
+<a class="skip" href="#main">Skip to content</a>
+<nav class="nav" aria-label="Primary">
   <div class="inner">
     <a class="brand" href="../index.html">go-notebook <span class="fn">·  a cell is a function</span></a>
     <div class="links">
@@ -199,8 +265,8 @@ func shell(title, sidebar, content string) string {
   </div>
 </nav>
 <div class="docwrap">
-  <aside class="sidebar">` + sidebar + `</aside>
-  <main class="doc">` + content + `</main>
+  <aside class="sidebar"><nav aria-label="Documentation">` + sidebar + `</nav></aside>
+  <main class="doc" id="main">` + content + `</main>
 </div>
 <script>
 // Add a copy-to-clipboard button to every code block. No dependency: wrap each
@@ -227,6 +293,13 @@ document.querySelectorAll('.doc pre').forEach(function (pre) {
 `
 }
 
+// jsonStr JSON-encodes a string (with surrounding quotes) for embedding in the
+// JSON-LD literal — handles the escaping so a title with a quote or backslash is safe.
+func jsonStr(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
+}
+
 func must(err error) {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "docgen:", err)
@@ -246,7 +319,7 @@ const docCSS = `
   @font-face { font-family:"Atkinson Hyperlegible Mono"; font-style:normal; font-weight:400 700;
     font-display:swap; src:url("../assets/fonts/atkinson-mono.woff2") format("woff2"); }
   :root {
-    --navy:#1b3a6b; --blue:#007ec6; --go:#00add8; --ink:#1a1a2e; --muted:#5b6472;
+    --navy:#1b3a6b; --blue:#0070b8; --go:#00add8; --go-text:#0b7a99; --ink:#1a1a2e; --muted:#5b6472;
     --line:#e7ebf0; --bg:#fff; --code-bg:#0f1524; --code-fg:#e6ebf5;
     --font:"Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     --mono:"Atkinson Hyperlegible Mono", "SF Mono", ui-monospace, Menlo, monospace;
@@ -257,12 +330,24 @@ const docCSS = `
     background:var(--bg); margin:0; -webkit-font-smoothing:antialiased; }
   a { color:var(--blue); }
   code, pre { font-family:var(--mono); }
+  /* Accessibility: a skip link that appears on focus, and a visible focus ring on
+     every interactive element. */
+  .skip { position:absolute; left:-999px; top:0; z-index:100; background:var(--navy); color:#fff;
+    padding:.6rem 1rem; border-radius:0 0 8px 0; text-decoration:none; }
+  .skip:focus { left:0; }
+  a:focus-visible, button:focus-visible, summary:focus-visible {
+    outline:3px solid var(--go); outline-offset:2px; border-radius:3px; }
+  /* Honor a reader's reduced-motion preference: no smooth-scroll, no transitions. */
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior:auto; }
+    * { transition:none !important; animation:none !important; }
+  }
 
   .nav { position:sticky; top:0; z-index:10; background:rgba(255,255,255,.9);
     backdrop-filter:saturate(140%) blur(8px); border-bottom:1px solid var(--line); }
   .nav .inner { max-width:1100px; margin:0 auto; padding:.7rem 24px; display:flex; align-items:center; gap:1.5rem; }
   .nav .brand { font-weight:700; color:var(--navy); text-decoration:none; letter-spacing:-.01em; font-size:1.1875rem; }
-  .nav .brand .fn { color:var(--go); }
+  .nav .brand .fn { color:var(--go-text); }
   .nav .links { margin-left:auto; display:flex; align-items:center; gap:1.4rem; }
   .nav .links a { color:var(--muted); text-decoration:none; font-size:1.0625rem; }
   .nav .links a:hover { color:var(--navy); }
