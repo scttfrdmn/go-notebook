@@ -232,11 +232,22 @@ func shell(title, sidebar, content, slug, desc string) string {
 		canonical = baseURL + "/docs/"
 	}
 	// JSON-LD: a TechArticle node for each doc page, in the site's software context.
-	jsonLD := `{"@context":"https://schema.org","@type":"TechArticle",` +
-		`"headline":` + jsonStr(title) + `,"description":` + jsonStr(desc) +
-		`,"url":` + jsonStr(canonical) +
-		`,"author":{"@type":"Person","name":"Scott Friedman"},` +
-		`"isPartOf":{"@type":"SoftwareSourceCode","name":"go-notebook","codeRepository":"https://github.com/scttfrdmn/go-notebook"}}`
+	// Built by marshalling a map (not string concatenation) so field values are
+	// correctly escaped — including the <script>-closing "</" sequence, which
+	// json.Marshal escapes with HTML escaping left on.
+	jsonLD := marshalJSONLD(map[string]any{
+		"@context":    "https://schema.org",
+		"@type":       "TechArticle",
+		"headline":    title,
+		"description": desc,
+		"url":         canonical,
+		"author":      map[string]any{"@type": "Person", "name": "Scott Friedman"},
+		"isPartOf": map[string]any{
+			"@type":          "SoftwareSourceCode",
+			"name":           "go-notebook",
+			"codeRepository": "https://github.com/scttfrdmn/go-notebook",
+		},
+	})
 	return `<!doctype html>
 <html lang="en">
 <head>
@@ -293,10 +304,15 @@ document.querySelectorAll('.doc pre').forEach(function (pre) {
 `
 }
 
-// jsonStr JSON-encodes a string (with surrounding quotes) for embedding in the
-// JSON-LD literal — handles the escaping so a title with a quote or backslash is safe.
-func jsonStr(s string) string {
-	b, _ := json.Marshal(s)
+// marshalJSONLD renders a JSON-LD object safely for embedding inside a <script>
+// element. json.Marshal keeps HTML escaping on by default (so <, >, & become
+// < etc.), which means a value can't break out of the surrounding quotes or
+// close the <script> tag early — the whole point CodeQL's unsafe-quoting rule checks.
+func marshalJSONLD(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "{}"
+	}
 	return string(b)
 }
 
