@@ -8,6 +8,38 @@ import (
 	"testing"
 )
 
+// TestFontsAreEmbeddedAndSelfContained pins that every page carries the Atkinson
+// typeface inline (base64 woff2 data-URIs), with no external font reference — so a
+// notebook served, built, or opened offline renders in the project's typeface with
+// no CDN. If the embed breaks or someone reaches for a <link> to Google Fonts, this
+// fails: it would otherwise regress silently to a system-font fallback.
+func TestFontsAreEmbeddedAndSelfContained(t *testing.T) {
+	page := Page(PageOpts{Title: "t"})
+	for _, want := range []string{
+		`font-family:"Atkinson Hyperlegible"`,      // the sans face
+		`font-family:"Atkinson Hyperlegible Mono"`, // the mono face
+		"data:font/woff2;base64,",                  // inlined, not linked
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("page missing %q — the typeface would fall back to a system font", want)
+		}
+	}
+	for _, bad := range []string{"fonts.googleapis.com", "fonts.gstatic.com", "<link"} {
+		if strings.Contains(page, bad) {
+			t.Errorf("page references %q — fonts must be self-hosted, no CDN", bad)
+		}
+	}
+	// The four embedded faces must be non-empty (a missing //go:embed file embeds
+	// as a zero-length byte slice, which would render nothing).
+	for name, b := range map[string][]byte{
+		"regular": fontRegular, "bold": fontBold, "italic": fontItalic, "mono": fontMono,
+	} {
+		if len(b) == 0 {
+			t.Errorf("embedded font %q is empty — the //go:embed file is missing", name)
+		}
+	}
+}
+
 // TestSharedClientContract pins the "one thing, two transports" structure: the
 // shared JS exposes the NB.{init,render,seedLeaves} surface both clients depend
 // on, and the CSS carries the graph + state-rail rules. If someone renames or
