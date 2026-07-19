@@ -22,16 +22,27 @@
 //	notebook.meta          []CellMeta — the graph, labels, leaf symbols, widget kinds
 //	notebook.provenance    build identity (or null) — what produced this .wasm
 //	notebook.set(leaf, v)  edit a leaf (data in); v is a JS scalar/array
-//	notebook.subscribe(fn) fn(ev) per cell update (data out); returns an unsubscribe fn
-//	                       ev = {epoch, cell, state, mime, data, err}
-//	notebook.values()      snapshot {leaf: value} of every cell's latest value (Finals)
-//	notebook.start()       run the first wave, so cells paint their defaults
+//	notebook.subscribe(fn)       fn(ev) per cell update (data out); returns an unsubscribe fn
+//	                             ev = {epoch, cell, state, mime, data, err}
+//	notebook.subscribeValues(fn) fn({cell, value}) as each cell's TYPED value changes
+//	                             (data out); returns an unsubscribe fn
+//	notebook.values()            snapshot {leaf: value} of every cell's latest value (Finals)
+//	notebook.start()             run the first wave, so cells paint their defaults
 //
 // The value channel IS the subscription: every cell's value (a rendered picture
 // for eyes, a scalar readout, a widget's state) arrives as an event. There is no
 // separate seed channel to poll — subscribe before start and the defaults come
 // on the stream. notebook.values() is the same information as a synchronous
 // snapshot, for a program that wants to pull rather than subscribe.
+//
+// subscribe delivers the RENDERED projection (mime/data — a string readout, an
+// <svg>, widget-state JSON): what a human reads. subscribeValues delivers the
+// TYPED value flattened to a plain JS value (a named-numeric leaf arrives as a
+// number, not the string "40.24"): what a PROGRAM reads. Both are projections of
+// the one subscription; a program that computes on a notebook's outputs wants the
+// second. The value crosses only through the same jsonToJS flattening values()
+// uses — the single NAMED out-side wire crossing, symmetric with the coercer's
+// fail-loud in-side; anything jsonToJS cannot flatten arrives as JS null.
 package wasm
 
 import (
@@ -71,8 +82,10 @@ func RunNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provena
 
 	// One goroutine reads the engine's channel and fans each event out to every
 	// JS subscriber. Started before the port is published, so no event a host
-	// subscribes for (it subscribes before start()) is lost.
-	go p.pump(rt.Subscribe())
+	// subscribes for (it subscribes before start()) is lost. It reads via
+	// SubscribeValues because it delivers both projections — the rendered wire
+	// event AND the typed Event.Value (see the two subscriber sets on port).
+	go p.pump(rt.SubscribeValues())
 
 	// meta, provenance, and layout are published as PARSED JS values
 	// (arrays/objects), not JSON strings the host must re-parse: the port hands
@@ -95,6 +108,12 @@ func RunNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provena
 				return nil
 			}
 			return p.subscribe(args[0])
+		}),
+		"subscribeValues": js.FuncOf(func(_ js.Value, args []js.Value) any {
+			if len(args) != 1 || args[0].Type() != js.TypeFunction {
+				return nil
+			}
+			return p.subscribeValues(args[0])
 		}),
 		"values": js.FuncOf(func(_ js.Value, _ []js.Value) any {
 			// Round-trip through JSON, not js.ValueOf directly: a leaf value is
@@ -126,50 +145,93 @@ type port struct {
 	meta []engine.CellMeta
 	set  SetFunc
 
-	mu   sync.Mutex
-	subs map[int]js.Value // subscriber id -> JS callback
-	next int
+	mu        sync.Mutex
+	subs      map[int]js.Value // subscribe(fn): rendered-event subscribers
+	valueSubs map[int]js.Value // subscribeValues(fn): typed {cell,value} subscribers
+	next      int
 }
 
-// subscribe registers a JS callback to receive every subsequent event and
-// returns a JS function that unregisters it. Multiple subscribers are supported
-// so a host can drive the notebook and observe it from independent listeners;
-// the engine's own Subscribe channel stays a single reader (this goroutine).
+// subscribe registers a JS callback to receive every subsequent RENDERED event
+// and returns a JS function that unregisters it. Multiple subscribers are
+// supported so a host can drive the notebook and observe it from independent
+// listeners; the engine's own channel stays a single reader (this goroutine).
 func (p *port) subscribe(fn js.Value) any {
+	return p.register(&p.subs, fn)
+}
+
+// subscribeValues registers a JS callback to receive {cell, value} as each
+// cell's TYPED value changes, and returns an unregister function. It is the
+// program-facing sibling of subscribe: subscribe hands the rendered projection
+// (a string readout / <svg> / widget JSON), subscribeValues hands the value
+// itself, flattened by jsonToJS to a plain JS value.
+func (p *port) subscribeValues(fn js.Value) any {
+	return p.register(&p.valueSubs, fn)
+}
+
+// register adds fn to a subscriber set and returns a JS unregister function.
+// Both subscriber sets draw ids from the shared p.next counter, so an id is
+// unique across sets and the unregister closure removes from the right one.
+func (p *port) register(set *map[int]js.Value, fn js.Value) any {
 	p.mu.Lock()
-	if p.subs == nil {
-		p.subs = map[int]js.Value{}
+	if *set == nil {
+		*set = map[int]js.Value{}
 	}
 	id := p.next
 	p.next++
-	p.subs[id] = fn
+	(*set)[id] = fn
 	p.mu.Unlock()
 
 	return js.FuncOf(func(_ js.Value, _ []js.Value) any {
 		p.mu.Lock()
-		delete(p.subs, id)
+		delete(*set, id)
 		p.mu.Unlock()
 		return nil
 	})
 }
 
-// pump forwards engine events to every JS subscriber, one call per event. The
-// wire shape is built from the shared [engine.ToWire] projection — the SAME
-// source the SSE server encodes — via its Map form, because js.ValueOf cannot
-// marshal a struct. This is the single source of truth the two transports share.
+// pump forwards engine events to every JS subscriber, one call per event, in two
+// projections. Rendered subscribers (subscribe) get the shared [engine.ToWire]
+// shape via its Map form — the SAME source the SSE server encodes, so the two
+// transports cannot drift; js.ValueOf cannot marshal a struct, hence Map. Value
+// subscribers (subscribeValues) get {cell, value} where value is Event.Value
+// flattened by jsonToJS — the single NAMED out-side wire crossing. Only StateDone
+// events carry a value; a value subscriber is not called for running/error/stale
+// transitions (there is no typed value to hand).
 func (p *port) pump(sub <-chan engine.Event) {
 	for ev := range sub {
-		obj := js.ValueOf(engine.ToWire(ev).Map())
 		p.mu.Lock()
-		subs := make([]js.Value, 0, len(p.subs))
-		for _, fn := range p.subs {
-			subs = append(subs, fn)
-		}
+		rendered := snapshot(p.subs)
+		values := snapshot(p.valueSubs)
 		p.mu.Unlock()
-		for _, fn := range subs {
-			fn.Invoke(obj)
+
+		if len(rendered) > 0 {
+			obj := js.ValueOf(engine.ToWire(ev).Map())
+			for _, fn := range rendered {
+				fn.Invoke(obj)
+			}
+		}
+		if len(values) > 0 && ev.State == engine.StateDone && ev.Value != nil {
+			// value crosses ONLY through jsonToJS (as values() does), so a named
+			// numeric type can't panic js.ValueOf; anything unflattenable → JS null.
+			obj := js.ValueOf(map[string]any{
+				"cell":  string(ev.Cell),
+				"value": jsonToJS(ev.Value),
+			})
+			for _, fn := range values {
+				fn.Invoke(obj)
+			}
 		}
 	}
+}
+
+// snapshot copies a subscriber set's callbacks to a slice so invocation happens
+// off the lock (a callback may re-enter subscribe/unsubscribe).
+func snapshot(set map[int]js.Value) []js.Value {
+	out := make([]js.Value, 0, len(set))
+	for _, fn := range set {
+		out = append(out, fn)
+	}
+	return out
 }
 
 // values returns a snapshot of every leaf's current value, keyed by leaf symbol.
