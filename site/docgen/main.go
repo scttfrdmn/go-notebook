@@ -371,7 +371,8 @@ const docCSS = `
 
   .docwrap { max-width:1100px; margin:0 auto; padding:0 24px; display:grid;
     grid-template-columns:220px 1fr; gap:2.5rem; align-items:start; }
-  .sidebar { position:sticky; top:4rem; padding:2rem 0; display:flex; flex-direction:column; gap:.1rem; }
+  .sidebar { position:sticky; top:4rem; padding:2rem 0; }
+  .sidebar nav { display:flex; flex-direction:column; gap:.1rem; }
   .sidebar .dochome { font-weight:700; color:var(--navy); text-decoration:none; margin-bottom:.4rem; font-size:1.0625rem; }
   .sidebar .docnav-section { font-size:.75rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
     color:var(--muted); margin:1rem 0 .3rem .6rem; }
@@ -429,6 +430,7 @@ const docCSS = `
 
   @media (max-width:720px) {
     .docwrap { grid-template-columns:1fr; gap:0; }
-    .sidebar { position:static; flex-direction:row; flex-wrap:wrap; gap:.5rem; padding:1rem 0; border-bottom:1px solid var(--line); }
+    .sidebar { position:static; padding:1rem 0; border-bottom:1px solid var(--line); }
+    .sidebar nav { flex-direction:row; flex-wrap:wrap; gap:.5rem; align-items:center; }
   }
 `
