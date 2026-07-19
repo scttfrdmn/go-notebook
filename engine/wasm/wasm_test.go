@@ -202,3 +202,78 @@ func TestFromJSObject(t *testing.T) {
 		t.Fatalf("CoerceWire(fromJS(handle)) = %#v, want %#v", norm, want)
 	}
 }
+
+// perHour is a named type over float64: on the rendered wire it stringifies to
+// "40.24"; subscribeValues must instead hand JS a plain number.
+type perHour float64
+
+// TestPortSubscribeValuesTyped pins B3: subscribeValues delivers {cell, value}
+// with value a plain JS number for a named-numeric leaf (crossing only through
+// jsonToJS), NOT the string the rendered subscribe hands. It also pins that a
+// value subscriber fires only for StateDone events with a value — a running or
+// error transition carries no typed value, so the callback must not fire.
+func TestPortSubscribeValuesTyped(t *testing.T) {
+	p, _ := newTestPort(t)
+
+	// A rendered subscriber and a value subscriber on the same port.
+	var renderedData any
+	renderedCalls := 0
+	fnRendered := js.FuncOf(func(_ js.Value, args []js.Value) any {
+		renderedCalls++
+		renderedData = args[0].Get("data").String() // wire event: {..., data}
+		return nil
+	})
+	var gotCell string
+	var gotValue js.Value
+	valueCalls := 0
+	fnValue := js.FuncOf(func(_ js.Value, args []js.Value) any {
+		valueCalls++
+		gotCell = args[0].Get("cell").String()
+		gotValue = args[0].Get("value")
+		return nil
+	})
+	p.subscribe(fnRendered.Value)
+	p.subscribeValues(fnValue.Value)
+
+	// A StateDone event carrying a named-numeric typed Value, plus its rendered
+	// readout in Out (exactly what the engine's doneEvent ladder produces).
+	ch := make(chan engine.Event, 1)
+	ch <- engine.Event{
+		Epoch: 1, Cell: "x", State: engine.StateDone,
+		Out:   &engine.Rendered{MIME: "text/plain", Data: "40.24"},
+		Value: perHour(40.24),
+	}
+	close(ch)
+	p.pump(ch)
+
+	// Rendered subscriber got the string readout.
+	if renderedCalls != 1 || renderedData != "40.24" {
+		t.Errorf("rendered subscriber: calls=%d data=%v, want 1, \"40.24\"", renderedCalls, renderedData)
+	}
+	// Value subscriber got {cell, value} with value a real JS NUMBER, not a string.
+	if valueCalls != 1 {
+		t.Fatalf("value subscriber calls = %d, want 1", valueCalls)
+	}
+	if gotCell != "x" {
+		t.Errorf("value event cell = %q, want \"x\"", gotCell)
+	}
+	if gotValue.Type() != js.TypeNumber {
+		t.Fatalf("value event value type = %v, want a JS number (named type must flatten, not stringify)", gotValue.Type())
+	}
+	if gotValue.Float() != 40.24 {
+		t.Errorf("value event value = %v, want 40.24", gotValue.Float())
+	}
+
+	// A non-Done transition carries no typed value: the value subscriber must not
+	// fire, while the rendered subscriber still sees the lifecycle event.
+	ch2 := make(chan engine.Event, 1)
+	ch2 <- engine.Event{Epoch: 2, Cell: "x", State: engine.StateRunning}
+	close(ch2)
+	p.pump(ch2)
+	if valueCalls != 1 {
+		t.Errorf("value subscriber fired on a non-Done event: calls = %d, want still 1", valueCalls)
+	}
+	if renderedCalls != 2 {
+		t.Errorf("rendered subscriber missed the running event: calls = %d, want 2", renderedCalls)
+	}
+}
