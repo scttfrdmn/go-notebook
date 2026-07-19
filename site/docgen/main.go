@@ -27,6 +27,7 @@ import (
 	"github.com/yuin/goldmark"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
 	gmhtml "github.com/yuin/goldmark/renderer/html"
 )
 
@@ -39,8 +40,12 @@ type page struct {
 // pages is the curated, ordered doc set, grouped by section: the guide first, a
 // full feature reference, then the deeper reads.
 var pages = []page{
-	{"docs/authoring.md", "authoring", "Write your first notebook", "From an empty file to a running, built notebook — the from-scratch walkthrough.", "Guide"},
-	{"docs/live-feeds.md", "live-feeds", "Live feeds", "Wire a sensor, socket, or polled API into a notebook: a feed is a driver on the set port.", "Guide"},
+	{"docs/quickstart.md", "quickstart", "Five-minute quickstart", "The shortest path to a running notebook: one input, one derived value, a live slider.", "Start here"},
+	{"docs/authoring.md", "authoring", "Write your first notebook", "From an empty file to a running, built notebook — the from-scratch walkthrough.", "Start here"},
+	{"docs/names.md", "names", "How the names work", "Function name, result name, type, and label are four different things — the result name is the edge.", "Start here"},
+
+	{"docs/live-feeds.md", "live-feeds", "Live feeds", "Wire a sensor, socket, or polled API into a notebook: a feed is a driver on the set port.", "Learn"},
+	{"docs/troubleshooting.md", "troubleshooting", "Troubleshooting", "An index of the check/run/build messages, what each means, and the fix.", "Learn"},
 
 	{"docs/reference-directives.md", "reference-directives", "Directives", "The //notebook: comment directives — slider, height, area, layout — and the presentation-only rule they share.", "Reference"},
 	{"docs/reference-controls.md", "reference-controls", "Controls", "How a value becomes an input, and which widget it renders as — decided by type, not directive.", "Reference"},
@@ -72,16 +77,18 @@ func main() {
 				highlighting.WithFormatOptions(chromahtml.WithClasses(false)),
 			),
 		),
-		goldmark.WithRendererOptions(gmhtml.WithUnsafe()), // our own docs, trusted
+		goldmark.WithParserOptions(parser.WithAutoHeadingID()), // #fragment links resolve to headings
+		goldmark.WithRendererOptions(gmhtml.WithUnsafe()),      // our own docs, trusted
 	)
 
-	for _, p := range pages {
+	for i, p := range pages {
 		srcBytes, err := os.ReadFile(filepath.Join(root, p.src))
 		must(err)
 
 		var body bytes.Buffer
 		must(md.Convert(srcBytes, &body))
-		out := shell(p.title, navLinks(p.slug), rewriteLinks(body.String()), p.slug, p.blurb)
+		content := rewriteLinks(body.String()) + pager(i)
+		out := shell(p.title, navLinks(p.slug), content, p.slug, p.blurb)
 		must(os.WriteFile(filepath.Join(outDir, p.slug+".html"), []byte(out), 0o644))
 		fmt.Printf("docs: wrote site/docs/%s.html\n", p.slug)
 	}
@@ -164,16 +171,35 @@ func writeDiscoveryFiles(siteDir string) {
 	fmt.Println("docs: wrote robots.txt, sitemap.xml, llms.txt")
 }
 
-// hrefLocal matches href="something.html" (and #anchors) that point at a sibling
-// doc page — not an absolute URL, not ../ outside the docs dir.
-var hrefLocal = regexp.MustCompile(`href="([a-z0-9-]+)\.html(?:#[^"]*)?"`)
+// hrefLocal matches href="something.html" and href="something.html#anchor" that
+// point at a sibling doc page — not an absolute URL, not ../ outside the docs dir.
+// Group 1 is the page slug; group 2 is the optional fragment (without the #).
+var hrefLocal = regexp.MustCompile(`href="([a-z0-9-]+)\.html(?:#([^"]*))?"`)
+
+// idAttr matches the id="…" attributes goldmark's auto-heading-ID pass emits, so
+// the checker can verify a #fragment link actually lands on a heading.
+var idAttr = regexp.MustCompile(`\bid="([^"]*)"`)
 
 // checkLinks fails the build if any generated page links to a local .html that
-// was not generated — so a renamed or dropped doc can't ship a dead link (the
-// exact failure this pass was fixing: authoring linked composition.html, which
-// no longer exists). A specification is a claim; this makes "the link works" one
-// the build verifies rather than one we hope holds.
+// was not generated, OR to a #fragment that no heading on the target page
+// defines — so a renamed doc or a mistyped anchor can't ship a dead link (the
+// exact failure this pass first fixed: authoring linked composition.html, which
+// no longer exists; and later, #fragment links that silently resolved to
+// nothing because goldmark emitted no heading IDs). A specification is a claim;
+// this makes "the link works" one the build verifies rather than one we hope holds.
 func checkLinks(outDir string) {
+	// Index every id="…" on every generated page, so fragment targets are checkable.
+	idsByPage := map[string]map[string]bool{}
+	for _, p := range pages {
+		htmlBytes, err := os.ReadFile(filepath.Join(outDir, p.slug+".html"))
+		must(err)
+		ids := map[string]bool{}
+		for _, m := range idAttr.FindAllStringSubmatch(string(htmlBytes), -1) {
+			ids[m[1]] = true
+		}
+		idsByPage[p.slug+".html"] = ids
+	}
+
 	var dead []string
 	for _, p := range pages {
 		htmlBytes, err := os.ReadFile(filepath.Join(outDir, p.slug+".html"))
@@ -182,6 +208,10 @@ func checkLinks(outDir string) {
 			target := m[1] + ".html"
 			if _, err := os.Stat(filepath.Join(outDir, target)); err != nil {
 				dead = append(dead, fmt.Sprintf("%s.html → %s (no such page)", p.slug, target))
+				continue
+			}
+			if frag := m[2]; frag != "" && !idsByPage[target][frag] {
+				dead = append(dead, fmt.Sprintf("%s.html → %s#%s (no such anchor)", p.slug, target, frag))
 			}
 		}
 	}
@@ -193,6 +223,30 @@ func checkLinks(outDir string) {
 		os.Exit(1)
 	}
 	fmt.Println("docs: link check passed")
+}
+
+// pager renders the Previous/Next footer for the page at index i in the ordered
+// pages slice — the linear learning sequence a reader follows, which the sidebar
+// (grouped by section) does not make obvious. Ends are one-sided.
+func pager(i int) string {
+	var b strings.Builder
+	b.WriteString(`<nav class="pager" aria-label="Page navigation">`)
+	if i > 0 {
+		p := pages[i-1]
+		fmt.Fprintf(&b, `<a class="prev" href="%s.html"><span class="dir">Previous</span><span class="ttl">%s</span></a>`,
+			p.slug, html.EscapeString(p.title))
+	} else {
+		b.WriteString(`<span></span>`)
+	}
+	if i < len(pages)-1 {
+		p := pages[i+1]
+		fmt.Fprintf(&b, `<a class="next" href="%s.html"><span class="dir">Next</span><span class="ttl">%s</span></a>`,
+			p.slug, html.EscapeString(p.title))
+	} else {
+		b.WriteString(`<span></span>`)
+	}
+	b.WriteString(`</nav>`)
+	return b.String()
 }
 
 // navLinks renders the docs sidebar, grouped by section, marking the current page.
@@ -427,6 +481,16 @@ const docCSS = `
   .doccard:hover { border-color:var(--go); box-shadow:0 3px 10px rgba(20,30,60,.10); transform:translateY(-1px); }
   .doccard h3 { margin:0 0 .3rem; color:var(--navy); font-size:1.0625rem; }
   .doccard p { margin:0; color:var(--muted); font-size:.9375rem; line-height:1.45; }
+
+  /* Previous/Next pager: the linear learning sequence, at the foot of each page. */
+  .pager { display:flex; justify-content:space-between; gap:1rem; margin:3rem 0 0;
+    padding-top:1.5rem; border-top:1px solid var(--line); }
+  .pager a { display:flex; flex-direction:column; text-decoration:none; padding:.7rem 1rem;
+    border:1px solid var(--line); border-radius:10px; min-width:0; transition:border-color .12s, box-shadow .12s; }
+  .pager a:hover { border-color:var(--go); box-shadow:0 3px 10px rgba(20,30,60,.10); }
+  .pager a.next { text-align:right; margin-left:auto; }
+  .pager .dir { font-size:.8rem; color:var(--muted); }
+  .pager .ttl { color:var(--navy); font-weight:600; }
 
   @media (max-width:720px) {
     .docwrap { grid-template-columns:1fr; gap:0; }

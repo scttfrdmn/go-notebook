@@ -75,9 +75,35 @@ Before you go further, the rules that will trip you up once and never again. Eac
 
 4. **Keep `fmt` out of cell bodies.** A notebook that compiles to the browser (`GOOS=js`) must not have a *cell* whose call graph reaches `fmt`/`os`/`net` (the portability gate is derived from the graph). Formatting belongs in a `Render()` method — which the engine calls, and which is not a cell — not in a cell body. Use `strconv` if a cell body genuinely needs to format a number.
 
-## 4. Add a chart
+## 4. Add a rich view (the easy way first)
 
-A cell's output is drawn by *structural probe*: return a value with a `Render() Rendered` method and the client draws its MIME-tagged content. Add a thermometer:
+A cell's output is drawn by *structural probe*: return a value with a `Render() Rendered` method and the client draws its MIME-tagged content, decided by the MIME type the method returns. There are two common routes, and the gentlest is **HTML** — no drawing, just markup:
+
+```go
+import "fmt"
+
+// A summary card, drawn as HTML.
+//notebook:height=90
+func card(c, f int) (view Card) { return Card{C: c, F: f} }
+
+// Card renders an HTML card. fmt lives HERE, in Render (the engine calls it) —
+// never in a cell body, so the WASM portability gate stays clear.
+type Card struct{ C, F int }
+
+func (c Card) Render() Rendered {
+	return Rendered{MIME: "text/html", Data: fmt.Sprintf(
+		`<div style="font:600 22px sans-serif;color:#1b3a6b">%d°C = %d°F</div>`, c.C, c.F)}
+}
+
+// A notebook imports nothing from this project; redeclare the tiny display type.
+type Rendered struct{ MIME, Data string }
+```
+
+Run it: the card updates live as you drag. When the answer is a document — a card, a table, an invoice — HTML is the least work. (Prefer autocomplete and a compile-time check that you spelled `Render` right? Import the optional [`nb`](https://github.com/scttfrdmn/go-notebook/tree/main/nb) package and return `nb.HTML(…)` instead of redeclaring `Rendered`. Same result; see [rendering](reference-rendering.html).)
+
+## 5. Draw it yourself with SVG (the low-level route)
+
+When the answer is a *picture* rather than a document, build the SVG markup yourself. This is the most control and still requires no imports beyond the standard library — but it is deliberately low-level, so reach for it when HTML won't do. Replace the card with a thermometer:
 
 ```go
 import (
@@ -108,12 +134,9 @@ func (t Thermo) Render() Rendered {
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }
-
-// A notebook imports nothing from this project; redeclare the tiny display type.
-type Rendered struct{ MIME, Data string }
 ```
 
-`gauge` takes `c` and `f` — so it wires downstream of both `celsius` and `fahrenheit`, and the graph forks. Run again and drag the slider: the thermometer fills and both numbers update, live.
+(It reuses the same `Rendered` type you declared in §4 — one per notebook is enough.) `gauge` takes `c` and `f` — so it wires downstream of both `celsius` and `fahrenheit`, and the graph forks. Run again and drag the slider: the thermometer fills and both numbers update, live.
 
 Here is exactly that notebook, compiled to WebAssembly and running right here — drag it:
 
@@ -121,11 +144,11 @@ Here is exactly that notebook, compiled to WebAssembly and running right here �
 
 *(The client renders `image/svg+xml` and `text/html` as markup; a scalar with no `Render()` shows as a text readout; anything else stays hidden — the **degradation ladder**: losing the view costs polish, never correctness.)*
 
-## 5. Controls come from types
+## 6. Controls come from types
 
 You already used one: `//notebook:slider min=-40 max=120` refines how the `celsius` input looks. But *whether* something is an input is decided by its **type**, never by the comment — a directive only refines an already-input control's appearance. A type carrying `Bounds()` renders as a ranged slider on its own; `Options()` gives a select; `Reconcile()` gives a stateful widget (`Multi`, `Range`, `Table`, a draggable). Delete every directive and every control is still there, just plainer.
 
-## 6. Arrange it (optional)
+## 7. Arrange it (optional)
 
 By default cells stack in source order. To present a designed layout, add `//notebook:area=` to cells and a package-level `//notebook:layout` block:
 
@@ -136,7 +159,7 @@ By default cells stack in source order. To present a designed layout, add `//not
 
 That puts the Celsius control beside the thermometer instead of stacked. The full vocabulary — named regions, columns, cards — is in [Layout](reference-layout.html). It is presentation-only: strip the layout and the notebook still renders correctly.
 
-## 7. Ship it
+## 8. Ship it
 
 The same file is also a job. Build a standalone binary:
 
