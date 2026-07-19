@@ -1,0 +1,55 @@
+version: 2
+
+# go-notebook ships one binary: the `notebook` toolchain (analyze / build / run).
+# It is pure Go with no cgo — its only runtime dependency is the `go` command,
+# which anyone installing it already has — so a prebuilt cross-platform binary is
+# a genuine convenience over `go get -tool`. The engine/engine.wasm packages are
+# libraries, not release artifacts; they are consumed via `go get`.
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: notebook
+    main: ./cmd/notebook
+    binary: notebook
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+archives:
+  - id: notebook
+    formats: [tar.gz]
+    # Windows gets a .zip; everyone else a .tar.gz.
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  # GoReleaser groups the commit log; the curated human summary is the GitHub
+  # release notes body (drafted at tag time). Exclude noise.
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
+
+release:
+  draft: false
+  prerelease: auto # v0.x and -rc tags are marked prerelease automatically

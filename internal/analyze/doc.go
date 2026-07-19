@@ -125,6 +125,9 @@ func directives(fn *ast.FuncDecl) map[string]string {
 		body := strings.TrimSpace(strings.TrimPrefix(text, directivePrefix))
 		for _, field := range strings.Fields(body) {
 			if k, v, ok := strings.Cut(field, "="); ok {
+				if k == "" {
+					continue // a malformed "=value" has no key to bind; skip it
+				}
 				set(k, v)
 			} else {
 				set(field, "") // a bare token names the kind, e.g. "slider"

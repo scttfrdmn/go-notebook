@@ -13,13 +13,19 @@ import (
 	"os"
 )
 
+// version is the build version, injected by the release build (GoReleaser
+// ldflags: -X main.version=…). It stays "dev" for a plain `go build`/`go run`,
+// so `notebook version` reports honestly whether it is a released binary.
+var version = "dev"
+
 // usage is printed for -h and on argument errors.
 const usage = `notebook — a reactive notebook toolchain
 
 usage:
-  notebook check <dir|file>   analyze a notebook and print its dependency graph
-  notebook build <dir|file>   analyze, generate a registry, and compile a binary
-  notebook run   <dir|file>   build and serve the notebook in a browser
+  notebook check   <dir|file>   analyze a notebook and print its dependency graph
+  notebook build   <dir|file>   analyze, generate a registry, and compile a binary
+  notebook run     <dir|file>   build and serve the notebook in a browser
+  notebook version               print the toolchain version
 
 Run "notebook run ./examples/capacity" to open a notebook.
 `
@@ -42,6 +48,9 @@ func run(args []string) int {
 		return cmdBuild(args[1:])
 	case "run":
 		return cmdRun(args[1:])
+	case "version", "--version", "-v":
+		fmt.Printf("notebook %s\n", version)
+		return 0
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return 0

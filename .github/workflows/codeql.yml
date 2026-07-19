@@ -1,0 +1,43 @@
+name: CodeQL
+
+# GitHub's static analysis for Go — injection, path traversal, unsafe crypto,
+# and the rest of the security-and-quality suite. Results land in the repo's
+# Security tab. Runs on push/PR to main and weekly, so a newly-published query
+# catches an issue even when the code hasn't changed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 4 * * 1" # Mondays 04:17 UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go
+          queries: security-and-quality
+
+      # Autobuild compiles the module so CodeQL can analyze it. The engine/wasm
+      # package is js,wasm-only and isn't needed for the security analysis of the
+      # native toolchain, so the default build is sufficient.
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
