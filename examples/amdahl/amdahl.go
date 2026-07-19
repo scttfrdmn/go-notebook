@@ -233,6 +233,25 @@ func (c Chart) Render() Rendered {
 type Card struct{ Label, Value, Caption string }
 type Readout struct{ Cards []Card }
 
+// Render draws the readout as a row of framed number cards — the value large,
+// the caption small beneath. Without a Render method the engine has a value it
+// can't display and the cell shows nothing.
+func (r Readout) Render() Rendered {
+	var b strings.Builder
+	b.WriteString(`<div style="display:flex;gap:12px;flex-wrap:wrap">`)
+	for _, c := range r.Cards {
+		b.WriteString(`<div style="flex:1;min-width:150px;border:1px solid #e7ebf0;border-radius:8px;padding:10px 12px">`)
+		fmt.Fprintf(&b, `<div style="font-size:12px;color:#5b6472">%s</div>`, c.Label)
+		fmt.Fprintf(&b, `<div style="font:700 22px/1.2 -apple-system,system-ui,sans-serif;color:#1b3a6b;font-variant-numeric:tabular-nums">%s</div>`, c.Value)
+		if c.Caption != "" {
+			fmt.Fprintf(&b, `<div style="font-size:11px;color:#5b6472;margin-top:.15rem">%s</div>`, c.Caption)
+		}
+		b.WriteString(`</div>`)
+	}
+	b.WriteString(`</div>`)
+	return Rendered{MIME: "text/html", Data: b.String()}
+}
+
 type Rendered struct{ MIME, Data string }
 
 type Markdown string
