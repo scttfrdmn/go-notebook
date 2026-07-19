@@ -8,6 +8,33 @@ import (
 	"testing"
 )
 
+// TestAccessibilityBasics pins the a11y affordances every notebook page must
+// carry: a skip link, a status region that announces itself, focus-visible rings,
+// reduced-motion handling, and a role/aria-labelled dependency-graph SVG. These are
+// easy to drop in a refactor and invisible until someone using a keyboard or a
+// screen reader hits the page — so guard them here.
+func TestAccessibilityBasics(t *testing.T) {
+	page := Page(PageOpts{Title: "t", Status: true})
+	for _, want := range []string{
+		`class="skip"`,           // skip link
+		`role="status"`,          // status line announces loading/ready
+		`aria-live="polite"`,     //   … politely
+		":focus-visible",         // visible focus rings in the CSS
+		"prefers-reduced-motion", // honors the motion preference
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("notebook page missing accessibility affordance %q", want)
+		}
+	}
+	// The graph SVG is built client-side; assert the JS gives it a role + aria-label
+	// + <title> rather than emitting a bare, unlabelled <svg>.
+	for _, want := range []string{`'role', 'img'`, "aria-label", "createElementNS(svgns, 'title')"} {
+		if !strings.Contains(JS, want) {
+			t.Errorf("graph SVG missing accessibility hook %q — it would be an unlabelled image", want)
+		}
+	}
+}
+
 // TestFontsAreEmbeddedAndSelfContained pins that every page carries the Atkinson
 // typeface inline (base64 woff2 data-URIs), with no external font reference — so a
 // notebook served, built, or opened offline renders in the project's typeface with

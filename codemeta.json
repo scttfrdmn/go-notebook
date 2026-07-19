@@ -1,0 +1,29 @@
+{
+  "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+  "@type": "SoftwareSourceCode",
+  "name": "go-notebook",
+  "description": "A reactive notebook toolchain for Go where a notebook is an ordinary Go package and a cell is a top-level function. The dependency graph is derived by the Go type checker from function signatures; the same file compiles to an interactive WebAssembly app, a headless batch binary, or an HTTP-served page.",
+  "codeRepository": "https://github.com/scttfrdmn/go-notebook",
+  "url": "https://github.com/scttfrdmn/go-notebook",
+  "programmingLanguage": "Go",
+  "runtimePlatform": ["Go 1.25+", "WebAssembly (GOOS=js)"],
+  "license": "https://spdx.org/licenses/Apache-2.0",
+  "version": "0.1.0",
+  "dateModified": "2026-07-19",
+  "keywords": [
+    "reactive notebook",
+    "Go",
+    "WebAssembly",
+    "dataflow",
+    "literate computing",
+    "reproducibility"
+  ],
+  "author": [
+    {
+      "@type": "Person",
+      "givenName": "Scott",
+      "familyName": "Friedman",
+      "@id": "https://orcid.org/0000-0003-1480-765X"
+    }
+  ]
+}
