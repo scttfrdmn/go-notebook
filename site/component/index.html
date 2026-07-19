@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A notebook as a component — go-notebook</title>
+<meta name="description" content="A host page that is not the notebook's own UI: it draws its own layout and computes on the notebook's typed value stream via the JS client.">
+<style>
+  :root {
+    --navy: #1b3a6b; --blue: #0070b8; --go: #00add8;
+    --ink: #1a1a2e; --muted: #5b6472; --line: #e7ebf0; --bg: #ffffff;
+    --panel: #f7fafd; --good: #0a7d55; --bad: #b4232c;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--font); color: var(--ink); background: var(--bg);
+    margin: 0; padding: 1.5rem clamp(1rem, 4vw, 2.5rem); line-height: 1.6;
+  }
+  h1 { font-size: 1.35rem; color: var(--navy); margin: 0 0 .3rem; letter-spacing: -.01em; }
+  .lede { color: var(--muted); margin: 0 0 1.5rem; max-width: 60ch; font-size: .95rem; }
+  .lede code { font-family: var(--mono); font-size: .85em; color: var(--ink);
+               background: var(--panel); padding: .05em .35em; border-radius: 4px; }
+  #status { color: var(--muted); font-size: .85rem; font-family: var(--mono); margin: 0 0 1rem; }
+
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: stretch; }
+  @media (max-width: 640px) { .panels { grid-template-columns: 1fr; } }
+  .panel { border: 1px solid var(--line); border-radius: 12px; padding: 1.1rem 1.2rem; background: var(--panel); }
+  .panel h2 { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em;
+              color: var(--muted); margin: 0 0 .1rem; font-weight: 700; }
+  .panel .who { font-size: .82rem; color: var(--muted); margin: 0 0 1rem; }
+  .panel.out { background: #f4fbfd; border-color: #cdeaf3; }
+
+  /* The host's own control — nothing here is the notebook's UI. */
+  .field label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: .35rem; }
+  .field .row { display: flex; align-items: center; gap: .9rem; }
+  input[type=range] { flex: 1; accent-color: var(--blue); }
+  .field .num { font-family: var(--mono); font-size: 1.25rem; color: var(--navy);
+                min-width: 3.5ch; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .readout { font-family: var(--mono); font-size: 2rem; color: var(--navy);
+             font-variant-numeric: tabular-nums; margin: .1rem 0 .2rem; }
+  .readout small { font-size: 1rem; color: var(--muted); }
+  .chip { display: inline-block; font-family: var(--mono); font-size: .72rem;
+          padding: .12em .55em; border-radius: 20px; font-weight: 700; }
+  .chip.ok  { background: #e2f4ec; color: var(--good); }
+  .chip.bad { background: #fbe6e7; color: var(--bad); }
+  .derived { margin-top: 1rem; padding-top: .9rem; border-top: 1px dashed var(--line); }
+  .derived .k { font-size: .8rem; color: var(--muted); }
+  .derived .v { font-family: var(--mono); font-size: 1.35rem; color: var(--go);
+                font-variant-numeric: tabular-nums; }
+  .derived .why { font-size: .78rem; color: var(--muted); margin-top: .4rem; }
+
+  .note { margin-top: 1.6rem; font-size: .85rem; color: var(--muted); max-width: 66ch; }
+  .note b { color: var(--ink); }
+  .note code { font-family: var(--mono); font-size: .85em; }
+  a { color: var(--blue); }
+</style>
+</head>
+<body>
+  <h1>A notebook, driven as a component</h1>
+  <p class="lede">
+    This page is <b>not</b> the notebook's built-in UI. It loads the same
+    <code>capacity</code> WASM notebook, then draws its own two panels and speaks
+    to the notebook through the JS client (<code>client/notebook.js</code>). The
+    left panel is a control this page rendered itself; the right panel is a second
+    computation that runs on the notebook's <b>typed</b> output stream —
+    <code>subscribeValues</code> — the thing that was impossible when a scalar
+    crossed the wire as the string <code>"40.24"</code>.
+  </p>
+  <p id="status">loading the notebook…</p>
+
+  <div class="panels">
+    <section class="panel in">
+      <h2>Input</h2>
+      <p class="who">This page drew this control and calls <code>nb.set("c", …)</code>.</p>
+      <div class="field">
+        <label for="servers">Servers in the fleet (leaf <code>c</code>)</label>
+        <div class="row">
+          <input type="range" id="servers" min="1" max="256" step="1" value="80" disabled>
+          <span class="num" id="serversNum">80</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel out">
+      <h2>Typed output</h2>
+      <p class="who">A program computes on <code>subscribeValues</code> — not on our UI.</p>
+      <div class="readout" id="hourly">—</div>
+      <div>arrived over the port as: <span class="chip bad" id="typechip">—</span></div>
+      <div class="derived">
+        <div class="k">Annualized fleet cost (hourly&nbsp;×&nbsp;24&nbsp;×&nbsp;365)</div>
+        <div class="v" id="annual">—</div>
+        <div class="why" id="why"></div>
+      </div>
+    </section>
+  </div>
+
+  <p class="note">
+    <b>Why this is real, not the demo relabeled.</b> The annualized figure is
+    <code>hourlyCost.toFixed()</code>-able arithmetic on a JavaScript
+    <code>number</code>. Before the typed value-out pipe, <code>hourlyCost</code>
+    reached a host only as rendered text — the string <code>"40.24"</code> — and a
+    <code>+</code> would have concatenated, not added. The <code>number</code> chip
+    above is read straight off <code>typeof</code> of what the port delivered; if it
+    ever said <code>string</code> it would turn red. Read the page source: it never
+    calls the notebook's <code>NB.init</code>, and it mounts into its own DOM.
+    <a href="../index.html">← go-notebook</a>
+  </p>
+
+  <script src="wasm_exec.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

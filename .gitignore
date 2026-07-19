@@ -25,3 +25,9 @@ site/docs/
 site/robots.txt
 site/sitemap.xml
 site/llms.txt
+# The component demo's runtime assets — copied in by site/build.sh (the wasm is
+# content-addressed, so its name drifts; index.html + app.js are hand-written and
+# committed, these three are generated output).
+site/component/notebook.wasm
+site/component/wasm_exec.js
+site/component/notebook.js
