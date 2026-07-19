@@ -199,3 +199,87 @@ func TestSupersede(t *testing.T) {
 		t.Errorf("no coalescing: all %d edits settled; expected supersession", edits)
 	}
 }
+
+// perHour is a named type over float64, the case that motivated the value pipe:
+// a scalar cell's readout stringifies it ("40.24"), so a program subscribed to
+// the wire only ever sees text. Event.Value must carry the Go value itself.
+type perHour float64
+
+// TestEventValueThreeWayAgreement is B1's anti-pass. Event.Value must be the
+// same typed value that (a) Finals() records for the cell and (b) the rendered
+// readout in Event.Out was derived from — the three-way agreement Value ≡ Finals
+// ≡ rendered. The scalar leaf carries a NAMED numeric type, so the assertion
+// also proves the pipe delivers the Go type intact (perHour, not float64, not a
+// string) — nothing here goes through a wire projection.
+func TestEventValueThreeWayAgreement(t *testing.T) {
+	// A single scalar leaf whose value is a named-numeric type. This is the
+	// exact shape the F1 spike measured arriving as the string "40.24" on the
+	// wire; Event.Value must instead be perHour(40.24).
+	rate := fnNode{
+		id: "rate", in: []Symbol{"r"}, out: []Symbol{"rate"},
+		run: func(_ context.Context, in Inputs) (Outputs, error) {
+			return Outputs{"rate": perHour(in["r"].(float64))}, nil
+		},
+	}
+	cfg := Config{
+		Nodes:  []Node{rate},
+		Leaves: []LeafID{"r"},
+		Levels: [][]CellID{{"rate"}},
+	}
+	head := NewHead()
+	head.Set("r", 0.0)
+	rt := NewRuntime(cfg, head, NewMemoStore())
+
+	drain := collectEvents(rt)
+	rt.Set(context.Background(), "r", 40.24)
+
+	waitFor(t, func() bool {
+		st, ok := lastState(drain(), "rate")
+		return ok && st == StateDone
+	}, "the rate cell to reach StateDone")
+
+	events := drain()
+
+	// Find the cell's committed StateDone event.
+	var done *Event
+	for i := range events {
+		if events[i].Cell == "rate" && events[i].State == StateDone {
+			done = &events[i]
+		}
+	}
+	if done == nil {
+		t.Fatal("no StateDone event for rate")
+	}
+
+	// (1) Value is the typed Go value, not a string or a bare float64.
+	want := perHour(40.24)
+	got, ok := done.Value.(perHour)
+	if !ok {
+		t.Fatalf("Event.Value = %T(%v), want engine.perHour", done.Value, done.Value)
+	}
+	if got != want {
+		t.Errorf("Event.Value = %v, want %v", got, want)
+	}
+
+	// (2) Value ≡ Finals: the same value the batch/headless path records.
+	finals := rt.Finals()
+	if fv, ok := finals["rate"].(perHour); !ok || fv != want {
+		t.Errorf("Finals()[rate] = %v (%T), want %v", finals["rate"], finals["rate"], want)
+	}
+	if finals["rate"] != done.Value {
+		t.Errorf("Value ≡ Finals broken: Finals()[rate]=%v Event.Value=%v", finals["rate"], done.Value)
+	}
+
+	// (3) Value ≡ rendered: Out.Data is exactly what scalarReadout produces from
+	// Value — the readout ladder rendered the very value it stamped into Value.
+	if done.Out == nil {
+		t.Fatal("expected a rendered Out for a scalar cell")
+	}
+	readout, rok := scalarReadout(done.Value)
+	if !rok {
+		t.Fatal("scalarReadout rejected the value the ladder itself selected")
+	}
+	if done.Out.Data != readout {
+		t.Errorf("Out.Data = %q, but scalarReadout(Value) = %q", done.Out.Data, readout)
+	}
+}
