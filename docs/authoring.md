@@ -1,6 +1,6 @@
 # Write your first notebook
 
-*A from-scratch walkthrough. By the end you will have written your own notebook — a live thermometer that converts Celsius to Fahrenheit — run it in the browser, and built it as a static binary. For **why** the system works this way, read [`paper.md`](paper.md); for the full design, [`design.md`](design.md). This is the "how do I use it" doc.*
+*A from-scratch walkthrough. By the end you will have written your own notebook — a live thermometer that converts Celsius to Fahrenheit — run it in the browser, and compiled it to a static binary. For **why** the system works this way, read [`paper.md`](paper.md); for the full design, [`design.md`](design.md). This is the "how do I use it" doc.*
 
 ---
 
@@ -10,9 +10,11 @@ You need **Go 1.25 or newer**. A notebook is an ordinary Go package, so it lives
 
 ```bash
 mkdir tempconv && cd tempconv
-go mod init example.com/tempconv        # your own module path
+go mod init tempconv                     # any module path; use github.com/you/tempconv to publish
 go get -tool github.com/scttfrdmn/go-notebook/cmd/notebook@latest
 ```
+
+The module path is just an identifier — `tempconv` is fine for something you keep local; use a real path like `github.com/you/tempconv` when you intend to publish it. (`tempconv` is also the name of this walkthrough's example — call yours whatever you like.)
 
 `go get -tool` adds a `tool` directive to your `go.mod`, so the toolchain is available as **`go tool notebook`** in this module. It has three verbs:
 
@@ -113,6 +115,10 @@ type Rendered struct{ MIME, Data string }
 
 `gauge` takes `c` and `f` — so it wires downstream of both `celsius` and `fahrenheit`, and the graph forks. Run again and drag the slider: the thermometer fills and both numbers update, live.
 
+Here is exactly that notebook, compiled to WebAssembly and running right here — drag it:
+
+<div class="demoframe"><iframe src="../demos/tempconv/index.html" loading="lazy" title="the tempconv notebook, live"></iframe></div>
+
 *(The client renders `image/svg+xml` and `text/html` as markup; a scalar with no `Render()` shows as a text readout; anything else stays hidden — the **degradation ladder**: losing the view costs polish, never correctness.)*
 
 ## 5. Controls come from types
@@ -128,7 +134,7 @@ By default cells stack in source order. To present a designed layout, add `//not
 //notebook:layout celsius | gauge
 ```
 
-That puts the Celsius control beside the thermometer instead of stacked. The full vocabulary — named regions, columns, cards — and its rationale are in [`composition.md`](composition.md). It is presentation-only: strip the layout and the notebook still renders correctly.
+That puts the Celsius control beside the thermometer instead of stacked. The full vocabulary — named regions, columns, cards — is in [Layout](reference-layout.html). It is presentation-only: strip the layout and the notebook still renders correctly.
 
 ## 7. Ship it
 
@@ -154,7 +160,17 @@ That is the whole loop: **one Go file is a live browser app, a batch job, and a 
 
 ## Where to go next
 
-- [`composition.md`](composition.md) — arrange a notebook as a designed dashboard.
-- The [`examples/`](../examples) directory — ~39 notebooks, from an M/M/c queue to a Simpson's-paradox table; read them as Go.
-- [`paper.md`](paper.md) — the system, end to end, and why it is shaped this way.
-- [`design.md`](design.md) — the full design record.
+**Reference** — every feature, in depth:
+
+- [Directives](reference-directives.html) — the `//notebook:` comment directives.
+- [Controls](reference-controls.html) — how a value becomes an input, and which widget it renders as.
+- [Rendering](reference-rendering.html) — the `Render` method, MIME types, the degradation ladder.
+- [Layout](reference-layout.html) — arrange a notebook as a designed dashboard with `area` + `layout`.
+- [Build & run](reference-build-run.html) — the verbs, the binary's flags, the WASM gate.
+- [Provenance](reference-provenance.html) — what a built artifact records about its origin.
+
+**Deeper reads:**
+
+- [The paper](paper.html) — the system, end to end, and why it is shaped this way.
+- [The design](design.html) — the full design record.
+- The [`examples/` directory](https://github.com/scttfrdmn/go-notebook/tree/main/examples) — ~39 notebooks on GitHub, from an M/M/c queue to a Simpson's-paradox table; read them as Go.

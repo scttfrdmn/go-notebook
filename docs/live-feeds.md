@@ -11,7 +11,7 @@ Two facts of the design decide this, and they decide it cleanly:
 1. **Cells are pure.** A cell is a function of its inputs, recomputed each wave — that purity is what makes scrubbing reversible and the cache sound. A cell that reached out and fetched a URL would be neither.
 2. **There are no timers.** `Tick`-clocked folds are a deferred milestone; nothing in a cell fires on a schedule. A cell cannot poll a feed even if it wanted to.
 
-So a feed lives *outside* the graph, which is exactly where the design already puts impurity. The [design doc's F3 rule](notebook-as-service.md): **the transport owns the impure boundary; a cell is subscribed and pulled, never pushes.** A live feed is the same rule read forwards — the impure edge (the socket, the HTTP call, the clock) belongs to a driver, and the notebook stays a pure function of a leaf whose value the driver writes.
+So a feed lives *outside* the graph, which is exactly where the design already puts impurity. The [design doc's F3 rule](https://github.com/scttfrdmn/go-notebook/blob/main/docs/notebook-as-service.md): **the transport owns the impure boundary; a cell is subscribed and pulled, never pushes.** A live feed is the same rule read forwards — the impure edge (the socket, the HTTP call, the clock) belongs to a driver, and the notebook stays a pure function of a leaf whose value the driver writes.
 
 ## The pattern
 
@@ -30,9 +30,9 @@ func doubled(v int) (d int) { return v * 2 }
 A **driver** connects to the source and writes each new value through the notebook's one data-in port:
 
 - **served (`notebook run`, or a built binary serving HTTP):** `POST /set {"leaf":"v","value":42}` — coalesced by the scheduler, returns immediately. Derived results stream back on `GET /events`.
-- **wasm / in-browser:** `globalThis.notebook.set("v", 42)` in, `notebook.subscribe(fn)` out (the [named port](notebook-as-service.md)).
+- **wasm / in-browser:** `globalThis.notebook.set("v", 42)` in, `notebook.subscribe(fn)` out (the [named port](https://github.com/scttfrdmn/go-notebook/blob/main/docs/notebook-as-service.md)).
 
-That is the whole contract. It is the [one-port concept](notebook-as-service.md) with a program on the other end: **you `set` a leaf (data in) and `subscribe` to a cell (data out)** — the same two calls whether the counterparty is a human at a slider or a market feed.
+That is the whole contract. It is the [one-port concept](https://github.com/scttfrdmn/go-notebook/blob/main/docs/notebook-as-service.md) with a program on the other end: **you `set` a leaf (data in) and `subscribe` to a cell (data out)** — the same two calls whether the counterparty is a human at a slider or a market feed.
 
 ```
   ┌────────────┐   POST /set {leaf,value}    ┌──────────────────────┐
