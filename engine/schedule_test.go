@@ -283,3 +283,77 @@ func TestEventValueThreeWayAgreement(t *testing.T) {
 		t.Errorf("Out.Data = %q, but scalarReadout(Value) = %q", done.Out.Data, readout)
 	}
 }
+
+// TestSubscribeValuesTypedWhileSubscribeWireOnly is B2's anti-pass. On ONE
+// runtime, a SubscribeValues() consumer must receive the typed Go value intact,
+// while the Subscribe() consumer's WIRE projection carries only the rendered
+// readout — no typed value crosses. This is the whole point of the named
+// out-side capability: the transports (which subscribe via Subscribe() and
+// project through ToWire) never see an arbitrary Go value, but an in-process Go
+// consumer that asks for it does.
+func TestSubscribeValuesTypedWhileSubscribeWireOnly(t *testing.T) {
+	rate := fnNode{
+		id: "rate", in: []Symbol{"r"}, out: []Symbol{"rate"},
+		run: func(_ context.Context, in Inputs) (Outputs, error) {
+			return Outputs{"rate": perHour(in["r"].(float64))}, nil
+		},
+	}
+	cfg := Config{
+		Nodes:  []Node{rate},
+		Leaves: []LeafID{"r"},
+		Levels: [][]CellID{{"rate"}},
+	}
+	head := NewHead()
+	head.Set("r", 0.0)
+	rt := NewRuntime(cfg, head, NewMemoStore())
+
+	// Two subscribers on the same runtime: one names the value capability, one
+	// is a plain (wire-facing) subscriber.
+	valuesCh := rt.SubscribeValues()
+	wireCh := rt.Subscribe()
+
+	collect := func(ch <-chan Event) *Event {
+		t.Helper()
+		deadline := time.After(2 * time.Second)
+		for {
+			select {
+			case ev := <-ch:
+				if ev.Cell == "rate" && ev.State == StateDone {
+					return &ev
+				}
+			case <-deadline:
+				t.Fatal("timed out waiting for rate StateDone")
+				return nil
+			}
+		}
+	}
+
+	var vEv, wEv *Event
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); vEv = collect(valuesCh) }()
+	go func() { defer wg.Done(); wEv = collect(wireCh) }()
+
+	rt.Set(context.Background(), "r", 40.24)
+	wg.Wait()
+
+	// SubscribeValues consumer: the typed Go value, intact.
+	got, ok := vEv.Value.(perHour)
+	if !ok || got != perHour(40.24) {
+		t.Errorf("SubscribeValues got Value = %v (%T), want perHour(40.24)", vEv.Value, vEv.Value)
+	}
+
+	// Subscribe consumer: its WIRE projection is rendered-only. ToWire is what
+	// the transports actually put on the wire, and it carries no typed value —
+	// only the "40.24" readout. (The struct field is shared by the fan-out; the
+	// contract is that a wire consumer reads the projection, never Value.)
+	w := ToWire(*wEv)
+	if w.Data != "40.24" {
+		t.Errorf("wire projection Data = %q, want readout %q", w.Data, "40.24")
+	}
+	// The wire shape has no field that could carry a Go value — assert the whole
+	// projection is exactly the rendered {mime,data} + lifecycle, nothing typed.
+	if w.MIME != "text/plain" {
+		t.Errorf("wire projection MIME = %q, want text/plain", w.MIME)
+	}
+}
