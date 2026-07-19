@@ -1,0 +1,160 @@
+# Write your first notebook
+
+*A from-scratch walkthrough. By the end you will have written your own notebook — a live thermometer that converts Celsius to Fahrenheit — run it in the browser, and built it as a static binary. For **why** the system works this way, read [`paper.md`](paper.md); for the full design, [`design.md`](design.md). This is the "how do I use it" doc.*
+
+---
+
+## 1. Install
+
+You need **Go 1.25 or newer**. A notebook is an ordinary Go package, so it lives in a Go module.
+
+```bash
+mkdir tempconv && cd tempconv
+go mod init example.com/tempconv        # your own module path
+go get -tool github.com/scttfrdmn/go-notebook/cmd/notebook@latest
+```
+
+`go get -tool` adds a `tool` directive to your `go.mod`, so the toolchain is available as **`go tool notebook`** in this module. It has three verbs:
+
+```bash
+go tool notebook check .    # analyze — print the dependency graph
+go tool notebook run   .    # serve it in a browser; edit the source, it rebuilds
+go tool notebook build .    # compile a standalone binary (or a WASM bundle)
+```
+
+*(Prefer not to add a tool directive? Every verb also works as `go run github.com/scttfrdmn/go-notebook/cmd/notebook <verb> .` once the module is a dependency.)*
+
+## 2. The smallest notebook
+
+Create `tempconv.go`:
+
+```go
+//go:notebook
+package tempconv
+
+// Temperature in Celsius.
+//notebook:slider min=-40 max=120 step=1
+func celsius() (c int) { return 20 }
+
+// Converted to Fahrenheit — wired in by the parameter name `c`.
+func fahrenheit(c int) (f int) { return c*9/5 + 32 }
+```
+
+That is a complete notebook. Two things make it one: the file carries the **`//go:notebook`** marker (the only mention of this project anywhere — no import), and each **cell is a top-level function with a doc comment and a named result.**
+
+Run it:
+
+```bash
+go tool notebook run .
+```
+
+A browser opens showing a dependency graph (`celsius → fahrenheit`), a Celsius slider, and the Fahrenheit readout. Drag the slider — Fahrenheit recomputes. You wrote no wiring, no callback, no reactive framework. The edge exists because `celsius` produces a result named `c` and `fahrenheit` takes a parameter named `c`. That is the whole rule:
+
+> **A cell's named result feeds any cell that takes a parameter of the same name and type.**
+
+The graph is not something you maintain alongside the code — it is *derived from the code by the Go type checker*, so it cannot drift from it.
+
+## 3. The four rules that bite
+
+Before you go further, the rules that will trip you up once and never again. Each is a direct consequence of "a cell is a function," and `go tool notebook check .` catches most of them with a pointed message.
+
+1. **A cell is a documented function with *named* results.** `func celsius() (c int)` is a cell; `func celsius() int` is not (no named result = no edge = not a cell). This is also how you write a **helper**: give it *unnamed* returns and it stays ordinary Go, invisible to the graph — e.g. `func clamp(v, lo, hi int) int`.
+
+2. **The result name *is* the edge.** To wire a value into a consumer, the producer's result must be named exactly what the consumer's parameter is named. Rename `celsius`'s result from `c` to `temp` and the build fails with:
+
+   ```
+   cell "fahrenheit" needs `c int`, but no cell produces it.
+   Did you mean `celsius`, which produces `int`?
+   ```
+
+   The name carries the meaning; rename deliberately.
+
+3. **Result names must be unique across the notebook.** Two cells returning `(chart Chart)` collide — `check` passes but `build` fails ("a result name is an edge, must be unique"). Give each its own name.
+
+4. **Keep `fmt` out of cell bodies.** A notebook that compiles to the browser (`GOOS=js`) must not have a *cell* whose call graph reaches `fmt`/`os`/`net` (the portability gate is derived from the graph). Formatting belongs in a `Render()` method — which the engine calls, and which is not a cell — not in a cell body. Use `strconv` if a cell body genuinely needs to format a number.
+
+## 4. Add a chart
+
+A cell's output is drawn by *structural probe*: return a value with a `Render() Rendered` method and the client draws its MIME-tagged content. Add a thermometer:
+
+```go
+import (
+	"fmt"
+	"strings"
+)
+
+// A thermometer drawn from the value.
+//notebook:height=160
+func gauge(c, f int) (view Thermo) { return Thermo{C: c, F: f} }
+
+// Thermo renders a simple SVG thermometer. fmt lives HERE, in Render (the engine
+// calls it) — never in a cell body, so the WASM portability gate stays clear.
+type Thermo struct{ C, F int }
+
+func (t Thermo) Render() Rendered {
+	frac := float64(t.C+40) / 160.0
+	if frac < 0 { frac = 0 }
+	if frac > 1 { frac = 1 }
+	h := 20 + frac*160
+	var b strings.Builder
+	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 220">`)
+	fmt.Fprintf(&b, `<rect width="240" height="220" fill="#fff"/>`)
+	fmt.Fprintf(&b, `<rect x="20" y="20" width="24" height="160" rx="12" fill="#e7ebf0"/>`)
+	fmt.Fprintf(&b, `<rect x="20" y="%.0f" width="24" height="%.0f" rx="12" fill="#2a78d6"/>`, 180-(h-20), h-20)
+	fmt.Fprintf(&b, `<text x="60" y="90" font-family="sans-serif" font-size="28" font-weight="700" fill="#1b3a6b">%d°C</text>`, t.C)
+	fmt.Fprintf(&b, `<text x="60" y="125" font-family="sans-serif" font-size="20" fill="#5b6472">%d°F</text>`, t.F)
+	b.WriteString(`</svg>`)
+	return Rendered{MIME: "image/svg+xml", Data: b.String()}
+}
+
+// A notebook imports nothing from this project; redeclare the tiny display type.
+type Rendered struct{ MIME, Data string }
+```
+
+`gauge` takes `c` and `f` — so it wires downstream of both `celsius` and `fahrenheit`, and the graph forks. Run again and drag the slider: the thermometer fills and both numbers update, live.
+
+*(The client renders `image/svg+xml` and `text/html` as markup; a scalar with no `Render()` shows as a text readout; anything else stays hidden — the **degradation ladder**: losing the view costs polish, never correctness.)*
+
+## 5. Controls come from types
+
+You already used one: `//notebook:slider min=-40 max=120` refines how the `celsius` input looks. But *whether* something is an input is decided by its **type**, never by the comment — a directive only refines an already-input control's appearance. A type carrying `Bounds()` renders as a ranged slider on its own; `Options()` gives a select; `Reconcile()` gives a stateful widget (`Multi`, `Range`, `Table`, a draggable). Delete every directive and every control is still there, just plainer.
+
+## 6. Arrange it (optional)
+
+By default cells stack in source order. To present a designed layout, add `//notebook:area=` to cells and a package-level `//notebook:layout` block:
+
+```go
+//go:notebook
+//notebook:layout celsius | gauge
+```
+
+That puts the Celsius control beside the thermometer instead of stacked. The full vocabulary — named regions, columns, cards — and its rationale are in [`composition.md`](composition.md). It is presentation-only: strip the layout and the notebook still renders correctly.
+
+## 7. Ship it
+
+The same file is also a job. Build a standalone binary:
+
+```bash
+go tool notebook build -o tempconv .
+./tempconv --headless --json           # run once, print the values
+# {"provenance": {...}, "values": {"c": 20, "f": 68, ...}}
+./tempconv --headless --set c=100 --json   # override an input (by RESULT name)
+```
+
+No Python environment, no kernel — one static binary you can `scp` to a cluster and `sbatch`. And because your notebook touches no `net`/`os`/cgo, it is also browser-portable:
+
+```bash
+go tool notebook build -target=wasm -o site .
+# serve site/ over HTTP → the notebook runs entirely client-side, no server
+```
+
+That is the whole loop: **one Go file is a live browser app, a batch job, and a served page — distinguished only by where you point the compiler.**
+
+---
+
+## Where to go next
+
+- [`composition.md`](composition.md) — arrange a notebook as a designed dashboard.
+- The [`examples/`](../examples) directory — ~39 notebooks, from an M/M/c queue to a Simpson's-paradox table; read them as Go.
+- [`paper.md`](paper.md) — the system, end to end, and why it is shaped this way.
+- [`design.md`](design.md) — the full design record.
