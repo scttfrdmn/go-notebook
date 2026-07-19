@@ -101,6 +101,19 @@ func TestEfficiencyCollapses(t *testing.T) {
 	}
 }
 
+// TestReadoutRender confirms the number panel actually renders. Without a Render
+// method the engine has a value it can't display and the whole cell shows nothing
+// in the browser — check green and headless --json both pass, but half the notebook
+// is blank. This asserts the four cards and their values reach the output.
+func TestReadoutRender(t *testing.T) {
+	data := readout(model(95, 32)).Render().Data
+	for _, want := range []string{"ceiling (n → ∞)", "20.0×", "speedup at 32 cores", "12.5×", "efficiency", "cores wasted"} {
+		if !strings.Contains(data, want) {
+			t.Errorf("readout missing %q — the number panel would render blank", want)
+		}
+	}
+}
+
 // TestCurvesRender confirms the chart is SVG with both curves, the ceiling, and the
 // marker.
 func TestCurvesRender(t *testing.T) {
