@@ -127,7 +127,32 @@ func NewRuntime(cfg Config, head *Head, cache Store) *Runtime {
 // its own channel; the engine never blocks on a slow consumer beyond the
 // channel buffer. engine/server subscribes here — the engine itself never
 // imports a transport.
+//
+// The events carry only the rendered projection you should read: Out ({mime,
+// data}) and the lifecycle fields. This is the WIRE-SAFE contract — the SSE and
+// WASM transports subscribe here and project each event through [ToWire], which
+// ignores Event.Value, so no arbitrary Go value is ever marshalled. A consumer
+// that wants the typed Go value must ask for it by name via [SubscribeValues].
 func (r *Runtime) Subscribe() <-chan Event {
+	return r.subscribe()
+}
+
+// SubscribeValues returns a channel like [Subscribe], but names the out-side
+// capability of reading Event.Value — the cell's typed Go value for the wave,
+// not its string readout. It is the symmetric partner of the input capability
+// probes (Bounded/Optioned/Reconciler): inputs are probed for what they accept,
+// this names what a consumer may read on the way out. It is for IN-PROCESS Go
+// consumers only; the typed value never crosses a wire (see [Event.Value]). The
+// fan-out is shared with [Subscribe] — the two differ by contract, not
+// mechanism: only a SubscribeValues consumer is promised Value is populated.
+func (r *Runtime) SubscribeValues() <-chan Event {
+	return r.subscribe()
+}
+
+// subscribe registers one buffered channel with the emit fan-out. Both
+// [Subscribe] and [SubscribeValues] go through here so there is exactly one
+// fan-out; the methods differ only in the contract they document.
+func (r *Runtime) subscribe() <-chan Event {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	ch := make(chan Event, 256)
