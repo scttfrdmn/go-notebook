@@ -44,7 +44,7 @@
     --t-body:  1.0625rem;  /* 17px — body copy */
     --t-lead:  1.1875rem;  /* 19px — hero tagline, ledes */
     --t-h2:    1.5rem;     /* 24px — section headings */
-    --t-hero:  clamp(2.5rem, 6vw, 4rem);  /* 40–64px — the hero headline */
+    --t-hero:  clamp(2rem, 5.5vw, 3.75rem);  /* 32–60px — the hero headline, scales to phones */
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
@@ -68,20 +68,36 @@
   .nav .links a { color: var(--muted); text-decoration: none; font-size: var(--t-meta); }
   .nav .links a:hover { color: var(--navy); }
   .nav .links a.gh { color: var(--navy); font-weight: 600; }
+  /* On phones the full link set + tagline overflow the bar. Drop the brand
+     tagline and tighten the links so the row fits without a horizontal scroll. */
+  @media (max-width: 560px) {
+    .nav .inner { gap: .75rem; padding: .6rem 16px; }
+    .nav .brand .fn { display: none; }
+    .nav .links { gap: .8rem; }
+    .nav .links a { font-size: var(--t-small); }
+  }
 
-  /* Hero: a big headline + a tight sub-line, then the live demo pulled up so the
-     first thing on the page is something that moves. */
-  .hero { padding: 3.25rem 0 1.5rem; }
-  .hero .mark { display: flex; align-items: center; gap: .8rem; margin: 0 0 1.4rem; }
-  .hero .mark img { height: 52px; width: auto; }
-  .hero .mark .wordmark { font-size: var(--t-h2); font-weight: 700; color: var(--navy); letter-spacing: -.02em; }
-  .hero h1 { font-size: var(--t-hero); line-height: 1.02; letter-spacing: -.03em;
-             color: var(--ink); margin: 0; font-weight: 800; }
+  /* Hero: illustration + live text side by side, then the live demo pulled up so
+     the first thing on the page is something that moves. The headline, tagline,
+     and pills are real HTML — selectable, responsive, accessible — beside the art. */
+  .hero { padding: 2.5rem 0 1.5rem; }
+  .hero .herotop { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+                   gap: 2.5rem; align-items: center; }
+  .hero .art img { width: 100%; height: auto; display: block; }
+  .hero .wordmark { font-size: var(--t-meta); font-weight: 700; color: var(--go);
+                    letter-spacing: .01em; text-transform: none; }
+  .hero h1 { font-size: var(--t-hero); line-height: 1.03; letter-spacing: -.03em;
+             color: var(--navy); margin: .3rem 0 0; font-weight: 800; }
   .hero h1 .fn { color: var(--go); }
   .hero .hero-tag { color: var(--muted); font-size: var(--t-lead); line-height: 1.5;
-                    margin: 1.1rem 0 0; max-width: 46ch; }
+                    margin: 1rem 0 0; max-width: 42ch; }
   .hero .hero-tag b { color: var(--ink); font-weight: 700; }
-  .hero .cta { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1.6rem 0 0; }
+  .hero .pills { list-style: none; padding: 0; margin: 1.25rem 0 0; display: flex;
+                 flex-wrap: wrap; gap: .5rem .6rem; }
+  .hero .pills li { font-size: var(--t-small); color: var(--muted); background: #f3f8fc;
+                    border: 1px solid var(--line); border-radius: 20px; padding: .3rem .8rem; }
+  .hero .pills b { color: var(--navy); font-weight: 700; }
+  .hero .cta { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1.5rem 0 0; }
   .hero .cta a { text-decoration: none; font-weight: 600; font-size: var(--t-meta);
                  padding: .6rem 1.1rem; border-radius: 8px; }
   .hero .cta .primary { background: var(--go); color: #fff; }
@@ -89,9 +105,14 @@
   .hero .cta .ghost { color: var(--navy); border: 1px solid var(--line); }
   .hero .cta .ghost:hover { border-color: var(--go); }
   /* The live demo, in the hero. A caption sits above the framed notebook. */
-  .hero .demoblock { margin: 2rem 0 0; }
+  .hero .demoblock { margin: 2.5rem 0 0; }
   .hero .demoblock .cap { color: var(--muted); font-size: var(--t-meta); margin: 0 0 .7rem; }
   .hero .demoblock .cap b { color: var(--ink); }
+  /* Stack the hero on narrow screens: art above the pitch. */
+  @media (max-width: 760px) {
+    .hero .herotop { grid-template-columns: 1fr; gap: 1.25rem; }
+    .hero .art { width: 100%; max-width: 420px; margin: 0 auto; }
+  }
 
   /* Demos come first — drag before you read. */
   .demo { margin: 2.5rem 0 3.5rem; border-top: 1px solid var(--line); padding-top: 1.75rem; }
@@ -180,15 +201,24 @@
   <!-- HERO: a big claim, then something moving. Drag before you read prose. -->
 
   <header class="hero">
-    <div class="mark">
-      <img src="assets/logo.png" alt="">
-      <span class="wordmark">go-notebook</span>
-    </div>
-    <h1>A cell is a <span class="fn">function</span>.</h1>
-    <p class="hero-tag">Reactive notebooks that compile. The dependency graph is derived by the Go type checker, and it runs as compiled Go in your browser — <b>no server, no kernel, no notebook file</b>.</p>
-    <div class="cta">
-      <a class="primary" href="#corpus">Browse the corpus →</a>
-      <a class="ghost" href="https://github.com/scttfrdmn/go-notebook/blob/main/docs/authoring.md">Write your first notebook</a>
+    <div class="herotop">
+      <div class="art">
+        <img src="assets/hero-art.png" alt="The go-notebook gopher holding an open book whose pages show a dependency graph: green input nodes feeding an int cell and a string cell, with fn tabs on top.">
+      </div>
+      <div class="pitch">
+        <span class="wordmark">go-notebook</span>
+        <h1>Reactive notebooks that <span class="fn">compile</span>.</h1>
+        <p class="hero-tag">A cell is a function. The dependency graph is derived by the Go type checker, and it runs as compiled Go in your browser — <b>no server, no kernel, no notebook file</b>.</p>
+        <ul class="pills">
+          <li><b>ordinary</b> Go package</li>
+          <li><b>type-checked</b> DAG</li>
+          <li><b>single</b> binary</li>
+        </ul>
+        <div class="cta">
+          <a class="primary" href="#corpus">Browse the corpus →</a>
+          <a class="ghost" href="docs/authoring.html">Write your first notebook</a>
+        </div>
+      </div>
     </div>
 
     <div class="demoblock">
