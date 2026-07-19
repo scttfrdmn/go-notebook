@@ -119,6 +119,56 @@ func TestAreaDirectiveIsHonored(t *testing.T) {
 	}
 }
 
+// TestGraphPlacement pins the showcase/working split: a showcase page leads with
+// the graph open and BEFORE the controls (the demos' pitch is watching the wave);
+// a working page collapses it and puts it AFTER the cells (results first, the
+// graph a tool you open). Both carry the legend, since the graph's colors and
+// directional edges mean nothing without a key. If the placement logic regresses,
+// every notebook page silently reverts to graph-first-always.
+func TestGraphPlacement(t *testing.T) {
+	showcase := Page(PageOpts{Title: "t", GraphShowcase: true})
+	working := Page(PageOpts{Title: "t", GraphShowcase: false})
+
+	// Showcase: the graph disclosure is open and sits before the controls.
+	if !strings.Contains(showcase, `class="graphwrap" open>`) {
+		t.Error("showcase page: graph disclosure should be open")
+	}
+	// Anchor on the element markup (class="graphwrap"), not the bare word, which
+	// also appears in the .graphwrap CSS in the <head>.
+	if idx(showcase, `class="graphwrap"`) > idx(showcase, `id="controls"`) {
+		t.Error("showcase page: graph should come BEFORE the controls")
+	}
+	// Working: the graph disclosure is collapsed and sits after the cells.
+	if strings.Contains(working, `class="graphwrap" open>`) {
+		t.Error("working page: graph disclosure should be collapsed, not open")
+	}
+	if idx(working, `class="graphwrap"`) < idx(working, `id="cells"`) {
+		t.Error("working page: graph should come AFTER the cells")
+	}
+	// Both: the legend explains the state colors + edge direction where the graph
+	// is shown (the only place they are explained).
+	for _, page := range []string{showcase, working} {
+		for _, want := range []string{"legend", "recomputing", "feeds into"} {
+			if !strings.Contains(page, want) {
+				t.Errorf("page missing graph legend token %q", want)
+			}
+		}
+	}
+	// The arrowhead marker makes edges directional, not bare curves.
+	if !strings.Contains(JS, "marker-end") || !strings.Contains(JS, "id', 'arrow'") {
+		t.Error("shared JS missing the edge arrowhead marker — edges would be non-directional")
+	}
+}
+
+// idx returns the index of sub in s, or a large sentinel if absent, so ordering
+// comparisons in TestGraphPlacement read naturally.
+func idx(s, sub string) int {
+	if i := strings.Index(s, sub); i >= 0 {
+		return i
+	}
+	return 1 << 30
+}
+
 // setOf collects submatch group 1 from a regexp FindAllStringSubmatch result.
 func setOf(matches [][]string) map[string]bool {
 	out := map[string]bool{}

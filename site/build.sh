@@ -14,7 +14,7 @@ cd "$root"
 
 go build -o /tmp/notebook-build ./cmd/notebook
 for nb in capacity curvefit bayes anscombe nbody turing surface gpulife percolation lotka clt boundary fourier kmeans spectrogram reliability little critpath amdahl roofline fleet pid retrystorm backfill cachepolicy latencybw aimd bdp fattree mandelbrot invoice simpson consistenthash punchcard sensorfeed homefeed tickerfeed apifeed; do
-  /tmp/notebook-build build --target=wasm -o "site/demos/$nb" "examples/$nb"
+  /tmp/notebook-build build --target=wasm --showcase -o "site/demos/$nb" "examples/$nb"
 done
 
 echo "demos rebuilt. serve: (cd site && python3 -m http.server 8080)"
