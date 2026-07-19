@@ -16,12 +16,19 @@ import "github.com/scttfrdmn/go-notebook/internal/webui"
 //
 // __NB_NAME__ is replaced with the notebook name (by string replace, not
 // Sprintf, because the assembled page contains literal %).
-var indexHTMLWASM = webui.Page(webui.PageOpts{
-	Title:     "__NB_NAME__ — go-notebook (wasm)",
-	Subtitle:  "· running in your browser, no server",
-	Status:    true,
-	HeadExtra: `<script src="wasm_exec.js"></script>`,
-	Glue: `
+//
+// showcase controls the dependency-graph placement: the landing-page demos
+// (built with `build --target=wasm --showcase`) lead with the graph open, since
+// watching the recompute wave is the pitch; a plain wasm build a user makes to
+// share their own notebook gets the collapsed-at-end default, results first.
+func indexHTMLWASM(showcase bool) string {
+	return webui.Page(webui.PageOpts{
+		Title:         "__NB_NAME__ — go-notebook (wasm)",
+		Subtitle:      "· running in your browser, no server",
+		Status:        true,
+		GraphShowcase: showcase,
+		HeadExtra:     `<script src="wasm_exec.js"></script>`,
+		Glue: `
 const status = document.getElementById('status');
 
 // When embedded in an iframe (the landing page), report content height so the
@@ -76,4 +83,5 @@ instantiate().then((r) => {
     if (globalThis.notebook) { clearInterval(wait); start(globalThis.notebook); }
   }, 5);
 }).catch((e) => { status.textContent = 'wasm load failed: ' + e; });`,
-})
+	})
+}

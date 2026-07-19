@@ -21,7 +21,7 @@ import (
 // It refuses a notebook that isn't WASM-able, deciding that from the graph (the
 // WASMability analysis), never by hand: a cell that transitively touches
 // net/os/cgo can't run client-side.
-func buildWASM(res analyze.Analysis, moduleRoot, out string, timing bool) int {
+func buildWASM(res analyze.Analysis, moduleRoot, out string, timing, showcase bool) int {
 	// Gate on WASM-ability, from the graph.
 	pkg, err := analyze.LoadForPurity(res.Package.Dir)
 	if err != nil {
@@ -83,7 +83,7 @@ func buildWASM(res analyze.Analysis, moduleRoot, out string, timing bool) int {
 		return 1
 	}
 
-	if err := writeHostFiles(outDir, res.Package.Name, wasmName); err != nil {
+	if err := writeHostFiles(outDir, res.Package.Name, wasmName, showcase); err != nil {
 		fmt.Fprintf(os.Stderr, "notebook build: %v\n", err)
 		return 1
 	}
@@ -112,7 +112,7 @@ func contentAddress(path string) (string, error) {
 // writeHostFiles copies Go's wasm_exec.js (the JS runtime shim, version-matched
 // to the toolchain) and writes index.html next to the .wasm. wasmName is the
 // content-addressed filename the page must fetch.
-func writeHostFiles(outDir, name, wasmName string) error {
+func writeHostFiles(outDir, name, wasmName string, showcase bool) error {
 	shim, err := wasmExecPath()
 	if err != nil {
 		return err
@@ -122,7 +122,7 @@ func writeHostFiles(outDir, name, wasmName string) error {
 	}
 	// Insert the name + content-addressed wasm filename by replace, not Sprintf:
 	// the shared webui CSS/JS contain literal %, which a format verb would choke on.
-	html := strings.ReplaceAll(indexHTMLWASM, "__NB_NAME__", name)
+	html := strings.ReplaceAll(indexHTMLWASM(showcase), "__NB_NAME__", name)
 	html = strings.ReplaceAll(html, "__NB_WASM__", wasmName)
 	if err := os.WriteFile(filepath.Join(outDir, "index.html"), []byte(html), 0o644); err != nil {
 		return fmt.Errorf("writing index.html: %w", err)

@@ -32,6 +32,15 @@ type PageOpts struct {
 	HeadExtra string
 	BodyPre   string // extra markup injected before the shared body (e.g. wasm status line)
 	Glue      string // transport <script> body, appended after the shared JS
+
+	// GraphShowcase controls where the dependency graph sits. The graph is the
+	// project's thesis, so the landing-page demos lead with it (open, at the top)
+	// — that is what "watch the wave move through the graph" is selling. But when
+	// you are USING a notebook the results are the point, so the interactive
+	// server and a plain `build` put the graph in a collapsed disclosure AFTER the
+	// cells: a tool you open to debug, not the first thing in your way. True =
+	// open, at top (showcase); false = collapsed, at end (default).
+	GraphShowcase bool
 }
 
 // Page assembles the complete notebook HTML for a transport. It owns the shell —
@@ -61,9 +70,19 @@ func Page(opts PageOpts) string {
 		b.WriteString(`<div id="status">loading…</div>` + "\n")
 	}
 	b.WriteString(opts.BodyPre)
-	b.WriteString(`<div class="graph" id="graph"></div>` + "\n")
-	b.WriteString(`<div class="controls" id="controls"></div>` + "\n")
-	b.WriteString(`<div id="cells"></div>` + "\n")
+	// The graph lives in a <details> so it is legible and dismissable. A showcase
+	// page (the demos) renders it open and BEFORE the controls — the pitch is
+	// watching the recompute wave move through it. A working page renders it
+	// collapsed and AFTER the cells — results lead; the graph is a tool you open.
+	if opts.GraphShowcase {
+		b.WriteString(graphDetails(true))
+		b.WriteString(`<div class="controls" id="controls"></div>` + "\n")
+		b.WriteString(`<div id="cells"></div>` + "\n")
+	} else {
+		b.WriteString(`<div class="controls" id="controls"></div>` + "\n")
+		b.WriteString(`<div id="cells"></div>` + "\n")
+		b.WriteString(graphDetails(false))
+	}
 	b.WriteString(`<footer id="provenance"></footer>` + "\n")
 	b.WriteString("<script>")
 	b.WriteString(JS)
@@ -71,6 +90,32 @@ func Page(opts PageOpts) string {
 	b.WriteString(opts.Glue)
 	b.WriteString("\n</script>\n</body>\n</html>\n")
 	return b.String()
+}
+
+// graphDetails wraps the graph container in a <details> with a summary caption
+// and a state legend. The graph's colors and directional edges mean nothing
+// without a key, so the key rides with it. open=true renders the disclosure
+// expanded (showcase); open=false renders it collapsed (a tool you open).
+func graphDetails(open bool) string {
+	attr := ""
+	if open {
+		attr = " open"
+	}
+	// The legend swatches mirror the .graph .node CSS: each state's stroke color,
+	// plus the leaf fill. This is the only place the colors are explained.
+	return `<details class="graphwrap"` + attr + `>
+  <summary>Dependency graph <span class="hint">— which cell feeds which; nodes light up as they recompute</span></summary>
+  <div class="legend">
+    <span class="k"><i class="sw leaf"></i>input (set it)</span>
+    <span class="k"><i class="sw stale"></i>idle</span>
+    <span class="k"><i class="sw run"></i>recomputing</span>
+    <span class="k"><i class="sw done"></i>done</span>
+    <span class="k"><i class="sw err"></i>error</span>
+    <span class="k"><span class="arw">→</span> feeds into</span>
+  </div>
+  <div class="graph" id="graph"></div>
+</details>
+`
 }
 
 // CSS is the shared stylesheet: palette, controls + custom slider, cell state
@@ -177,8 +222,27 @@ const CSS = `
   .cell details[open] summary::before { content: '\25be source'; }
   .cell pre.src { margin: .4rem 0 0; padding: .7rem .9rem; background: #0f1524; color: #e6ebf5;
                   border-radius: 8px; font: 12px/1.5 monospace; overflow-x: auto; }
-  .graph { border: 1px solid var(--line); border-radius: 10px; margin: 0 0 1.5rem; overflow-x: auto; }
-  .graph svg { display: block; }
+  /* The graph lives in a <details>: a captioned, dismissable disclosure with a
+     state legend, so its colors and directional edges are explained where shown. */
+  .graphwrap { border: 1px solid var(--line); border-radius: 10px; margin: 0 0 1.5rem;
+               padding: .3rem .9rem .6rem; }
+  .graphwrap > summary { cursor: pointer; font-weight: 600; color: var(--navy);
+                         padding: .35rem 0; list-style-position: inside; }
+  .graphwrap > summary .hint { font-weight: 400; color: var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: .3rem 1rem; margin: .1rem 0 .5rem;
+            font-size: 11px; color: var(--muted); }
+  .legend .k { display: inline-flex; align-items: center; gap: .35rem; }
+  .legend .sw { width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid var(--stale); background: #fff; }
+  .legend .sw.leaf { background: #f3f8fc; border-color: var(--stale); }
+  .legend .sw.stale { border-color: var(--stale); }
+  .legend .sw.run { border-color: var(--run); }
+  .legend .sw.done { border-color: var(--done); }
+  .legend .sw.err { border-color: var(--err); }
+  .legend .arw { color: var(--stale); font-weight: 700; }
+  /* Fit-to-width: the SVG carries its own viewBox, so max-width:100% + height:auto
+     scales a wide graph DOWN to the column instead of forcing a horizontal scroll. */
+  .graph { overflow-x: auto; }
+  .graph svg { display: block; max-width: 100%; height: auto; }
   .graph .node rect { fill: #fff; stroke: var(--stale); stroke-width: 1.5; rx: 6; }
   .graph .node text { font: 11px monospace; fill: #1a1a2e; }
   .graph .node.running rect { stroke: var(--run); stroke-width: 2.5; }
@@ -187,6 +251,7 @@ const CSS = `
   .graph .node.blocked rect { stroke: var(--stale); stroke-dasharray: 3 3; }
   .graph .node.leaf    rect { fill: #f3f8fc; }
   .graph .edge { stroke: var(--line); stroke-width: 1.5; fill: none; }
+  .graph .edge-arrow { fill: var(--stale); }
   /* Provenance — what produced this artifact. Unobtrusive, no network call.
      A path is not a handle; this is the handle, shown. */
   #provenance { margin-top: 2rem; padding-top: .75rem; border-top: 1px solid var(--line);
@@ -551,14 +616,29 @@ const NB = (function () {
     const svg = document.createElementNS(svgns, 'svg');
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
     svg.setAttribute('width', W); svg.setAttribute('height', H);
+    // An arrowhead marker so edges are directional (A feeds B), not just curves.
+    const defs = document.createElementNS(svgns, 'defs');
+    const marker = document.createElementNS(svgns, 'marker');
+    marker.setAttribute('id', 'arrow');
+    marker.setAttribute('viewBox', '0 0 8 8');
+    marker.setAttribute('refX', '7'); marker.setAttribute('refY', '4');
+    marker.setAttribute('markerWidth', '6'); marker.setAttribute('markerHeight', '6');
+    marker.setAttribute('orient', 'auto-start-reverse');
+    const tip = document.createElementNS(svgns, 'path');
+    tip.setAttribute('d', 'M0 0 L8 4 L0 8 z');
+    tip.setAttribute('class', 'edge-arrow');
+    marker.appendChild(tip); defs.appendChild(marker); svg.appendChild(defs);
     META.forEach(m => {
       for (const p of (m.In || [])) {
         if (!pos[p] || !pos[m.ID]) continue;
         const x1 = pos[p].x + NW, y1 = pos[p].y + NH/2;
-        const x2 = pos[m.ID].x, y2 = pos[m.ID].y + NH/2;
+        // Stop the curve short of the node's left edge so the arrowhead sits in
+        // the gap and points AT the box, rather than under it.
+        const x2 = pos[m.ID].x - 3, y2 = pos[m.ID].y + NH/2;
         const mx = (x1 + x2) / 2;
         const path = document.createElementNS(svgns, 'path');
         path.setAttribute('class', 'edge');
+        path.setAttribute('marker-end', 'url(#arrow)');
         path.setAttribute('d', 'M'+x1+' '+y1+' C'+mx+' '+y1+' '+mx+' '+y2+' '+x2+' '+y2);
         svg.appendChild(path);
       }

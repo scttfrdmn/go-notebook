@@ -25,6 +25,7 @@ func cmdBuild(args []string) int {
 	out := fs.String("o", "", "output path (binary, or a directory for --target=wasm)")
 	target := fs.String("target", "native", "build target: native | wasm")
 	timing := fs.Bool("timing", false, "print codegen + build wall time")
+	showcase := fs.Bool("showcase", false, "(wasm) lead with the dependency graph open, for gallery demos")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -51,7 +52,7 @@ func cmdBuild(args []string) int {
 	}
 
 	if *target == "wasm" {
-		return buildWASM(res, moduleRoot, *out, *timing)
+		return buildWASM(res, moduleRoot, *out, *timing, *showcase)
 	}
 
 	genStart := time.Now()
