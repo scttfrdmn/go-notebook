@@ -1,0 +1,307 @@
+{
+  "order": [
+    "motion",
+    "lux",
+    "tempDeci",
+    "darkThreshold",
+    "setpointDeci",
+    "lightOn",
+    "brightness",
+    "heat",
+    "plan",
+    "board",
+    "intro"
+  ],
+  "helpers": [
+    "itoa",
+    "onoff",
+    "tail",
+    "toneOn",
+    "deci"
+  ],
+  "producer": {
+    "ambient": "lux",
+    "command": "plan",
+    "darkLux": "darkThreshold",
+    "heating": "heat",
+    "level": "brightness",
+    "md": "intro",
+    "moving": "motion",
+    "on": "lightOn",
+    "report": "board",
+    "setC10": "setpointDeci",
+    "tempC10": "tempDeci"
+  },
+  "cells": {
+    "board": {
+      "label": "A human-readable panel of what the house is doing and why.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "policy",
+        "height": "200"
+      },
+      "params": [
+        {
+          "name": "moving",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "ambient",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "tempC10",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "darkLux",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "on",
+          "type": "bool",
+          "kind": "wired"
+        },
+        {
+          "name": "level",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "heating",
+          "type": "bool",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "brightness": {
+      "label": "Target brightness, 0..100 — dimmer the darker it is (only meaningful when on).",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "on",
+          "type": "bool",
+          "kind": "wired"
+        },
+        {
+          "name": "ambient",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "darkLux",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "level",
+          "type": "int"
+        }
+      ]
+    },
+    "darkThreshold": {
+      "label": "Turn lights on below this ambient level (lux).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "policy",
+        "max": "1000",
+        "min": "0",
+        "slider": "",
+        "step": "10"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "darkLux",
+          "type": "int"
+        }
+      ]
+    },
+    "heat": {
+      "label": "Call for heat?",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "tempC10",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "setC10",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "heating",
+          "type": "bool"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Orientation.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "lightOn": {
+      "label": "Should the light be on?",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "moving",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "ambient",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "darkLux",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "on",
+          "type": "bool"
+        }
+      ]
+    },
+    "lux": {
+      "label": "Ambient light, lux (0 = dark, ~500 = bright office, ~1000 = daylight).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "sensors",
+        "max": "1000",
+        "min": "0",
+        "slider": "",
+        "step": "10"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "ambient",
+          "type": "int"
+        }
+      ]
+    },
+    "motion": {
+      "label": "Motion detected in the room, right now (0 = still, 1 = motion).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "sensors",
+        "max": "1",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "moving",
+          "type": "int"
+        }
+      ]
+    },
+    "plan": {
+      "label": "The plan the driver applies: the computed device states, as a compact command\nthe driver parses back and pushes to the bridge.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "plan",
+        "height": "140"
+      },
+      "params": [
+        {
+          "name": "on",
+          "type": "bool",
+          "kind": "wired"
+        },
+        {
+          "name": "level",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "heating",
+          "type": "bool",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "command",
+          "type": "Command"
+        }
+      ]
+    },
+    "setpointDeci": {
+      "label": "Comfort setpoint, °C ×10 — below this the notebook calls for heat.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "policy",
+        "max": "280",
+        "min": "150",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "setC10",
+          "type": "int"
+        }
+      ]
+    },
+    "tempDeci": {
+      "label": "Room temperature, °C ×10 (so the slider is integer-clean; 215 = 21.5°C).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "sensors",
+        "max": "320",
+        "min": "100",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "tempC10",
+          "type": "int"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "order": [
+    "cpu",
+    "mem",
+    "goroutines",
+    "tick",
+    "dials",
+    "status",
+    "intro",
+    "history",
+    "window"
+  ],
+  "helpers": [
+    "itoa",
+    "dial",
+    "arc",
+    "pointOnArc",
+    "parseCSV"
+  ],
+  "producer": {
+    "chart": "history",
+    "cpuPct": "cpu",
+    "md": "intro",
+    "memMB": "mem",
+    "numG": "goroutines",
+    "report": "status",
+    "series": "window",
+    "t": "tick",
+    "view": "dials"
+  },
+  "cells": {
+    "cpu": {
+      "label": "CPU utilization, percent.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "gauges",
+        "max": "100",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "cpuPct",
+          "type": "int"
+        }
+      ]
+    },
+    "dials": {
+      "label": "The gauges: CPU and memory as dial readouts.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "gauges",
+        "height": "200"
+      },
+      "params": [
+        {
+          "name": "cpuPct",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "memMB",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "view",
+          "type": "Gauges"
+        }
+      ]
+    },
+    "goroutines": {
+      "label": "Live goroutine count in the driver process.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "gauges",
+        "max": "10000",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "numG",
+          "type": "int"
+        }
+      ]
+    },
+    "history": {
+      "label": "A history chart — the last readings, drawn as a rolling line.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "history",
+        "height": "220"
+      },
+      "params": [
+        {
+          "name": "series",
+          "type": "Series",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "TimeChart"
+        }
+      ]
+    },
+    "intro": {
+      "label": "Orientation.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "mem": {
+      "label": "Resident memory, megabytes.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "gauges",
+        "max": "64000",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "memMB",
+          "type": "int"
+        }
+      ]
+    },
+    "status": {
+      "label": "A status readout: the raw numbers plus a derived health verdict.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "status",
+        "height": "220"
+      },
+      "params": [
+        {
+          "name": "cpuPct",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "memMB",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "numG",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "t",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "tick": {
+      "label": "A monotonic tick the driver increments each sample, so the history chart has\nan x-axis that advances even when a reading repeats.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "gauges",
+        "max": "100000",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "t",
+          "type": "int"
+        }
+      ]
+    },
+    "window": {
+      "label": "The rolling window, pushed by the driver as a comma-separated list of recent\nCPU percents.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "history"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "series",
+          "type": "Series"
+        }
+      ]
+    }
+  }
+}

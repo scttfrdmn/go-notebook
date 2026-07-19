@@ -100,7 +100,7 @@
 
   <header>
     <img src="assets/logo.png" alt="go-notebook — a cell is a function">
-    <p class="tag">Reactive notebooks that compile. Drag a slider below and watch the wave move through the dependency graph at the top of the demo — that graph is derived by the Go type checker, and it's compiled Go running in your browser, no server. Then browse the corpus: thirty-four you can drag right here.</p>
+    <p class="tag">Reactive notebooks that compile. Drag a slider below and watch the wave move through the dependency graph at the top of the demo — that graph is derived by the Go type checker, and it's compiled Go running in your browser, no server. Then browse the corpus: thirty-eight you can drag right here.</p>
   </header>
 
   <!-- ONE DEMO FIRST. Drag before you read a single word of prose. -->
@@ -138,7 +138,7 @@
        batch tiles are the same file, built for a cluster instead. -->
 
   <section class="corpus">
-    <h2>The corpus — thirty-four notebooks you can drag</h2>
+    <h2>The corpus — thirty-eight notebooks you can drag</h2>
     <p class="lead">Every notebook is a plain Go package, compiled to WebAssembly and running right here in your browser — a notebook is browser-portable only if it touches no <code>net</code>, <code>os</code>, or cgo, and the toolchain derives that from the call graph. Several were ported from marimo's gallery (porting them found real bugs); others are originals built to put one mechanism on stage — including a few that render not a chart but a <em>document</em>: an invoice, a table, a heatmap, drawn in HTML because that is the medium the answer takes.</p>
     <div class="tiles">
 
@@ -380,8 +380,36 @@
         <span class="go">Open demo</span>
       </a>
 
+      <a class="tile" href="demos/sensorfeed/index.html">
+        <div class="top"><h3>sensorfeed</h3><span class="tag">live feed</span></div>
+        <p class="what">A live sensor dashboard — gauges and a rolling chart driven not by a slider but by a feed. A small driver samples the machine's metrics and pushes each reading to the notebook's <code>set</code> port; the notebook is pure cells reacting. The impure edge (the clock, the sampling) lives in the driver, outside the graph.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <span class="go">Open demo</span>
+      </a>
+
+      <a class="tile" href="demos/homefeed/index.html">
+        <div class="top"><h3>homefeed</h3><span class="tag">live feed · bidirectional</span></div>
+        <p class="what">A smart-home controller, both directions over one port. A bridge feed (Hue/Matter) pushes sensors <em>in</em> — motion, temperature, ambient light; the notebook computes, purely, what the lights should do; the driver reads those decisions <em>out</em> of the event stream and applies them. Turning a light on isn't something a cell does — it's a boolean a cell computes and the driver subscribes to.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <span class="go">Open demo</span>
+      </a>
+
+      <a class="tile" href="demos/tickerfeed/index.html">
+        <div class="top"><h3>tickerfeed</h3><span class="tag">live feed</span></div>
+        <p class="what">A live price ticker. A driver streams trade ticks from an exchange and pushes each to the notebook; the notebook derives the last price, a moving average, and the spread — pure, no socket, no timer. The rolling window lives in the driver, because a cell is stateless; the math lives in the graph.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <span class="go">Open demo</span>
+      </a>
+
+      <a class="tile" href="demos/apifeed/index.html">
+        <div class="top"><h3>apifeed</h3><span class="tag">live feed</span></div>
+        <p class="what">Where is the ISS right now? A driver polls a public JSON API on an interval and pushes the live position; the notebook plots it on a world map and reads out the coordinates — the "poll a REST feed" shape, the most common live-data pattern of all. The poll lives in the driver; the notebook stays a pure function of the position.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <span class="go">Open demo</span>
+      </a>
+
     </div>
-    <p class="lead" style="margin-top:1.25rem">A handful more — the marimo ports that fetch data over the network, stream a file too big for memory, or benchmark across real cores — need a laptop or a cluster, not a tab. Same language, same shape; they just call for ingredients a sealed browser doesn't have. <a href="https://github.com/scttfrdmn/go-notebook/tree/main/examples">All in the repo →</a></p>
+    <p class="lead" style="margin-top:1.25rem">The last four take a <b>live feed</b>: they run in your browser like the rest, but their gauges move when a small companion <em>driver</em> pushes real data to the notebook's one <code>set</code> port — a feed is just a program with its hand on the knob (see <a href="https://github.com/scttfrdmn/go-notebook/blob/main/docs/live-feeds.md">docs/live-feeds.md</a>). A few notebooks beyond these — the marimo ports that stream a file too big for memory or benchmark across real cores — need a laptop or a cluster, not a tab. <a href="https://github.com/scttfrdmn/go-notebook/tree/main/examples">All in the repo →</a></p>
   </section>
 
   <!-- THE THESIS: the graph is the artifact. Named, after you've already seen it move. -->

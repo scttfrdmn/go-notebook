@@ -1,0 +1,153 @@
+{
+  "order": [
+    "lat",
+    "lon",
+    "polls",
+    "worldmap",
+    "readout",
+    "intro"
+  ],
+  "helpers": [
+    "itoa",
+    "coord",
+    "hemi"
+  ],
+  "producer": {
+    "latMilli": "lat",
+    "lonMilli": "lon",
+    "md": "intro",
+    "n": "polls",
+    "report": "readout",
+    "view": "worldmap"
+  },
+  "cells": {
+    "intro": {
+      "label": "Orientation.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "lat": {
+      "label": "Latitude ×1000 (integer-clean over the wire; 37421 = 37.421°).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "readout",
+        "max": "90000",
+        "min": "-90000",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "latMilli",
+          "type": "int"
+        }
+      ]
+    },
+    "lon": {
+      "label": "Longitude ×1000.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "readout",
+        "max": "180000",
+        "min": "-180000",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "lonMilli",
+          "type": "int"
+        }
+      ]
+    },
+    "polls": {
+      "label": "Poll count — the driver increments it each fetch, so the readout shows liveness.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "readout",
+        "max": "1000000",
+        "min": "0",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ]
+    },
+    "readout": {
+      "label": "A readout of the current position + a rough \"over ocean or land\" hint derived\nfrom the coordinates (a coarse heuristic — the point is the live feed, not\ncartography).",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "readout",
+        "height": "200"
+      },
+      "params": [
+        {
+          "name": "latMilli",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "lonMilli",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "n",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "worldmap": {
+      "label": "The world map with the ISS plotted.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "map",
+        "height": "320"
+      },
+      "params": [
+        {
+          "name": "latMilli",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "lonMilli",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "view",
+          "type": "Map"
+        }
+      ]
+    }
+  }
+}

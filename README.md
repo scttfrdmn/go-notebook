@@ -106,6 +106,7 @@ Overlapping the rebuild with the running binary ([#22](https://github.com/scttfr
 | [`docs/design.md`](docs/design.md) | The design record. The full derivation, the foreclosure table, the six corrections. |
 | [`docs/composition.md`](docs/composition.md) | How a notebook is arranged — `area=`/`layout`, the design decisions, why no spans/tabs. |
 | [`docs/notebook-as-service.md`](docs/notebook-as-service.md) | The notebook as an ephemeral HTTP service — the readiness/addressing seam. |
+| [`docs/live-feeds.md`](docs/live-feeds.md) | Wire a live feed (sensor, WebSocket, API) into a notebook — a feed is a driver on the `set` port. |
 | [`docs/core-loop-spec.md`](docs/core-loop-spec.md) | Buildable first milestone. Repo layout, interfaces, foreclosure table, kill criteria. |
 | [`docs/kickoff.md`](docs/kickoff.md) | Handoff prompt for Claude Code. |
 

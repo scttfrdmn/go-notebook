@@ -5,6 +5,7 @@ notebook_gen.go
 # Build output
 /notebook
 /cmd/notebook/notebook
+/driver
 *.exe
 
 # Persisted head state (a few floats per notebook). `notebook run` writes
