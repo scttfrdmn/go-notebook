@@ -242,6 +242,23 @@ const CSS = `
   .cell details[open] summary::before { content: '\25be source'; }
   .cell pre.src { margin: .4rem 0 0; padding: .7rem .9rem; background: #0f1524; color: #e6ebf5;
                   border-radius: 8px; font: 12px/1.5 var(--mono); overflow-x: auto; }
+  /* Whole-file source editor (run-mode only; mounted by mountEditor when the
+     server exposes /__source). Collapsed by default so it never crowds results. */
+  details.editor { margin: 0 0 1.5rem; }
+  details.editor > summary { font: 600 13px var(--font); color: var(--navy); cursor: pointer;
+                             list-style: none; padding: .3rem 0; }
+  details.editor > summary::-webkit-details-marker { display: none; }
+  details.editor > summary::before { content: '\25b8 '; color: var(--muted); }
+  details.editor[open] > summary::before { content: '\25be '; }
+  textarea.srcedit { width: 100%; min-height: 22rem; margin: .4rem 0; padding: .8rem 1rem;
+                     background: #0f1524; color: #e6ebf5; border: 1px solid var(--line);
+                     border-radius: 8px; font: 12px/1.5 var(--mono); resize: vertical;
+                     tab-size: 4; box-sizing: border-box; }
+  .editbar { display: flex; align-items: center; gap: .8rem; }
+  .editbar button { font: 600 13px var(--font); padding: .4rem .9rem; border: 0; border-radius: 7px;
+                    background: var(--navy); color: #fff; cursor: pointer; }
+  .editbar button:disabled { opacity: .55; cursor: default; }
+  .editnote { font: 12px var(--mono); color: var(--muted); }
   /* The graph lives in a <details>: a captioned, dismissable disclosure with a
      state legend, so its colors and directional edges are explained where shown. */
   .graphwrap { border: 1px solid var(--line); border-radius: 10px; margin: 0 0 1.5rem;
@@ -450,15 +467,24 @@ const NB = (function () {
     el.innerHTML = '<div class="id"><span class="dot"></span>' + m.ID +
                    '</div><div class="err" hidden></div><div class="body"></div>';
     if (m.Leaf) el.dataset.leaf = '1'; // control is its view; don't echo the body
-    if (m.Source) {
-      const det = document.createElement('details');
-      const sum = document.createElement('summary');
-      const pre = document.createElement('pre'); pre.className = 'src';
-      pre.textContent = m.Source; // code, set as text — never injected as HTML
-      det.append(sum, pre); el.append(det);
-    }
+    addSource(m, el);
     cellEls[m.ID] = el;
     return el;
+  }
+
+  // addSource appends the read-only "▸ source" disclosure to a cell element. The
+  // one place per-cell source is rendered, so the deduped (makeCellEl) and
+  // source-order paths cannot diverge in what a cell looks like. This is always
+  // read-only (a gofmt reprint of one cell); whole-file EDITING is a separate
+  // top-level panel, mounted only when the server exposes /__source (see
+  // mountEditor) — so this stays identical in every transport, including WASM.
+  function addSource(m, el) {
+    if (!m.Source) return;
+    const det = document.createElement('details');
+    const sum = document.createElement('summary');
+    const pre = document.createElement('pre'); pre.className = 'src';
+    pre.textContent = m.Source; // code, set as text — never injected as HTML
+    det.append(sum, pre); el.append(det);
   }
 
   // registerLeaf wires a leaf cell's control (into the given container) and
@@ -518,13 +544,7 @@ const NB = (function () {
       el.innerHTML = '<div class="id"><span class="dot"></span>' + m.ID +
                      '</div><div class="err" hidden></div><div class="body"></div>';
       if (m.Leaf) el.dataset.leaf = '1'; // control is its view; don't echo the body
-      if (m.Source) {
-        const det = document.createElement('details');
-        const sum = document.createElement('summary');
-        const pre = document.createElement('pre'); pre.className = 'src';
-        pre.textContent = m.Source; // code, set as text — never injected as HTML
-        det.append(sum, pre); el.append(det);
-      }
+      addSource(m, el);
       container(m).append(el);
       cellEls[m.ID] = el;
     }
@@ -878,6 +898,59 @@ const NB = (function () {
     buildGraph();
     buildControlsAndCells();
     if (opts && opts.provenance) showProvenance(opts.provenance);
+    mountEditor();
+  }
+
+  // mountEditor adds a whole-file source editor to the page — but only when the
+  // server exposes GET /__source (the run-mode supervisor). It is a CAPABILITY
+  // PROBE, not a build flag: the WASM build has no /__source (no compiler, no
+  // filesystem), so the probe 404s/errors there and no editor appears — the same
+  // client code is editor-less in the browser topology and editable under
+  // 'notebook run', with no server-specific branch in the page. Saving POSTs the
+  // whole file back; the supervisor's own status poller (it injected one into
+  // this page) then surfaces build-failed or reloads on recovery, so this code
+  // does not need to manage the rebuild.
+  function mountEditor() {
+    fetch('/__source', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error('no editor'))))
+      .then((src) => buildEditor(src))
+      .catch(() => {}); // no /__source (e.g. WASM, or multi-file package): stay read-only
+  }
+
+  function buildEditor(src) {
+    const det = document.createElement('details');
+    det.className = 'editor';
+    const sum = document.createElement('summary');
+    sum.textContent = 'Edit source';
+    const ta = document.createElement('textarea');
+    ta.className = 'srcedit';
+    ta.spellcheck = false;
+    ta.value = src;
+    const bar = document.createElement('div'); bar.className = 'editbar';
+    const save = document.createElement('button'); save.textContent = 'Save & rebuild';
+    const note = document.createElement('span'); note.className = 'editnote';
+    const doSave = function () {
+      save.disabled = true; note.textContent = 'saving…';
+      fetch('/__source', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: ta.value })
+        .then((r) => {
+          save.disabled = false;
+          // The supervisor's status poller handles the rebuild outcome (error
+          // overlay or reload on recovery); here we only confirm the write landed.
+          note.textContent = r.ok ? 'saved — rebuilding…' : ('save failed: HTTP ' + r.status);
+        })
+        .catch((e) => { save.disabled = false; note.textContent = 'save failed: ' + e.message; });
+    };
+    save.addEventListener('click', doSave);
+    // Cmd/Ctrl-S saves from within the textarea.
+    ta.addEventListener('keydown', function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); doSave(); }
+    });
+    bar.append(save, note);
+    det.append(sum, ta, bar);
+    // Mount just before the cells so it reads as "the source behind this notebook."
+    const cells = document.getElementById('cells');
+    if (cells && cells.parentNode) cells.parentNode.insertBefore(det, cells);
+    else document.body.appendChild(det);
   }
 
   return { init, render, seedLeaves, showProvenance };

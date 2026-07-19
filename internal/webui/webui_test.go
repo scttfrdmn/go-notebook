@@ -89,6 +89,34 @@ func TestSharedClientContract(t *testing.T) {
 	}
 }
 
+// TestSourceEditorIsCapabilityProbed pins A3's design: the whole-file source
+// editor is gated on GET /__source (a capability probe), not on a build flag, so
+// the same client is editor-less under WASM (no /__source) and editable under
+// 'notebook run'. And per-cell source rendering goes through one addSource helper
+// so the two layout paths cannot diverge.
+func TestSourceEditorIsCapabilityProbed(t *testing.T) {
+	for _, want := range []string{
+		"function mountEditor", // the editor mount exists
+		"fetch('/__source'",    // it probes the server capability, not a flag
+		"function addSource",   // per-cell source is rendered in ONE place
+		"method: 'POST'",       // save writes back via POST
+	} {
+		if !strings.Contains(JS, want) {
+			t.Errorf("shared JS missing %q — A3 source editor", want)
+		}
+	}
+	// The editor must be probe-gated, never assumed: mountEditor's fetch is the
+	// only thing that builds it, so a bare page (WASM) with no /__source stays
+	// read-only. Guard that the editor build is downstream of the fetch by
+	// asserting buildEditor is only reached via the probe.
+	if strings.Contains(JS, "buildEditor(") && !strings.Contains(JS, ".then((src) => buildEditor(src))") {
+		t.Error("buildEditor must be called only from the /__source probe's success path")
+	}
+	if !strings.Contains(CSS, "textarea.srcedit") {
+		t.Error("shared CSS missing the source-editor textarea rule")
+	}
+}
+
 // TestBothTransportsUseSharedClient is the anti-drift guard: both the SSE server
 // page and the WASM host page must build on the shared client (NB.init +
 // NB.render), not re-implement rendering. If a client stops importing webui,
