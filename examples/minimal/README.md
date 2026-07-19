@@ -34,6 +34,7 @@ Read them roughly top-to-bottom; each builds on the last.
 |---------|-----------|-------|-----------|
 | [`htmlcard`](htmlcard) | a `text/html` `Render()` — the gentlest rich output; uses the optional `nb` package | 45 | [rendering](https://go-notebook.dev/docs/reference-rendering.html) |
 | [`svgchart`](svgchart) | an `image/svg+xml` `Render()` — the low-level, zero-import route | 44 | [rendering](https://go-notebook.dev/docs/reference-rendering.html) |
+| [`csv`](csv) | normal analysis: parse CSV → filter → summarize → `nb/chart` Table + Bar, no dataframe (and the WASM portability line) | 201 | [charts](https://go-notebook.dev/docs/reference-charts.html) |
 
 ## Graph shape and behavior
 
