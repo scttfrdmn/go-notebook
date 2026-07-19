@@ -18,7 +18,6 @@ const (
 	padTop    = 16.0 // above the plot (title sits here when present)
 	padRight  = 16.0
 	padBottom = 34.0 // x ticks + x title
-	tickLen   = 0.0  // ticks are label-only; the grid carries the line
 	fontTick  = 11.0
 	fontAxis  = 12.0
 	fontTitle = 14.0

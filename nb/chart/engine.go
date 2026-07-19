@@ -293,3 +293,21 @@ func esc(s string) string {
 	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;", "'", "&#39;")
 	return r.Replace(s)
 }
+
+// swatchLegend draws a left-aligned row of square swatches + names at (x, y),
+// one per (seriesIdx, name) entry — the identity channel for the fill-based
+// forms (bars, histogram, area), whose marks are blocks rather than lines. The
+// swatch carries the series color; the text stays in the secondary-ink token.
+// It returns the y it drew at (unchanged) for the caller's convenience.
+func (c *canvas) swatchLegend(x, y float64, names []string, seriesIdx []int) {
+	const sw = 11.0
+	for k, name := range names {
+		cls := c.use(seriesIdx[k])
+		c.rawf(`<rect class="%s" x="%.1f" y="%.1f" width="%.0f" height="%.0f" rx="2" fill="currentColor"/>`,
+			cls, x, y-sw/2, sw, sw)
+		tx := x + sw + 6
+		c.rawf(`<text x="%.1f" y="%.1f" font-size="%.0f" fill="var(--secondary)" dominant-baseline="middle">%s</text>`,
+			tx, y, fontLabel, esc(name))
+		x = tx + textW(name, fontLabel) + 18
+	}
+}
