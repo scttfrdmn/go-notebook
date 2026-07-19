@@ -30,6 +30,21 @@ func Rows(data any) Table { return Table{data: data} }
 // RowsWith is [Rows] with options (only Title is used).
 func RowsWith(opts Opts, data any) Table { return Table{data: data, opts: opts} }
 
+// Equal lets the engine's change-detection compare two tables without a raw ==.
+// Table holds `data any`; a struct with an interface field is *statically*
+// comparable, so the engine would otherwise reach for == and panic at runtime
+// when the interface holds a slice or map (the common case here). Providing
+// Equal takes the engine's Equal-method branch instead, and reflect.DeepEqual
+// handles whatever shape `data` actually is. (The other forms hold slice fields
+// directly, so they're statically non-comparable and never hit this path.)
+func (t Table) Equal(other any) bool {
+	o, ok := other.(Table)
+	if !ok {
+		return false
+	}
+	return reflect.DeepEqual(t, o)
+}
+
 // Render draws the table as HTML.
 func (t Table) Render() nb.Rendered {
 	cols, rows, aligns := t.extract()
