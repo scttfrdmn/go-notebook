@@ -90,8 +90,28 @@ func model(p int, n int) (m Model) {
 }
 
 // ---------------------------------------------------------------------------
-// Views
+// Views — in reading order: the orientation first, then the chart, then the
+// numbers. A notebook with no //notebook:layout renders its cells in SOURCE
+// order, so this order is the layout.
 // ---------------------------------------------------------------------------
+
+// Amdahl's ceiling — why more cores stop helping.
+func intro() (md Markdown) {
+	return `Parallelize a fraction *p* of a program; the rest stays serial. Speedup on
+*n* cores is **1 / ((1−p) + p/n)** — and the serial part never shrinks, so it hits a
+ceiling of **1/(1−p)**. That ceiling bites: **95% parallel caps you at 20×**, and
+you're already past 10× by 20 cores. Drag *p* and watch the curve flatten against a
+wall.
+
+The escape hatch is **Gustafson's Law** (the straighter line): if you grow the
+*problem* with the cores instead of holding it fixed, the serial part is a constant
+and speedup goes roughly linear. Amdahl asks "how much faster for the same work";
+Gustafson asks "how much more work in the same time." Same hardware, opposite mood.
+
+Here the speedup is a *model you drag*, not a measurement — and note the irony: this
+runs single-threaded in your browser tab (WASM), so the real fan-out the design
+brags about is exactly the thing absent here. Pure arithmetic; scrub freely.`
+}
 
 // The speedup curves: Amdahl (what you actually get, bending over toward its
 // ceiling) and Gustafson (the linear line, if you grow the problem instead), with
@@ -114,24 +134,6 @@ func readout(m Model) (report Readout) {
 		{Label: "efficiency", Value: pct(m.EfficiencyAtN), Caption: "speedup ÷ cores — useful work per core"},
 		{Label: "cores wasted", Value: f0(float64(m.N)-m.SpeedupAtN) + " of " + strconv.Itoa(m.N), Caption: "cores minus the speedup they bought"},
 	}}
-}
-
-// Amdahl's ceiling — why more cores stop helping.
-func intro() (md Markdown) {
-	return `Parallelize a fraction *p* of a program; the rest stays serial. Speedup on
-*n* cores is **1 / ((1−p) + p/n)** — and the serial part never shrinks, so it hits a
-ceiling of **1/(1−p)**. That ceiling bites: **95% parallel caps you at 20×**, and
-you're already past 10× by 20 cores. Drag *p* and watch the curve flatten against a
-wall.
-
-The escape hatch is **Gustafson's Law** (the straighter line): if you grow the
-*problem* with the cores instead of holding it fixed, the serial part is a constant
-and speedup goes roughly linear. Amdahl asks "how much faster for the same work";
-Gustafson asks "how much more work in the same time." Same hardware, opposite mood.
-
-Here the speedup is a *model you drag*, not a measurement — and note the irony: this
-runs single-threaded in your browser tab (WASM), so the real fan-out the design
-brags about is exactly the thing absent here. Pure arithmetic; scrub freely.`
 }
 
 // ===========================================================================
