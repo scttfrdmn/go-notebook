@@ -101,6 +101,27 @@ type CellMeta struct {
 	// Empty for non-widget leaves (a scalar/Bounded slider). Presentation-only,
 	// like the fields above.
 	Widget *WidgetMeta `json:",omitempty"`
+	// Type is the leaf's Go result type, for a program that drives set(): the
+	// named type it declares ("PerHour") and the basic kind that name resolves to
+	// ("float64"). Empty for non-leaf cells. It surfaces the schema the set()
+	// coercer already enforces — a consumer can read it to validate a value's
+	// shape before setting — without any new codegen artifact. Contract/identity
+	// metadata on the same transport-agnostic boundary as In/Source/Widget: the
+	// scheduler, head, and cache never read it, and it is omitempty so it stays
+	// inert to any consumer that ignores it.
+	Type *LeafType `json:",omitempty"`
+}
+
+// LeafType names a leaf's Go result type in two coordinates, so a client can
+// decide what a set() value must look like without knowing Go: Name is the type
+// as written in the source (a named type like "PerHour", or a bare "int"), and
+// Underlying is the basic kind that name resolves to through go/types ("int",
+// "float64", "bool", "string", …). Underlying is empty for a composite or
+// interface leaf (a Table row, a Multi selection), where no single scalar kind
+// describes the settable value. Both are type-derived at codegen, never guessed.
+type LeafType struct {
+	Name       string
+	Underlying string `json:",omitempty"`
 }
 
 // WidgetMeta is the static, type-derived descriptor of a leaf's control: the

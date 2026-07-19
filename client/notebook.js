@@ -29,6 +29,12 @@
  */
 
 /**
+ * @typedef {Object} LeafType   a leaf's Go result type, in two coordinates.
+ * @property {string} Name        the type as declared ("PerHour", "int")
+ * @property {string} [Underlying] the basic kind it resolves to ("float64", "int", "bool", "string"); absent for a composite/interface leaf
+ */
+
+/**
  * @typedef {Object} CellMeta
  * @property {string} ID          the cell id
  * @property {string} [Leaf]      the leaf symbol this cell produces, if it is an input
@@ -37,6 +43,7 @@
  * @property {string[]} [In]      upstream producer cell ids (the graph edges)
  * @property {string} [Source]    verbatim cell source
  * @property {WidgetMeta} [Widget] static control descriptor, present only for leaves
+ * @property {LeafType} [Type]    the leaf's Go result type, present only for leaves
  */
 
 /**
@@ -75,6 +82,7 @@
  * @property {string} label
  * @property {(string|null)} kind   the widget kind ("range", "multi", ...) or null for a bare scalar
  * @property {WidgetColumn[]} columns  a table leaf's columns, else []
+ * @property {(LeafType|null)} type   the leaf's Go result type ({Name, Underlying}), or null if the port predates it
  */
 
 /**
@@ -106,8 +114,10 @@ export class Notebook {
 
   /**
    * The input leaves — the settable surface. Each carries its widget kind and,
-   * for a table, its columns, so a caller can build controls or validate shape
-   * without hard-coding leaf names.
+   * for a table, its columns, plus its Go result type ({Name, Underlying}) so a
+   * caller can validate a value's shape before set() — without hard-coding leaf
+   * names or knowing Go. type is null on a port that predates the field (an
+   * older .wasm).
    * @returns {Leaf[]}
    */
   leaves() {
@@ -119,6 +129,7 @@ export class Notebook {
         label: m.Label ?? "",
         kind: m.Widget?.Kind ?? null,
         columns: m.Widget?.Columns ?? [],
+        type: m.Type ?? null,
       }));
   }
 
