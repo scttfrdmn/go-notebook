@@ -105,14 +105,28 @@ func newPlot(c *canvas, opts Opts, series []Series, canDirectLabel bool) *plot {
 		p.b -= fontAxis + 2
 	}
 
-	// Provisional scales, to decide the identity channel: direct end-labels (the
-	// Tufte-preferred "name the line, not a key") when 2+ series separate cleanly
-	// at the right edge; a top legend only as the collision fallback. This choice
-	// drives whether we reserve the right margin (for labels) or the top band
-	// (for a legend), so it must happen before the final rect is fixed.
+	// Choose the identity channel and adjust the rect for it, then fix the scales
+	// against the final rect.
+	p.chooseIdentity(series, named, canDirectLabel, dotKey, &top)
+	logY := opts.YLog && ylo > 0
 	p.x = scale{lo: nxl, hi: nxh, p0: p.l, p1: p.r}
-	p.y = scale{lo: nyl, hi: nyh, p0: p.b, p1: p.t, log: opts.YLog && ylo > 0}
-	if named >= 2 && canDirectLabel {
+	p.y = scale{lo: nyl, hi: nyh, p0: p.b, p1: p.t, log: logY}
+	p.opts = opts
+
+	p.drawFrame(series)
+	return p
+}
+
+// chooseIdentity picks how series are identified and reserves the margin for it:
+// direct end-labels (the Tufte-preferred "name the line, not a key") when there
+// are 2+ named series and the form can label ends, reserving the right gutter;
+// otherwise a top legend, reserving a band under the title. It mutates p.r or
+// p.t (and top) accordingly.
+func (p *plot) chooseIdentity(series []Series, named int, canDirectLabel, dotKey bool, top *float64) {
+	if named < 2 {
+		return
+	}
+	if canDirectLabel {
 		p.labelEnds = true
 		// Reserve the right gutter for the widest label plus the leader offset
 		// (8 gutter + 2 pad, matching directLabels).
@@ -123,19 +137,12 @@ func newPlot(c *canvas, opts Opts, series []Series, canDirectLabel bool) *plot {
 			}
 		}
 		p.r -= maxEnd + 14
-	} else if named >= 2 {
-		p.showLegend = true
-		p.dotKey = dotKey
-		top += fontLabel + 10
-		p.t = top
+		return
 	}
-	// Re-fix scales against the adjusted rect.
-	p.x = scale{lo: nxl, hi: nxh, p0: p.l, p1: p.r}
-	p.y = scale{lo: nyl, hi: nyh, p0: p.b, p1: p.t, log: opts.YLog && ylo > 0}
-	p.opts = opts
-
-	p.drawFrame(series)
-	return p
+	p.showLegend = true
+	p.dotKey = dotKey
+	*top += fontLabel + 10
+	p.t = *top
 }
 
 func (p *plot) sx(v float64) float64 { return p.x.at(v) }

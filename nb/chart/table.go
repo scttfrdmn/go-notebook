@@ -221,7 +221,7 @@ func fromStrings(ss [][]string) (cols []string, rows [][]string, numeric []bool)
 // fmtCell renders a reflected value as a table cell string. Floats use the same
 // clean formatter as the axes; other kinds fall back to their default string.
 func fmtCell(v reflect.Value) string {
-	if v.Kind() == reflect.Interface || v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Interface || v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return ""
 		}

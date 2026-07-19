@@ -111,40 +111,19 @@ func (b BarChart) drawBar(c *canvas, si int, x, y, w, h float64, roundTop bool) 
 		return
 	}
 	cls := c.use(si)
-	const rad = 4.0
-	if !roundTop || h < rad*2 || w < rad*2 {
-		c.rawf(`<rect class="%s" x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="currentColor"/>`,
-			cls, x, y, w, h)
+	if roundTop {
+		c.roundedTopBar(cls, x, y, w, h)
 		return
 	}
-	// Rounded top, square bottom via an explicit path.
-	c.rawf(`<path class="%s" fill="currentColor" d="M%.1f %.1f v%.1f a%.0f %.0f 0 0 1 %.0f %.0f h%.1f a%.0f %.0f 0 0 1 %.0f %.0f v%.1f z"/>`,
-		cls,
-		x, y+h, // bottom-left
-		-(h - rad),          // up the left side
-		rad, rad, rad, -rad, // top-left arc
-		w-2*rad,            // across the top
-		rad, rad, rad, rad, // top-right arc
-		h-rad, // down the right side
-	)
+	// An interior stacked segment: square both ends (only the stack's top cap is
+	// rounded, by the last segment's roundTop=true).
+	c.rawf(`<rect class="%s" x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="currentColor"/>`,
+		cls, x, y, w, h)
 }
 
 // drawChrome draws the title, axis titles, and legend shared by both orientations.
 func (b BarChart) drawChrome(c *canvas, l, r, top, bottom, maxYLabel float64) {
-	if b.opts.Title != "" {
-		c.rawf(`<text x="%.1f" y="%.1f" font-size="%.0f" font-weight="600" fill="var(--ink)">%s</text>`,
-			l, padTop+fontTitle*0.5, fontTitle, esc(b.opts.Title))
-	}
-	if b.opts.XLabel != "" {
-		c.rawf(`<text x="%.1f" y="%.1f" font-size="%.0f" fill="var(--secondary)" text-anchor="middle">%s</text>`,
-			(l+r)/2, float64(c.h)-6, fontAxis, esc(b.opts.XLabel))
-	}
-	if b.opts.YLabel != "" {
-		yc := (top + bottom) / 2
-		yx := (l - 8 - maxYLabel) * 0.58
-		c.rawf(`<text x="%.1f" y="%.1f" font-size="%.0f" fill="var(--secondary)" text-anchor="middle" transform="rotate(-90 %.1f %.1f)">%s</text>`,
-			yx, yc, fontAxis, yx, yc, esc(b.opts.YLabel))
-	}
+	c.axisChrome(b.opts, l, r, top, bottom, maxYLabel)
 	if b.namedGroups() >= 2 {
 		var names []string
 		var idx []int

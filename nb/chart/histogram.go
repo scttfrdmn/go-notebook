@@ -82,20 +82,8 @@ func (h Histogram) Render() nb.Rendered {
 		x0 := vx.at(lo + float64(i)*binW)
 		x1 := vx.at(lo + float64(i+1)*binW)
 		top := vy.at(float64(n))
-		w := x1 - x0 - gap
-		hgt := bottom - top
-		if hgt <= 0.5 || w <= 0 {
-			continue
-		}
-		// Rounded top, square baseline — same spec as the bar form.
-		const rad = 4.0
-		if hgt < rad*2 || w < rad*2 {
-			c.rawf(`<rect class="%s" x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="currentColor"/>`,
-				cls, x0, top, w, hgt)
-		} else {
-			c.rawf(`<path class="%s" fill="currentColor" d="M%.1f %.1f v%.1f a%.0f %.0f 0 0 1 %.0f %.0f h%.1f a%.0f %.0f 0 0 1 %.0f %.0f v%.1f z"/>`,
-				cls, x0, top+hgt, -(hgt - rad), rad, rad, rad, -rad, w-2*rad, rad, rad, rad, rad, hgt-rad)
-		}
+		// Rounded top, square baseline — same mark spec as the bar form.
+		c.roundedTopBar(cls, x0, top, x1-x0-gap, bottom-top)
 	}
 
 	// X-axis edge labels — a handful of nice ticks across the value range, not one
@@ -117,22 +105,7 @@ func (h Histogram) Render() nb.Rendered {
 			x, bottom+fontTick+8, fontTick, esc(label))
 	}
 
-	// Chrome.
-	if h.opts.Title != "" {
-		c.rawf(`<text x="%.1f" y="%.1f" font-size="%.0f" font-weight="600" fill="var(--ink)">%s</text>`,
-			l, padTop+fontTitle*0.5, fontTitle, esc(h.opts.Title))
-	}
-	if h.opts.XLabel != "" {
-		c.rawf(`<text x="%.1f" y="%.1f" font-size="%.0f" fill="var(--secondary)" text-anchor="middle">%s</text>`,
-			(l+r)/2, float64(c.h)-6, fontAxis, esc(h.opts.XLabel))
-	}
-	if h.opts.YLabel != "" {
-		yc := (top + bottom) / 2
-		yx := (l - 8 - maxYLabel) * 0.58
-		c.rawf(`<text x="%.1f" y="%.1f" font-size="%.0f" fill="var(--secondary)" text-anchor="middle" transform="rotate(-90 %.1f %.1f)">%s</text>`,
-			yx, yc, fontAxis, yx, yc, esc(h.opts.YLabel))
-	}
-
+	c.axisChrome(h.opts, l, r, top, bottom, maxYLabel)
 	return nb.SVG(c.finish())
 }
 

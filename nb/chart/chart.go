@@ -49,8 +49,6 @@
 // the engine calls Render. Keep it that way.
 package chart
 
-import "github.com/scttfrdmn/go-notebook/nb"
-
 // Pt is one (x, y) datum. It is the shared vocabulary of the point-based forms
 // ([Line], [Scatter]); the categorical forms take their own shapes.
 type Pt struct{ X, Y float64 }
@@ -82,9 +80,6 @@ type Opts struct {
 	// on the same axes rather than adding a form. Ignored by the other charts.
 	Fit bool
 }
-
-// Render envelope constants, kept here so the forms don't each restate them.
-const svgMIME = nb.MIMESVG
 
 // height returns the configured height or the given default.
 func (o Opts) height(def int) int {

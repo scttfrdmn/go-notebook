@@ -113,7 +113,10 @@ func (b BarChart) drawBarH(c *canvas, si int, x, y, w, h float64, roundEnd bool)
 	)
 }
 
-// drawChromeH draws title, axis title, and legend for the horizontal form.
+// drawChromeH draws title, axis title, and legend for the horizontal form. The
+// title sits at the left page margin (padRight) rather than at the plot's left
+// edge, which is pushed far right by the category-label gutter; there is no
+// y-axis title in the horizontal form (the categories are the y-axis).
 func (b BarChart) drawChromeH(c *canvas, l, r, top, bottom float64) {
 	if b.opts.Title != "" {
 		c.rawf(`<text x="%.1f" y="%.1f" font-size="%.0f" font-weight="600" fill="var(--ink)">%s</text>`,

@@ -50,6 +50,7 @@ var pages = []page{
 	{"docs/reference-directives.md", "reference-directives", "Directives", "The //notebook: comment directives — slider, height, area, layout — and the presentation-only rule they share.", "Reference"},
 	{"docs/reference-controls.md", "reference-controls", "Controls", "How a value becomes an input, and which widget it renders as — decided by type, not directive.", "Reference"},
 	{"docs/reference-rendering.md", "reference-rendering", "Rendering", "How a value is drawn: the Render method, the MIME types, and the degradation ladder.", "Reference"},
+	{"docs/reference-charts.md", "reference-charts", "Charts", "The optional nb/chart package: five chart forms and summary statistics, drawn well — the 1% of a plotting library, on purpose.", "Reference"},
 	{"docs/reference-build-run.md", "reference-build-run", "Build & run", "The check/run/build verbs, the binary's --headless/--set/--json flags, and the WASM gate.", "Reference"},
 	{"docs/reference-layout.md", "reference-layout", "Layout", "Arrange a notebook with area + layout — presentation over source order, degrading to linear.", "Reference"},
 	{"docs/reference-provenance.md", "reference-provenance", "Provenance", "What every built artifact records about its origin, and why it makes figures reproducible.", "Reference"},
