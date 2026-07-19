@@ -55,6 +55,7 @@ func Page(opts PageOpts) string {
 	b.WriteString("<title>")
 	b.WriteString(opts.Title)
 	b.WriteString("</title>\n<style>")
+	b.WriteString(fontFaceCSS()) // embedded Atkinson woff2 as data-URIs; no CDN
 	b.WriteString(CSS)
 	b.WriteString("</style>\n")
 	b.WriteString(opts.HeadExtra)
@@ -125,8 +126,10 @@ func graphDetails(open bool) string {
 // the wasm host uses indexed verbs, so this string is inserted, not formatted.
 const CSS = `
   :root { --navy:#1b3a6b; --go:#00add8; --ink:#1a1a2e; --muted:#5b6472; --line:#e7ebf0;
-          --run:#f0a020; --err:#d0433b; --stale:#b8c0cc; --done:#3fa845; }
-  body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; margin: 2rem auto; max-width: 900px; padding: 0 24px; color: var(--ink); }
+          --run:#f0a020; --err:#d0433b; --stale:#b8c0cc; --done:#3fa845;
+          --font:"Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+          --mono:"Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+  body { font: 14px/1.5 var(--font); margin: 2rem auto; max-width: 900px; padding: 0 24px; color: var(--ink); -webkit-font-smoothing: antialiased; }
   /* label | slider | value. The label column is minmax(0, 2fr) so a long label
      WRAPS instead of consuming the row; the slider column has a hard min so it can
      never collapse to zero width (which left only the thumb, undraggable). */
@@ -178,7 +181,7 @@ const CSS = `
   .cell.error   { border-left-color: var(--err); }
   .cell.done    { border-left-color: var(--done); }
   .cell.stale   { border-left-color: var(--stale); }
-  .cell .id { font: 11px monospace; color: #888; }
+  .cell .id { font: 11px var(--mono); color: #888; }
   .cell .id .dot { display:inline-block; width:7px; height:7px; border-radius:50%;
                    margin-right:5px; background:var(--stale); vertical-align:middle; }
   .cell.running .id .dot { background: var(--run); }
@@ -186,7 +189,7 @@ const CSS = `
   .cell.error   .id .dot { background: var(--err); }
   .cell.blocked .id .dot { background: var(--stale); }
   .cell.stale   .id .dot { background: var(--stale); }
-  .cell .err { color: var(--err); font: 12px/1.4 monospace; white-space: pre-wrap; }
+  .cell .err { color: var(--err); font: 12px/1.4 var(--mono); white-space: pre-wrap; }
   .val { font-variant-numeric: tabular-nums; color: var(--navy); font-weight: 600; }
   input[type=text] { font: inherit; color: var(--ink); padding: .3rem .5rem;
     border: 1px solid var(--line); border-radius: 7px; background: #fff; }
@@ -206,27 +209,27 @@ const CSS = `
   input[type=range]:hover::-moz-range-thumb { border-color: var(--navy); }
   input[type=range]:active::-webkit-slider-thumb, input[type=range]:focus::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(0,173,216,.18); }
   input[type=range]:active::-moz-range-thumb, input[type=range]:focus::-moz-range-thumb { box-shadow: 0 0 0 4px rgba(0,173,216,.18); }
-  #status { font: 12px monospace; color: var(--muted); }
+  #status { font: 12px var(--mono); color: var(--muted); }
   /* Widget controls — restrained, same palette. */
   select { font: inherit; color: var(--ink); padding: .3rem .5rem; border: 1px solid var(--line);
            border-radius: 7px; background: #fff; }
   select:focus { outline: none; border-color: var(--go); }
   .multi { display: flex; flex-wrap: wrap; gap: .3rem .8rem; }
-  .multi .check { font: 13px/1 -apple-system, system-ui, sans-serif; color: var(--ink);
+  .multi .check { font: 13px/1 var(--font); color: var(--ink);
                   display: inline-flex; align-items: center; gap: .25rem; white-space: nowrap; }
   .range2 { display: flex; flex-direction: column; gap: .2rem; }
-  table.grid { border-collapse: collapse; font: 12px/1.4 monospace; margin: .3rem 0; }
+  table.grid { border-collapse: collapse; font: 12px/1.4 var(--mono); margin: .3rem 0; }
   table.grid th { text-align: left; color: var(--muted); font-weight: 600; padding: .2rem .5rem; border-bottom: 1px solid var(--line); }
   table.grid td { padding: .1rem .3rem; }
   table.grid td input { width: 8rem; font: inherit; padding: .2rem .35rem; border: 1px solid var(--line); border-radius: 5px; }
   table.grid td input:focus { outline: none; border-color: var(--go); }
   .cell details { margin-top: .4rem; }
-  .cell details summary { font: 11px monospace; color: var(--muted); cursor: pointer; list-style: none; }
+  .cell details summary { font: 11px var(--mono); color: var(--muted); cursor: pointer; list-style: none; }
   .cell details summary::-webkit-details-marker { display: none; }
   .cell details summary::before { content: '\25b8 source'; }
   .cell details[open] summary::before { content: '\25be source'; }
   .cell pre.src { margin: .4rem 0 0; padding: .7rem .9rem; background: #0f1524; color: #e6ebf5;
-                  border-radius: 8px; font: 12px/1.5 monospace; overflow-x: auto; }
+                  border-radius: 8px; font: 12px/1.5 var(--mono); overflow-x: auto; }
   /* The graph lives in a <details>: a captioned, dismissable disclosure with a
      state legend, so its colors and directional edges are explained where shown. */
   .graphwrap { border: 1px solid var(--line); border-radius: 10px; margin: 0 0 1.5rem;
@@ -249,7 +252,7 @@ const CSS = `
   .graph { overflow-x: auto; }
   .graph svg { display: block; max-width: 100%; height: auto; }
   .graph .node rect { fill: #fff; stroke: var(--stale); stroke-width: 1.5; rx: 6; }
-  .graph .node text { font: 11px monospace; fill: #1a1a2e; }
+  .graph .node text { font: 11px var(--mono); fill: #1a1a2e; }
   .graph .node.running rect { stroke: var(--run); stroke-width: 2.5; }
   .graph .node.done    rect { stroke: var(--done); }
   .graph .node.error   rect { stroke: var(--err); stroke-width: 2.5; }
@@ -260,7 +263,7 @@ const CSS = `
   /* Provenance — what produced this artifact. Unobtrusive, no network call.
      A path is not a handle; this is the handle, shown. */
   #provenance { margin-top: 2rem; padding-top: .75rem; border-top: 1px solid var(--line);
-                font: 11px/1.5 monospace; color: var(--muted); }
+                font: 11px/1.5 var(--mono); color: var(--muted); }
   #provenance .dirty { color: var(--err); font-weight: 600; }
 `
 
