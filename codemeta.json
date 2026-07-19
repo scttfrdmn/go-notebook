@@ -2,6 +2,7 @@
   "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
   "@type": "SoftwareSourceCode",
   "name": "go-notebook",
+  "identifier": "https://doi.org/10.5281/zenodo.21440008",
   "description": "A reactive notebook toolchain for Go where a notebook is an ordinary Go package and a cell is a top-level function. The dependency graph is derived by the Go type checker from function signatures; the same file compiles to an interactive WebAssembly app, a headless batch binary, or an HTTP-served page.",
   "codeRepository": "https://github.com/scttfrdmn/go-notebook",
   "url": "https://github.com/scttfrdmn/go-notebook",
