@@ -42,7 +42,7 @@ func celsius() (c int) { return 20 }
 func fahrenheit(c int) (f int) { return c*9/5 + 32 }
 ```
 
-That is a complete notebook. Two things make it one: the file carries the **`//go:notebook`** marker (the only mention of this project anywhere — no import), and each **cell is a top-level function with a doc comment and a named result.**
+That is a complete notebook. Two things make it one: the file carries the **`//go:notebook`** marker (the only mention of this project anywhere — no import), and each **cell is a top-level function with at least one named non-error result** — the named result is what makes it a cell; the doc comment above it supplies the label (recommended, but not what marks it).
 
 Run it:
 

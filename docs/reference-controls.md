@@ -29,6 +29,26 @@ Each control comes from a method the value's type carries. The analyzer classifi
 
 The order matters: `Options()` wins over `Bounds()`, which wins over `Grip()`, which wins over a plain slice. This is why a value that is both choosable and bounded renders as a choice.
 
+### The capability methods, exactly
+
+There is no interface to import — the analyzer matches these method *shapes*
+structurally, so the signatures below are the contract. Declare them on the
+**value** receiver, and match the return types exactly:
+
+```go
+Options() []string        // select / multi — the choices
+Bounds() (lo, hi float64) // range — float64 even for an integer range
+Grip(i int) Ref           // draggable — the leaf-index handle for the i-th point
+Reconcile(saved any) any  // how a saved value re-enters after a rebuild
+```
+
+The analyzer picks the *widget kind* by method **name**, but the runtime reads
+the value back through a real Go interface (`Bounds() (lo, hi float64)` etc.), so
+the **return types are the contract**: a `Bounds() (lo, hi int)` is detected as a
+range at build time yet fails the runtime probe and delivers no bounds. Match the
+signatures above exactly. (`Grip`'s `Ref` return is a type the notebook defines —
+see the [`draggable`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/draggable) recipe.)
+
 ## Cookbook — need this UI, write this shape
 
 Each row links to a complete, buildable notebook in
@@ -70,8 +90,13 @@ A type with a `Bounds()` method renders as a range control on its own — no dir
 
 ```go
 type Rate struct{ V, Lo, Hi int }
-func (r Rate) Bounds() (lo, hi int) { return r.Lo, r.Hi }
+func (r Rate) Bounds() (lo, hi float64) { return float64(r.Lo), float64(r.Hi) }
 ```
+
+The method returns `float64` even for an integer range — that is the exact
+shape the runtime probes for (`Bounds() (lo, hi float64)`); a `Bounds() (lo, hi int)`
+would be detected as a range by name but never deliver its bounds. See the
+[`rangecontrol`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/rangecontrol) recipe.
 
 ## Options — select and multi
 

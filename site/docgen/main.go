@@ -276,9 +276,13 @@ func navLinks(current string) string {
 	return b.String()
 }
 
-// mdLink matches href="something.md" and href="something.md#anchor" so intra-doc
-// links point at the generated pages, not the raw markdown.
-var mdLink = regexp.MustCompile(`href="([^"]+)\.md(#[^"]*)?"`)
+// mdLink matches href="something.md" and href="something.md#anchor" for an
+// INTRA-DOC link only — a bare sibling slug ([a-z0-9-]+), no scheme and no path
+// separator. It must NOT match an external URL that happens to end in .md (e.g.
+// href="https://github.com/…/blob/main/docs/notebook-as-service.md"): rewriting
+// that to .html produced a real 404 on the live site. Restricting the slug to the
+// same shape the link checker's hrefLocal uses keeps the two passes in agreement.
+var mdLink = regexp.MustCompile(`href="([a-z0-9-]+)\.md(#[^"]*)?"`)
 
 func rewriteLinks(htmlBody string) string {
 	return mdLink.ReplaceAllString(htmlBody, `href="$1.html$2"`)
