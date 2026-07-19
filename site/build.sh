@@ -24,6 +24,19 @@ done
 # csv is the "normal analysis" example embedded live in the charts doc page.
 /tmp/notebook-build build --target=wasm --showcase -o "site/demos/csv" "examples/minimal/csv"
 
+# The component demo: a host page that drives a notebook through the JS client
+# rather than mounting the built-in UI (site/component/{index,app}.js are
+# committed source). It needs three generated runtime files: the wasm, Go's
+# wasm_exec.js, and the client. The wasm the toolchain emits is content-addressed
+# (its name is a hash of the bytes), so we build to a temp dir and copy the one
+# .wasm to the stable name site/component/notebook.wasm the page fetches.
+compdir="$(mktemp -d)"
+/tmp/notebook-build build --target=wasm -o "$compdir" "examples/capacity"
+cp "$compdir"/notebook-*.wasm site/component/notebook.wasm
+cp "$compdir"/wasm_exec.js site/component/wasm_exec.js
+cp client/notebook.js site/component/notebook.js
+rm -rf "$compdir"
+
 # Render the curated docs (docs/*.md → site/docs/*.html), styled to match.
 go run ./site/docgen
 
