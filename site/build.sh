@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Regenerate the landing-page demos. There is no build pipeline — this is three
-# `notebook build --target=wasm` calls. index.html is hand-written source;
-# demos/ is generated output (gitignored) and this script recreates it.
+# Regenerate the landing-page demos and the docs pages. index.html is
+# hand-written source; site/demos/ (wasm builds) and site/docs/ (rendered from
+# docs/*.md) are generated output — both gitignored, both recreated here.
 #
 #   ./site/build.sh        # from the repo root
 #
@@ -17,4 +17,7 @@ for nb in capacity curvefit bayes anscombe nbody turing surface gpulife percolat
   /tmp/notebook-build build --target=wasm --showcase -o "site/demos/$nb" "examples/$nb"
 done
 
-echo "demos rebuilt. serve: (cd site && python3 -m http.server 8080)"
+# Render the curated docs (docs/*.md → site/docs/*.html), styled to match.
+go run ./site/docgen
+
+echo "demos + docs rebuilt. serve: (cd site && python3 -m http.server 8080)"
