@@ -24,12 +24,17 @@
     font-family: "Atkinson Hyperlegible"; font-style: italic; font-weight: 400;
     font-display: swap; src: url("assets/fonts/atkinson-italic.woff2") format("woff2");
   }
+  /* Atkinson Hyperlegible Mono — variable weight (one file covers 400–700). */
+  @font-face {
+    font-family: "Atkinson Hyperlegible Mono"; font-style: normal; font-weight: 400 700;
+    font-display: swap; src: url("assets/fonts/atkinson-mono.woff2") format("woff2");
+  }
   :root {
     --navy: #1b3a6b; --blue: #007ec6; --go: #00add8;
     --ink: #1a1a2e; --muted: #5b6472; --line: #e7ebf0; --bg: #ffffff;
     --code-bg: #0f1524; --code-fg: #e6ebf5; --green: #3fa845; --orange: #f26b21;
     --font: "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    --mono: "SF Mono", ui-monospace, "Cascadia Code", Menlo, monospace;
+    --mono: "Atkinson Hyperlegible Mono", "SF Mono", ui-monospace, "Cascadia Code", Menlo, monospace;
 
     /* One type scale, all rem (anchored to the 16px root) so nothing jumps.
        step-0 is body copy; the rest are named by role, not by pixel guess. */
@@ -39,6 +44,7 @@
     --t-body:  1.0625rem;  /* 17px — body copy */
     --t-lead:  1.1875rem;  /* 19px — hero tagline, ledes */
     --t-h2:    1.5rem;     /* 24px — section headings */
+    --t-hero:  clamp(2.5rem, 6vw, 4rem);  /* 40–64px — the hero headline */
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
@@ -63,9 +69,29 @@
   .nav .links a:hover { color: var(--navy); }
   .nav .links a.gh { color: var(--navy); font-weight: 600; }
 
-  header { padding: 3rem 0 1.25rem; text-align: center; }
-  header img { max-width: 480px; width: 100%; height: auto; display: block; margin: 0 auto; }
-  .hero-tag { color: var(--ink); font-size: var(--t-lead); line-height: 1.55; margin: 1rem auto 0; max-width: 54ch; }
+  /* Hero: a big headline + a tight sub-line, then the live demo pulled up so the
+     first thing on the page is something that moves. */
+  .hero { padding: 3.25rem 0 1.5rem; }
+  .hero .mark { display: flex; align-items: center; gap: .8rem; margin: 0 0 1.4rem; }
+  .hero .mark img { height: 52px; width: auto; }
+  .hero .mark .wordmark { font-size: var(--t-h2); font-weight: 700; color: var(--navy); letter-spacing: -.02em; }
+  .hero h1 { font-size: var(--t-hero); line-height: 1.02; letter-spacing: -.03em;
+             color: var(--ink); margin: 0; font-weight: 800; }
+  .hero h1 .fn { color: var(--go); }
+  .hero .hero-tag { color: var(--muted); font-size: var(--t-lead); line-height: 1.5;
+                    margin: 1.1rem 0 0; max-width: 46ch; }
+  .hero .hero-tag b { color: var(--ink); font-weight: 700; }
+  .hero .cta { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1.6rem 0 0; }
+  .hero .cta a { text-decoration: none; font-weight: 600; font-size: var(--t-meta);
+                 padding: .6rem 1.1rem; border-radius: 8px; }
+  .hero .cta .primary { background: var(--go); color: #fff; }
+  .hero .cta .primary:hover { background: #0093b8; }
+  .hero .cta .ghost { color: var(--navy); border: 1px solid var(--line); }
+  .hero .cta .ghost:hover { border-color: var(--go); }
+  /* The live demo, in the hero. A caption sits above the framed notebook. */
+  .hero .demoblock { margin: 2rem 0 0; }
+  .hero .demoblock .cap { color: var(--muted); font-size: var(--t-meta); margin: 0 0 .7rem; }
+  .hero .demoblock .cap b { color: var(--ink); }
 
   /* Demos come first — drag before you read. */
   .demo { margin: 2.5rem 0 3.5rem; border-top: 1px solid var(--line); padding-top: 1.75rem; }
@@ -151,17 +177,30 @@
 
 <div class="wrap">
 
-  <header>
-    <img src="assets/logo.png" alt="go-notebook — a cell is a function">
-    <p class="hero-tag">Reactive notebooks that compile — a cell is a function, the dependency graph is derived by the Go type checker, and it all runs as compiled Go in your browser with no server. Drag a slider below; then browse thirty-eight you can drag right here.</p>
+  <!-- HERO: a big claim, then something moving. Drag before you read prose. -->
+
+  <header class="hero">
+    <div class="mark">
+      <img src="assets/logo.png" alt="">
+      <span class="wordmark">go-notebook</span>
+    </div>
+    <h1>A cell is a <span class="fn">function</span>.</h1>
+    <p class="hero-tag">Reactive notebooks that compile. The dependency graph is derived by the Go type checker, and it runs as compiled Go in your browser — <b>no server, no kernel, no notebook file</b>.</p>
+    <div class="cta">
+      <a class="primary" href="#corpus">Browse the corpus →</a>
+      <a class="ghost" href="https://github.com/scttfrdmn/go-notebook/blob/main/docs/authoring.md">Write your first notebook</a>
+    </div>
+
+    <div class="demoblock">
+      <p class="cap">Drag a slider. The boxes are cells, the lines are which feeds which — watch the wave light the graph before the curve below even moves. <b>The graph isn't a diagram of the notebook; it is the notebook.</b></p>
+      <div class="frame"><iframe src="demos/capacity/index.html" loading="lazy" title="capacity demo"></iframe></div>
+    </div>
   </header>
 
-  <!-- ONE DEMO FIRST. Drag before you read a single word of prose. -->
+  <!-- What you just dragged, as source. -->
 
   <section class="demo">
-    <h2>Capacity — an M/M/c queue</h2>
-    <p class="sub">The boxes at the top are the cells; the lines are which feeds which. Drag a slider and watch the wave light up the graph — amber as each cell recomputes, then settling — before the cost/latency curve below even moves. <b>The graph isn't a diagram of the notebook; it is the notebook.</b></p>
-    <div class="frame"><iframe src="demos/capacity/index.html" loading="lazy" title="capacity demo"></iframe></div>
+    <h2>That was a Go file</h2>
     <div class="reveal">
       <p class="call">The thing you just dragged is this file. <b>No framework import. No <code>.ipynb</code>. Nothing from this project — just Go and the standard library.</b> A cell is a top-level function; the graph is its parameter names.</p>
       <pre class="src"><span class="c">//go:notebook</span>
