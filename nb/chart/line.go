@@ -31,6 +31,7 @@ func (l LineChart) Render() nb.Rendered {
 	c := newCanvas(defW, l.opts.height(defH))
 	p := newPlot(c, l.opts, l.series, true)
 
+	ends := make([]Pt, len(l.series))
 	for i, s := range l.series {
 		if len(s.XY) == 0 {
 			continue
@@ -55,14 +56,15 @@ func (l LineChart) Render() nb.Rendered {
 		// An end-marker with a 2px surface ring, so the line's end reads where it
 		// crosses another. r=4 (>=8px mark).
 		end := s.XY[len(s.XY)-1]
+		ends[i] = end
 		c.rawf(`<circle class="%s" cx="%.1f" cy="%.1f" r="4" fill="currentColor" stroke="var(--surface)" stroke-width="2"/>`,
 			cls, p.sx(end.X), p.sy(end.Y))
+	}
 
-		// Selective direct label at the end, when the series is named and the ends
-		// don't collide. Otherwise the legend carries identity.
-		if p.labelEnds && s.Name != "" {
-			p.directLabel(i, end, s.Name)
-		}
+	// Direct labels ride the reserved right gutter, de-collided with leaders, so a
+	// name is never drawn over a line even where series converge.
+	if p.labelEnds {
+		p.directLabels(l.series, ends)
 	}
 
 	return nb.SVG(c.finish())

@@ -2,6 +2,7 @@ package chart
 
 import (
 	"math"
+	"sort"
 )
 
 // plot is the framed drawing area shared by the point-based forms (Line,
@@ -31,9 +32,10 @@ type plot struct {
 	l, r, t, b float64 // plot rect edges in px
 	xticks     []float64
 	yticks     []float64
-	labelEnds  bool // identity via direct end-labels (set by newPlot)
-	showLegend bool // identity via a top legend row (the collision fallback)
-	dotKey     bool // legend key is a dot (scatter) rather than a line+dot
+	labelEnds  bool    // identity via direct end-labels (set by newPlot)
+	showLegend bool    // identity via a top legend row (the collision fallback)
+	dotKey     bool    // legend key is a dot (scatter) rather than a line+dot
+	yLabelW    float64 // widest y-tick label width in px (for y-title centering)
 }
 
 // newPlot computes the data window from the series, expands it to nice ticks,
@@ -80,9 +82,10 @@ func newPlot(c *canvas, opts Opts, series []Series, canDirectLabel bool) *plot {
 	for _, v := range p.yticks {
 		maxYLabel = math.Max(maxYLabel, textW(fmtNum(v), fontTick))
 	}
-	left := 12.0 + maxYLabel + 6.0
+	p.yLabelW = maxYLabel
+	left := 18.0 + maxYLabel + 8.0
 	if opts.YLabel != "" {
-		left += fontAxis + 4 // rotated y-title column
+		left += fontAxis + 12 // rotated y-title column, held off the edge
 	}
 
 	named := 0
@@ -110,16 +113,17 @@ func newPlot(c *canvas, opts Opts, series []Series, canDirectLabel bool) *plot {
 	// (for a legend), so it must happen before the final rect is fixed.
 	p.x = scale{lo: nxl, hi: nxh, p0: p.l, p1: p.r}
 	p.y = scale{lo: nyl, hi: nyh, p0: p.b, p1: p.t, log: opts.YLog && ylo > 0}
-	if named >= 2 && canDirectLabel && !endsCollide(series, p) {
+	if named >= 2 && canDirectLabel {
 		p.labelEnds = true
-		// Reserve room on the right for the widest end-label.
+		// Reserve the right gutter for the widest label plus the leader offset
+		// (8 gutter + 2 pad, matching directLabels).
 		maxEnd := 0.0
 		for _, s := range series {
 			if s.Name != "" {
 				maxEnd = math.Max(maxEnd, textW(s.Name, fontLabel))
 			}
 		}
-		p.r -= maxEnd + 10
+		p.r -= maxEnd + 14
 	} else if named >= 2 {
 		p.showLegend = true
 		p.dotKey = dotKey
@@ -185,8 +189,13 @@ func (p *plot) drawFrame(series []Series) {
 	}
 	if p.opts.YLabel != "" {
 		yc := (p.t + p.b) / 2
+		// Center the rotated title in the gutter between the left edge and the
+		// tick numbers (which end at p.l-8 and run yLabelW leftward), then bias it
+		// ~15% toward the chart so it doesn't hug the edge.
+		gutterR := p.l - 8 - p.yLabelW
+		yx := gutterR * 0.58
 		c.rawf(`<text x="%.1f" y="%.1f" font-size="%.0f" fill="var(--secondary)" text-anchor="middle" transform="rotate(-90 %.1f %.1f)">%s</text>`,
-			fontAxis+2, yc, fontAxis, fontAxis+2, yc, esc(p.opts.YLabel))
+			yx, yc, fontAxis, yx, yc, esc(p.opts.YLabel))
 	}
 
 	// Title.
@@ -242,42 +251,82 @@ func (p *plot) drawLegend(series []Series) {
 	}
 }
 
-// directLabel places a series' name at its final point, nudged to avoid running
-// off the right edge. Callers use it selectively (never a label on every point);
-// it supplements the legend for the series whose end is uncrowded.
-func (p *plot) directLabel(seriesIdx int, at Pt, name string) {
-	if name == "" {
-		return
-	}
-	c := p.c
-	x := p.sx(at.X) + 6
-	y := p.sy(at.Y)
-	w := textW(name, fontLabel)
-	if x+w > p.r {
-		// No room to the right; place to the left of the point instead.
-		x = p.sx(at.X) - 6 - w
-	}
-	c.rawf(`<text x="%.1f" y="%.1f" font-size="%.0f" fill="var(--secondary)" dominant-baseline="middle">%s</text>`,
-		x, y, fontLabel, esc(name))
+// endLabel is one series' direct label, pinned to its line-end.
+type endLabel struct {
+	seriesIdx int
+	name      string
+	anchorY   float64 // the line-end pixel y (where the leader starts)
+	labelY    float64 // the label's pixel y after de-collision (leader ends here)
 }
 
-// endsCollide reports whether the series' final points are too close vertically
-// for direct end-labels — the signal to fall back to the legend alone. It is the
-// method's "when end-labels collide, don't stack them" rule.
-func endsCollide(series []Series, p *plot) bool {
-	var ys []float64
-	for _, s := range series {
-		if len(s.XY) == 0 {
+// directLabels places every series' name in the reserved right-hand gutter,
+// spread vertically so no two collide, with a thin leader line from each
+// line-end dot to its label. This is the method's leader-line rule: labels never
+// sit on top of the lines (so convergence stops mattering), and a nudged label
+// stays attached to its series by the connector. Marks carry the series color;
+// the label text stays in the secondary-ink token (a light hue is illegible as
+// text), with identity coming from the leader + end-dot beside it.
+//
+// ends is the final point of each series, indexed alongside series; a series with
+// no points or no name is skipped.
+func (p *plot) directLabels(series []Series, ends []Pt) {
+	labels := make([]endLabel, 0, len(series))
+	for i, s := range series {
+		if s.Name == "" || len(s.XY) == 0 {
 			continue
 		}
-		ys = append(ys, p.sy(s.XY[len(s.XY)-1].Y))
+		y := p.sy(ends[i].Y)
+		labels = append(labels, endLabel{seriesIdx: i, name: s.Name, anchorY: y, labelY: y})
 	}
-	for i := 0; i < len(ys); i++ {
-		for j := i + 1; j < len(ys); j++ {
-			if math.Abs(ys[i]-ys[j]) < fontLabel+2 {
-				return true
+	if len(labels) == 0 {
+		return
+	}
+	spreadLabels(labels, fontLabel+3, p.t, p.b)
+
+	c := p.c
+	gx := p.r + 8 // gutter x: just right of the plot rect
+	for _, lb := range labels {
+		cls := c.use(lb.seriesIdx)
+		// Leader: a thin connector from the line-end (at p.r) to the label, in the
+		// series color at low opacity so it recedes. Only drawn when the label was
+		// nudged enough to need it; a near-aligned label reads fine without one.
+		if math.Abs(lb.labelY-lb.anchorY) > 1.5 {
+			c.rawf(`<path class="%s" d="M%.1f %.1f L%.1f %.1f L%.1f %.1f" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.45"/>`,
+				cls, p.r, lb.anchorY, gx-2, lb.labelY, gx, lb.labelY)
+		}
+		c.rawf(`<text x="%.1f" y="%.1f" font-size="%.0f" fill="var(--secondary)" dominant-baseline="middle">%s</text>`,
+			gx+2, lb.labelY, fontLabel, esc(lb.name))
+	}
+}
+
+// spreadLabels pushes a set of labels apart so consecutive ones are at least gap
+// px apart, staying within [lo, hi]. It sorts by anchor, then does a two-pass
+// relaxation (down then up) — the standard 1-D label-declutter — so labels end up
+// in anchor order with minimal total displacement from their line-ends.
+func spreadLabels(labels []endLabel, gap, lo, hi float64) {
+	sort.Slice(labels, func(i, j int) bool { return labels[i].anchorY < labels[j].anchorY })
+	// Downward pass: enforce spacing top-to-bottom.
+	for i := 1; i < len(labels); i++ {
+		if labels[i].labelY < labels[i-1].labelY+gap {
+			labels[i].labelY = labels[i-1].labelY + gap
+		}
+	}
+	// If we ran past the bottom, push the tail back up.
+	if n := len(labels); n > 0 && labels[n-1].labelY > hi {
+		labels[n-1].labelY = hi
+		for i := n - 2; i >= 0; i-- {
+			if labels[i].labelY > labels[i+1].labelY-gap {
+				labels[i].labelY = labels[i+1].labelY - gap
 			}
 		}
 	}
-	return false
+	// Clamp the top.
+	if len(labels) > 0 && labels[0].labelY < lo {
+		labels[0].labelY = lo
+		for i := 1; i < len(labels); i++ {
+			if labels[i].labelY < labels[i-1].labelY+gap {
+				labels[i].labelY = labels[i-1].labelY + gap
+			}
+		}
+	}
 }
