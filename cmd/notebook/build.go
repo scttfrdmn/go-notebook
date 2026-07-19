@@ -45,6 +45,15 @@ func cmdBuild(args []string) int {
 		return 1
 	}
 
+	// Derive purity so the generated registry ships pure:true for pure cells and
+	// the engine cache actually fires (cacheability is derived, not declared).
+	// This is the heavy NeedDeps load, kept off the interactive path but afforded
+	// by the one-shot build. Best-effort: a failure leaves cells at the safe
+	// impure default (a cache miss, never a wrong answer), so it must not abort.
+	if err := analyze.RefineGraphPurity(dir, res.Graph); err != nil {
+		fmt.Fprintf(os.Stderr, "notebook build: purity analysis skipped (%v); cache disabled for this build\n", err)
+	}
+
 	moduleRoot, err := findModuleRoot(dir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "notebook build: %v\n", err)

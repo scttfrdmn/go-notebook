@@ -87,6 +87,26 @@ func RefinePurity(pkg *packages.Package, g *graph.Graph) {
 	}
 }
 
+// RefineGraphPurity is the cold-path convenience that build/run/check use to
+// light up the cache: it does the heavy NeedDeps load ([LoadForPurity]) and runs
+// [RefinePurity] over g in place. It is deliberately NOT on the interactive
+// Session path — that path drops NeedDeps to hit its ~sub-ms budget and leaves
+// every cell at the safe impure default (a cache miss, never a wrong answer).
+// The one-shot commands already pay ~1s for codegen+compile, so they can afford
+// the heavy load, and doing it here is what makes "cacheability is derived" true
+// of a built binary rather than only of a unit test.
+//
+// Best-effort like RefinePurity: a load failure is returned so a caller can
+// decide, but a cell whose SSA can't be built simply keeps its impure default.
+func RefineGraphPurity(dir string, g *graph.Graph) error {
+	pkg, err := LoadForPurity(dir)
+	if err != nil {
+		return err
+	}
+	RefinePurity(pkg, g)
+	return nil
+}
+
 // LoadForPurity loads the notebook package with full dependency source
 // (LoadAllSyntax implies NeedDeps) so its call graph can be built. This is the
 // heavy load; keep it off the interactive path.
