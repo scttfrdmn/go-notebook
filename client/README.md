@@ -35,12 +35,14 @@ importless ethos — nothing here is compiled, bundled, or published to npm.
 
 ## What "structural" means
 
-The client reads the graph, leaf symbols, widget kinds, and table columns from
-`notebook.meta` — enough to **enumerate and drive** every input and to receive
-every output as a typed value. It does **not** know each leaf's Go scalar type: a
-`set("c", 40)` is not compile-time checked against `c`'s `int`. That needs a
-per-leaf type tag the port does not yet publish (a deliberately deferred
-feature). You get the shape, not the schema.
+The client reads the graph, leaf symbols, widget kinds, table columns, and each
+leaf's Go result type from `notebook.meta` — enough to **enumerate, drive, and
+validate** every input and to receive every output as a typed value. Each
+`leaves()[i].type` is `{ Name, Underlying }` (the declared type and its basic
+kind), so a host can check a value's shape before `set()`. The type is
+**readable**, not compile-time enforced: `set("c", "nope")` is not rejected by
+`tsc` — the port's coercer rejects it at runtime. You get the schema to check
+against, not a generated per-notebook type that fails your build.
 
 ## Verify / example
 

@@ -81,18 +81,43 @@ nb.values();
 `subscribeValues` throws on a notebook whose port predates it (an older `.wasm`).
 Catch it and fall back to `subscribe` if you must support both.
 
-## Structural, not schema
+## Each leaf carries its type
 
-The client reads the graph, leaf symbols, widget kinds, and table columns from
-`notebook.meta` — enough to **enumerate and drive** every input and to receive
-every output as a typed value. It does **not** know each leaf's Go scalar type: a
-`set("c", 40)` is not compile-time checked against `c`'s `int`. An unknown leaf
-or an uncoercible value fails on the far side, not in the client. You get the
-shape, not the schema — a per-leaf type tag is a deliberately deferred feature.
+Every leaf reports its Go result type, so a program can **validate a value's
+shape before it sets it** — without knowing Go. `leaves()[i].type` is
+`{ Name, Underlying }`: the type as declared (`"PerHour"`, `"int"`) and the basic
+kind it resolves to (`"float64"`, `"int"`, `"bool"`, `"string"`). `Underlying` is
+absent for a composite or interface leaf (a table row, a multi-selection), where
+no single scalar kind describes the value.
 
-Note two shapes worth knowing: the metadata keys are PascalCase (`ID`, `Leaf`,
-`Label`, `Widget.Kind`), and `values()` reports **leaf** cells only — a derived
-cell like `hourlyCost` is absent there, so use `subscribeValues` to observe it.
+```js
+for (const leaf of nb.leaves()) {
+  console.log(leaf.symbol, "→", leaf.type?.Name, `(${leaf.type?.Underlying})`);
+  // e.g.  c → int (int)   lambda → PerHour (float64)
+}
+
+// A shape check the host can run itself, before set():
+function okForLeaf(leaf, v) {
+  switch (leaf.type?.Underlying) {
+    case "int": return Number.isInteger(v);
+    case "float64": case "float32": return typeof v === "number";
+    case "bool": return typeof v === "boolean";
+    case "string": return typeof v === "string";
+    default: return true; // composite, or an older port with no type — defer to the coercer
+  }
+}
+```
+
+The type is **readable**, not compile-time enforced: `set("c", "nope")` is still
+not rejected by `tsc` — the port's coercer rejects it at runtime, on the far side.
+You get the schema to check against, not a generated per-notebook type that fails
+your build. (A generated typed `set()` is a separately-gated feature; the shape
+you can read today covers the common case of validating input before sending it.)
+
+Two more shapes worth knowing: the metadata keys are PascalCase (`ID`, `Leaf`,
+`Label`, `Widget.Kind`, `Type.Name`), and `values()` reports **leaf** cells only —
+a derived cell like `hourlyCost` is absent there, so use `subscribeValues` to
+observe it.
 
 ## Verify it yourself
 

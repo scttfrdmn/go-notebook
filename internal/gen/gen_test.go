@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -94,6 +95,45 @@ func TestMetaCarriesDependencyEdges(t *testing.T) {
 	// now also carries area=controls (its presentation region).
 	if !strings.Contains(src, `ID: "arrivalRate", Leaf: "lambda", Label: "Incoming jobs per hour.", Directives: map[string]string{"area": "controls", "max": "5000", "min": "0", "slider": "", "step": "50"}, In: nil, Source:`) {
 		t.Errorf("a source leaf should have In: nil (no upstream)")
+	}
+}
+
+// TestMetaCarriesLeafType pins B4b: a leaf's CellMeta.Type surfaces its Go result
+// type in two coordinates — the declared Name and the resolved Underlying kind —
+// so a client can validate a set() value's shape without knowing Go. Two shapes:
+// a NAMED type over a basic kind (lambda is PerHour over float64), and a BARE
+// basic type (c is a plain int). A non-leaf cell carries no Type (nil).
+func TestMetaCarriesLeafType(t *testing.T) {
+	root := moduleRoot(t)
+	res, err := analyze.LoadPackage(filepath.Join(root, "examples", "capacity"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg, err := Registry(res.Graph, res.Package)
+	if err != nil {
+		t.Fatalf("Registry: %v", err)
+	}
+	src := string(reg.Content)
+
+	// A named type resolves to its underlying basic kind — the value that makes
+	// set() coercible is the float64, but the client also learns it's a PerHour.
+	// Anchor Leaf and Type to the same record so the type is pinned to lambda,
+	// not merely present somewhere in the file.
+	lambdaLine := regexp.MustCompile(`Leaf: "lambda",[^\n]*Type: &engine.LeafType{Name: "PerHour", Underlying: "float64"}}`)
+	if !lambdaLine.MatchString(src) {
+		t.Errorf("lambda leaf should carry Type PerHour/float64 on its own record")
+	}
+	// A bare int: Name and Underlying are both "int".
+	cLine := regexp.MustCompile(`Leaf: "c",[^\n]*Type: &engine.LeafType{Name: "int", Underlying: "int"}}`)
+	if !cLine.MatchString(src) {
+		t.Errorf("c leaf should carry Type int/int on its own record")
+	}
+	// A non-leaf cell has no Type. Anchor to utilization's own line (Widget and
+	// Type together on the same emitted record) so the assertion can't be
+	// satisfied by some other cell's trailing "Widget: nil, Type: nil}".
+	utilLine := regexp.MustCompile(`ID: "utilization",[^\n]*Widget: nil, Type: nil}`)
+	if !utilLine.MatchString(src) {
+		t.Errorf("a non-leaf cell (utilization) should carry Widget: nil, Type: nil on its own record")
 	}
 }
 

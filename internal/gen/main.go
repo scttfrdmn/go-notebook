@@ -393,12 +393,11 @@ func leafSymbols(g *graph.Graph) []leafInfo {
 		if !c.IsLeaf {
 			continue
 		}
-		for _, r := range c.Results {
-			if r.IsError || r.Name == "" {
-				continue
-			}
+		// Same leaf edge selection as leafSymbol/leafTypeLiteral (firstDataResult),
+		// so the coercer this feeds addresses exactly the result a client's Type
+		// describes — one selection rule, three readers.
+		if r := firstDataResult(c); r != nil {
 			out = append(out, leafInfo{name: r.Name, typ: r.Type, underlying: r.Underlying})
-			break
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].name < out[j].name })

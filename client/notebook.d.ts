@@ -16,6 +16,13 @@ export interface WidgetMeta {
   Columns?: WidgetColumn[];
 }
 
+export interface LeafType {
+  /** the type as declared ("PerHour", "int") */
+  Name: string;
+  /** the basic kind it resolves to; absent for a composite/interface leaf */
+  Underlying?: "int" | "float64" | "bool" | "string" | string;
+}
+
 export interface CellMeta {
   ID: string;
   /** the leaf symbol this cell produces, if it is an input control */
@@ -28,6 +35,8 @@ export interface CellMeta {
   Source?: string;
   /** static control descriptor; present only for leaves */
   Widget?: WidgetMeta;
+  /** the leaf's Go result type; present only for leaves */
+  Type?: LeafType;
 }
 
 export interface WireEvent {
@@ -68,6 +77,8 @@ export interface Leaf {
   kind: string | null;
   /** a table leaf's columns, else [] */
   columns: WidgetColumn[];
+  /** the leaf's Go result type, or null if the port predates it */
+  type: LeafType | null;
 }
 
 /** Wrap a raw notebook port (or globalThis.notebook) in the structural client. */

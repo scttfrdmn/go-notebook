@@ -196,8 +196,8 @@ func writeMeta(b *bytes.Buffer, g *graph.Graph) {
 	fmt.Fprintf(b, "var NotebookMeta = []engine.CellMeta{\n")
 	for _, id := range g.Order {
 		c := g.Cells[id]
-		fmt.Fprintf(b, "\t{ID: %q, Leaf: %q, Label: %q, Directives: %s, In: %s, Source: %q, Widget: %s},\n",
-			c.ID, leafSymbol(c), c.Label, directiveLiteral(c.Directives), upstreamLiteral(g, c), c.Source, widgetLiteral(c.Widget))
+		fmt.Fprintf(b, "\t{ID: %q, Leaf: %q, Label: %q, Directives: %s, In: %s, Source: %q, Widget: %s, Type: %s},\n",
+			c.ID, leafSymbol(c), c.Label, directiveLiteral(c.Directives), upstreamLiteral(g, c), c.Source, widgetLiteral(c.Widget), leafTypeLiteral(c))
 	}
 	fmt.Fprintf(b, "}\n")
 }
@@ -268,16 +268,48 @@ func upstreamLiteral(g *graph.Graph, c *graph.Cell) string {
 // analyzer from the TYPE (graph.Cell.IsLeaf), never by a directive — the
 // directive only refines how the control renders. This is the symbol the head,
 // UI, and --set address: a leaf is identified by what it produces.
+// firstDataResult returns a cell's leaf edge: its first named, non-error result
+// — the single result that identifies the leaf and whose type the set() coercer
+// works against. Both leafSymbol and leafTypeLiteral read through this, so the
+// symbol a client sets and the type it validates against can never diverge from
+// one selection rule. Returns nil for a cell with no such result.
+func firstDataResult(c *graph.Cell) *graph.Result {
+	for i := range c.Results {
+		if r := &c.Results[i]; !r.IsError && r.Name != "" {
+			return r
+		}
+	}
+	return nil
+}
+
 func leafSymbol(c *graph.Cell) graph.Symbol {
 	if !c.IsLeaf {
 		return ""
 	}
-	for _, r := range c.Results {
-		if !r.IsError && r.Name != "" {
-			return r.Name
-		}
+	if r := firstDataResult(c); r != nil {
+		return r.Name
 	}
 	return ""
+}
+
+// leafTypeLiteral renders a leaf's result type as an *engine.LeafType literal
+// (its declared Name and resolved Underlying kind), or "nil" for a non-leaf.
+// It reads the SAME data result leafSymbol does (firstDataResult) — the single
+// named, non-error result that is the leaf's edge — so the type describes exactly
+// the value a set() on that symbol coerces into. Underlying is omitted when empty
+// (a composite/interface leaf), matching the struct's omitempty tag.
+func leafTypeLiteral(c *graph.Cell) string {
+	if !c.IsLeaf {
+		return "nil"
+	}
+	r := firstDataResult(c)
+	if r == nil {
+		return "nil"
+	}
+	if r.Underlying == "" {
+		return fmt.Sprintf("&engine.LeafType{Name: %q}", r.Type)
+	}
+	return fmt.Sprintf("&engine.LeafType{Name: %q, Underlying: %q}", r.Type, r.Underlying)
 }
 
 // directiveLiteral renders a directive map as a Go composite literal with keys
