@@ -170,6 +170,7 @@
            letter-spacing: .02em; white-space: nowrap; }
   .badge.live { background: #e7f7ea; color: #237a2b; }
   .badge.batch { background: #eef1f6; color: #5b6472; }
+  .badge.feed { background: #fdf1e0; color: #8a5a1a; }
   .tag { display: inline-block; font: 500 var(--t-micro)/1 var(--mono); color: var(--blue);
          background: #eff6fc; padding: .28rem .5rem; border-radius: 6px; }
   /* The per-tile action links: Open demo (primary), View source, Learn. */
@@ -561,28 +562,28 @@
       <div class="tile">
         <div class="top"><h3><a href="demos/sensorfeed/index.html">sensorfeed</a></h3><span class="tag">live feed</span></div>
         <p class="what">A live sensor dashboard — gauges and a rolling chart driven not by a slider but by a feed. A small driver samples the machine's metrics and pushes each reading to the notebook's <code>set</code> port; the notebook is pure cells reacting. The impure edge (the clock, the sampling) lives in the driver, outside the graph.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="foot"><span class="badge feed" title="The notebook runs in the browser and is drag-drivable by hand; the live feed needs the served binary plus its companion driver.">notebook in browser · feed needs driver</span></div>
         <div class="tlinks"><a class="go" href="demos/sensorfeed/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/sensorfeed">View source ↗</a>
           <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/setport">Learn: the set port ↗</a></div>
       </div>
       <div class="tile">
         <div class="top"><h3><a href="demos/homefeed/index.html">homefeed</a></h3><span class="tag">live feed · bidirectional</span></div>
         <p class="what">A smart-home controller, both directions over one port. A bridge feed (Hue/Matter) pushes sensors <em>in</em> — motion, temperature, ambient light; the notebook computes, purely, what the lights should do; the driver reads those decisions <em>out</em> of the event stream and applies them. Turning a light on isn't something a cell does — it's a boolean a cell computes and the driver subscribes to.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="foot"><span class="badge feed" title="The notebook runs in the browser and is drag-drivable by hand; the live bidirectional feed needs the served binary plus its companion driver.">notebook in browser · feed needs driver</span></div>
         <div class="tlinks"><a class="go" href="demos/homefeed/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/homefeed">View source ↗</a>
           <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/setport">Learn: the set port ↗</a></div>
       </div>
       <div class="tile">
         <div class="top"><h3><a href="demos/tickerfeed/index.html">tickerfeed</a></h3><span class="tag">live feed</span></div>
         <p class="what">A live price ticker. A driver streams trade ticks from an exchange and pushes each to the notebook; the notebook derives the last price, a moving average, and the spread — pure, no socket, no timer. The rolling window lives in the driver, because a cell is stateless; the math lives in the graph.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="foot"><span class="badge feed" title="The notebook runs in the browser and is drag-drivable by hand; the live feed needs the served binary plus its companion driver.">notebook in browser · feed needs driver</span></div>
         <div class="tlinks"><a class="go" href="demos/tickerfeed/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/tickerfeed">View source ↗</a>
           <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/setport">Learn: the set port ↗</a></div>
       </div>
       <div class="tile">
         <div class="top"><h3><a href="demos/apifeed/index.html">apifeed</a></h3><span class="tag">live feed</span></div>
         <p class="what">Where is the ISS right now? A driver polls a public JSON API on an interval and pushes the live position; the notebook plots it on a world map and reads out the coordinates — the "poll a REST feed" shape, the most common live-data pattern of all. The poll lives in the driver; the notebook stays a pure function of the position.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="foot"><span class="badge feed" title="The notebook runs in the browser and is drag-drivable by hand; the live feed needs the served binary plus its companion driver.">notebook in browser · feed needs driver</span></div>
         <div class="tlinks"><a class="go" href="demos/apifeed/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/apifeed">View source ↗</a>
           <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/setport">Learn: the set port ↗</a></div>
       </div>

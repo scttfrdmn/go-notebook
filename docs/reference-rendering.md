@@ -19,6 +19,41 @@ func (t Thermo) Render() Rendered {
 
 The method runs **in Go, in-process** — on your laptop, on the server, or compiled into the WASM in the browser. The client never interprets your value; it receives the already-rendered `{mime, data}` and paints it.
 
+### Two ways to write it — same contract
+
+Rendering is matched **structurally**, by the *shape* `Render() Rendered` (a
+one-field-pair envelope), not by any imported type. So there are two ways to
+satisfy it, and they are interchangeable:
+
+**Zero-import protocol** — redeclare the envelope locally. Nothing from this
+project appears in the file; the notebook is a plain Go package.
+
+```go
+type Rendered struct{ MIME, Data string }
+
+func (v View) Render() Rendered {
+	return Rendered{MIME: "text/html", Data: html}
+}
+```
+
+**Optional `nb` convenience package** — import `nb` for autocomplete, named MIME
+constructors (`nb.HTML`, `nb.SVG`, `nb.Markdown`), and compile-time checking of
+the MIME string:
+
+```go
+import "github.com/scttfrdmn/go-notebook/nb"
+
+func (v View) Render() nb.Rendered {
+	return nb.HTML(html)
+}
+```
+
+Both produce the identical `{mime, data}` on the wire — the engine probes the
+method shape and never cares which `Rendered` you named. Use the protocol when
+you want a file that imports nothing; use `nb` when you'd rather not hand-type
+MIME strings. (The `nb` package is optional and the toolchain never depends on
+it — see [charts](reference-charts.html) for its `nb/chart` sibling.)
+
 ## The MIME types
 
 | MIME | How it's shown |
