@@ -127,8 +127,13 @@ const CSS = `
   :root { --navy:#1b3a6b; --go:#00add8; --ink:#1a1a2e; --muted:#5b6472; --line:#e7ebf0;
           --run:#f0a020; --err:#d0433b; --stale:#b8c0cc; --done:#3fa845; }
   body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; margin: 2rem auto; max-width: 900px; padding: 0 24px; color: var(--ink); }
-  .controls { display: grid; grid-template-columns: max-content 1fr max-content; gap: .75rem 1rem; align-items: center; margin-bottom: 1.5rem; }
+  /* label | slider | value. The label column is minmax(0, 2fr) so a long label
+     WRAPS instead of consuming the row; the slider column has a hard min so it can
+     never collapse to zero width (which left only the thumb, undraggable). */
+  .controls { display: grid; grid-template-columns: minmax(0, 2fr) minmax(160px, 1fr) max-content;
+              gap: .75rem 1rem; align-items: center; margin-bottom: 1.5rem; }
   .controls label { font-weight: 600; color: var(--navy); }
+  .controls input[type=range] { min-width: 0; }
   .cell { margin: 1rem 0; padding: .5rem 0 .5rem .6rem; border-top: 1px solid #eee;
           border-left: 3px solid transparent; transition: border-color .15s, opacity .15s; }
   /* Cells sharing a //notebook:area=<name> directive lay side by side; each flexes
