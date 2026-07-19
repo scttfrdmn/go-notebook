@@ -1,0 +1,190 @@
+{
+  "order": [
+    "price",
+    "window",
+    "movingAvg",
+    "spread",
+    "quote",
+    "stats",
+    "tape",
+    "intro"
+  ],
+  "helpers": [
+    "dollars"
+  ],
+  "producer": {
+    "avgCents": "movingAvg",
+    "cents": "price",
+    "chart": "tape",
+    "md": "intro",
+    "report": "stats",
+    "series": "window",
+    "spreadCents": "spread",
+    "view": "quote"
+  },
+  "cells": {
+    "intro": {
+      "label": "Orientation.",
+      "pure": true,
+      "isLeaf": false,
+      "params": null,
+      "results": [
+        {
+          "name": "md",
+          "type": "Markdown"
+        }
+      ]
+    },
+    "movingAvg": {
+      "label": "The moving average over the window, in cents.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "series",
+          "type": "Series",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "avgCents",
+          "type": "int"
+        }
+      ]
+    },
+    "price": {
+      "label": "The latest trade price, in cents (integer-clean over the wire).",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "quote",
+        "max": "20000000",
+        "min": "1",
+        "slider": "",
+        "step": "1"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "cents",
+          "type": "int"
+        }
+      ]
+    },
+    "quote": {
+      "label": "The quote panel: last price, and its position vs the moving average.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "quote",
+        "height": "180"
+      },
+      "params": [
+        {
+          "name": "cents",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "avgCents",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "view",
+          "type": "Quote"
+        }
+      ]
+    },
+    "spread": {
+      "label": "The spread over the window: high − low, in cents — a cheap volatility readout.",
+      "pure": true,
+      "isLeaf": false,
+      "params": [
+        {
+          "name": "series",
+          "type": "Series",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "spreadCents",
+          "type": "int"
+        }
+      ]
+    },
+    "stats": {
+      "label": "A stats readout.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "stats",
+        "height": "180"
+      },
+      "params": [
+        {
+          "name": "cents",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "avgCents",
+          "type": "int",
+          "kind": "wired"
+        },
+        {
+          "name": "spreadCents",
+          "type": "int",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "report",
+          "type": "Readout"
+        }
+      ]
+    },
+    "tape": {
+      "label": "The tape: recent prices as a rolling line.",
+      "pure": true,
+      "isLeaf": false,
+      "directives": {
+        "area": "tape",
+        "height": "200"
+      },
+      "params": [
+        {
+          "name": "series",
+          "type": "Series",
+          "kind": "wired"
+        }
+      ],
+      "results": [
+        {
+          "name": "chart",
+          "type": "Chart"
+        }
+      ]
+    },
+    "window": {
+      "label": "The rolling window of recent prices (cents), pushed by the driver as a CSV\nstring leaf.",
+      "pure": true,
+      "isLeaf": true,
+      "directives": {
+        "area": "quote"
+      },
+      "params": null,
+      "results": [
+        {
+          "name": "series",
+          "type": "Series"
+        }
+      ]
+    }
+  }
+}
