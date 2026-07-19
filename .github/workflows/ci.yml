@@ -43,6 +43,16 @@ jobs:
           PATH="$GOROOT/lib/wasm:$GOROOT/misc/wasm:$PATH" \
             GOOS=js GOARCH=wasm go test ./engine/wasm/...
 
+      # Fuzz targets guard the untrusted-input paths (the /set wire coercer, the
+      # directive + layout parsers). A short run on every push catches a newly
+      # introduced panic or invariant break; deep fuzzing is a manual/scheduled
+      # activity. -fuzzminimizetime keeps a failure's shrink bounded.
+      - name: fuzz smoke (untrusted-input paths)
+        run: |
+          go test -run=xxx -fuzz=FuzzCoerceWire -fuzztime=20s ./engine/
+          go test -run=xxx -fuzz=FuzzParseLayout -fuzztime=20s ./internal/analyze/
+          go test -run=xxx -fuzz=FuzzDirectives -fuzztime=20s ./internal/analyze/
+
       - name: coverage floor (library packages, examples excluded)
         run: |
           go test -coverprofile=cover.lib.out $(go list ./... | grep -v '/examples/') >/dev/null
@@ -53,3 +63,17 @@ jobs:
       # golangci-lint runs in its own workflow (.github/workflows/lint.yml) so it
       # has a dedicated live badge — the honest replacement for the retired Go
       # Report Card.
+
+  # govulncheck scans dependencies AND the standard library against the Go
+  # vulnerability database (golang.org/x/vuln). Its own job so a vuln is a
+  # distinct, legible CI failure rather than buried in the test lane.
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
