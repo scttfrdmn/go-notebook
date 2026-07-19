@@ -491,16 +491,19 @@ func (r *Runtime) doneEvent(epoch Epoch, res levelResult) Event {
 		if rendered, ok := AsRendered(v); ok {
 			rc := rendered
 			ev.Out = &rc
+			ev.Value = v
 			break
 		}
 		if wv, ok := AsWidgetView(v); ok {
 			if data, err := json.Marshal(wv); err == nil {
 				ev.Out = &Rendered{MIME: WidgetMIME, Data: string(data)}
+				ev.Value = v
 				break
 			}
 		}
 		if txt, ok := scalarReadout(v); ok {
 			ev.Out = &Rendered{MIME: "text/plain", Data: txt}
+			ev.Value = v
 			break
 		}
 	}

@@ -49,6 +49,14 @@ type Event struct {
 	// Out is the cell's rendered output, non-nil only when the cell's value is
 	// Renderable and the cell reached StateDone.
 	Out *Rendered
+	// Value is the cell's typed Go value for the wave — the same value Out was
+	// rendered from, before any string readout. It is IN-PROCESS ONLY: the typed
+	// projection of a subscription, delivered to Go consumers via
+	// [Runtime.SubscribeValues], and it NEVER crosses a wire. [ToWire] ignores it
+	// by construction, so a transport cannot marshal an arbitrary Go value; a
+	// wire-bound consumer sees only the rendered {mime, data}. Populated only
+	// when State is StateDone (nil on error/blocked/stale).
+	Value any
 	// Err is the error message when State is StateError.
 	Err string
 }
