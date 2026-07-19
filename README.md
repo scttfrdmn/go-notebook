@@ -12,7 +12,7 @@
 
 **A reactive notebook where the notebook *is* an ordinary Go package.**
 
-A cell is a top-level function with a doc comment. The dependency graph is a projection of the type checker's own def-use analysis. The result compiles to a single static binary — so a notebook is also a job:
+A cell is a top-level function in the marked notebook file with at least one named non-error result; a doc comment supplies its label but is not what makes it a cell. The dependency graph is a projection of the type checker's own def-use analysis. The result compiles to a single static binary — so a notebook is also a job:
 
 ```
 go tool notebook run ./examples/capacity     # interactive
@@ -58,7 +58,7 @@ go tool notebook run   .   # serve in a browser; edit source, it rebuilds
 go tool notebook build .   # compile a static binary (or -target=wasm)
 ```
 
-A ten-line file is already a notebook (`//go:notebook` marker, cells are documented funcs with named results). The full from-scratch walkthrough — input → chart → control → arrange → ship, and the handful of rules that bite — is **[`docs/authoring.md`](docs/authoring.md)**.
+A ten-line file is already a notebook (`//go:notebook` marker, cells are funcs with named results — a doc comment adds the label but isn't required). The full from-scratch walkthrough — input → chart → control → arrange → ship, and the handful of rules that bite — is **[`docs/authoring.md`](docs/authoring.md)**.
 
 ---
 

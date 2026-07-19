@@ -146,10 +146,11 @@ The most recent milestone asks what a notebook's interface to the outside world 
 
 ## 14. What is unresolved, and the honest position
 
-Two risks remain, and both are engineering, not design:
+The project's original largest risk was retired during the build; what remains is engineering, not design.
 
-1. **Incremental static analysis** — deriving the graph on every keystroke is only pleasant if re-derivation is cheap, and `go/types` is not incremental. Caching symbol tables or driving a headless `gopls` is the answer; this is the largest risk in the project.
-2. **Glitch-free propagation at scale** — solved in principle by the epoch'd snapshot, guarded by a sabotage test.
+**Retired: incremental static analysis.** Deriving the graph on every keystroke is only pleasant if re-derivation is cheap, and `go/types` is not incremental — this was the original largest risk. The session-based analyzer measures re-analysis after a one-cell edit at **~0.5 ms** (KC2), a ~200× margin over the 100 ms budget, so a headless `gopls` migration is not required at present corpus sizes. The one open question it leaves is behavior on substantially larger packages, not whether the approach works.
+
+**Remaining: glitch-free propagation at scale** — solved in principle by the epoch'd snapshot, guarded by a sabotage test, but not yet stress-tested on a large, deep graph.
 
 The standing *costs* are named, not hidden: no per-cell stdout under fan-out, and no goroutine parallelism in the browser tier. And one milestone (spore.host as the remote compute tier) is scoped on paper with a predicted zero-change diff, but *does not count as done* until observed against a real, billable spawn run — per §12.
 
