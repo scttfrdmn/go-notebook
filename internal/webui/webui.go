@@ -81,7 +81,7 @@ func Page(opts PageOpts) string {
 const CSS = `
   :root { --navy:#1b3a6b; --go:#00add8; --ink:#1a1a2e; --muted:#5b6472; --line:#e7ebf0;
           --run:#f0a020; --err:#d0433b; --stale:#b8c0cc; --done:#3fa845; }
-  body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; margin: 2rem; max-width: 820px; color: var(--ink); }
+  body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; margin: 2rem auto; max-width: 900px; padding: 0 24px; color: var(--ink); }
   .controls { display: grid; grid-template-columns: max-content 1fr max-content; gap: .75rem 1rem; align-items: center; margin-bottom: 1.5rem; }
   .controls label { font-weight: 600; color: var(--navy); }
   .cell { margin: 1rem 0; padding: .5rem 0 .5rem .6rem; border-top: 1px solid #eee;
