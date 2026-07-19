@@ -43,6 +43,7 @@ Each row links to a complete, buildable notebook in
 | Select (one choice) | a type with `Options() []string` + a scalar `Value` field | [`selectbox`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/selectbox) |
 | Multi-select | `Options() []string` + a **slice** `Value` field | [`multiselect`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/multiselect) |
 | Range (from/to) | a type with `Bounds() (lo, hi float64)` | [`rangecontrol`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/rangecontrol) |
+| Draggable points | a slice `Value` + a `Grip(i)` method, drawn as grip `Handle`s in a `Render` | [`draggable`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/draggable) |
 | Editable table | a type with a slice-of-struct `Value` field | [`table`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/table) |
 
 A few specifics the table can't hold:
@@ -59,9 +60,9 @@ A few specifics the table can't hold:
   hi float64)`; the client rounds to the step.
 - **What crosses the wire.** A saved selection arrives in `Reconcile` as a
   JSON-decoded value: a select as a `string`, a multi as `[]string`, a range as
-  `[]float64`, a table as `[]map[string]any`. Type-assert it (see each example's
-  `Reconcile`); if the assertion fails, return the fresh default — never keep a
-  stale value.
+  `[]float64`, a draggable as a flat `[]float64` (`[x0,y0,x1,y1,…]`), a table as
+  `[]map[string]any`. Type-assert it (see each example's `Reconcile`); if the
+  assertion fails, return the fresh default — never keep a stale value.
 
 ## Bounds — a ranged slider
 

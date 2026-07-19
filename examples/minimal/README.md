@@ -25,6 +25,7 @@ Read them roughly top-to-bottom; each builds on the last.
 | [`selectbox`](selectbox) | `Options()` + scalar `Value` → a select; `Reconcile` keeps state | 45 | [controls](https://go-notebook.dev/docs/reference-controls.html) |
 | [`multiselect`](multiselect) | `Options()` + slice `Value` → a multi | 42 | [controls](https://go-notebook.dev/docs/reference-controls.html) |
 | [`rangecontrol`](rangecontrol) | `Bounds()` → a two-handled range control | 43 | [controls](https://go-notebook.dev/docs/reference-controls.html) |
+| [`draggable`](draggable) | a slice `Value` + `Grip()` → points you drag on a chart | 135 | [controls](https://go-notebook.dev/docs/reference-controls.html) |
 | [`table`](table) | a slice-of-struct `Value` → an editable grid | 65 | [controls](https://go-notebook.dev/docs/reference-controls.html) |
 
 ## Outputs — how a value is drawn
