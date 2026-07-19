@@ -181,6 +181,44 @@ That is the whole loop: **one Go file is a live browser app, a batch job, and a 
 
 ---
 
+## "An ordinary Go package" — what that actually means
+
+The claim is literal, and the edges are worth spelling out:
+
+- **One file per package carries `//go:notebook`.** Cells are the top-level
+  functions *in that file*. You can split the rest of the package across as many
+  `.go` files as you like — types, helpers, tests — and they are ordinary Go.
+  Only the marked file's functions are scanned for cells.
+- **A named-result function in an *unmarked* file is not a cell.** It is a plain
+  helper the cells can call. (So "move this out of the graph" can be as simple as
+  moving it to another file in the package.)
+- **The package imports and compiles normally.** `go build`, `go test`, `go doc`,
+  and gopls all work on it — it is a real package. A notebook can define exported
+  APIs and be imported by other Go code; the `//go:notebook` marker only tells
+  *this* toolchain which file to read as a notebook.
+- **Methods and generic functions are never cells.** A method isn't a top-level
+  function; a generic function has no concrete result type to wire. Both are
+  fine to define and call — they just aren't cells.
+- **Tests are ordinary tests.** Because a cell is a function, you test it by
+  calling it: `go test` runs `TestX(t)` against your cells with no notebook
+  runtime involved (see the [`testing`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/testing)
+  example).
+
+## Why `fmt` in a cell body breaks the browser build
+
+One surprise worth naming directly: `fmt` in a *cell body* fails the WASM
+portability gate, and Go developers reasonably expect `fmt.Sprintf` to be pure.
+It is — but the gate is a **conservative over-approximation of the reachable call
+graph**, and `fmt` transitively reaches `os`. The analyzer can't prove a
+particular `fmt` call never touches the OS-facing paths, so it flags the whole
+cell rather than risk a notebook that compiles but can't run in a browser. Keep
+formatting in a `Render()` method (which the engine calls, and which is not a
+cell) — as this walkthrough does — and use `strconv` if a cell body genuinely
+must format a number. This is analyzer conservatism, not a claim that `fmt` does
+I/O.
+
+---
+
 ## Where to go next
 
 **Reference** — every feature, in depth:
