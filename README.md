@@ -40,6 +40,27 @@ The wiring rule, in one sentence:
 
 ---
 
+## Write your first notebook
+
+You need **Go 1.25+**. A notebook is an ordinary Go package, so it lives in a module:
+
+```bash
+mkdir tempconv && cd tempconv && go mod init example.com/tempconv
+go get -tool github.com/scttfrdmn/go-notebook/cmd/notebook@latest
+```
+
+That adds a `tool` directive, so the toolchain is `go tool notebook` in your module — three verbs:
+
+```bash
+go tool notebook check .   # analyze — print the dependency graph
+go tool notebook run   .   # serve in a browser; edit source, it rebuilds
+go tool notebook build .   # compile a static binary (or -target=wasm)
+```
+
+A ten-line file is already a notebook (`//go:notebook` marker, cells are documented funcs with named results). The full from-scratch walkthrough — input → chart → control → arrange → ship, and the handful of rules that bite — is **[`docs/authoring.md`](docs/authoring.md)**.
+
+---
+
 ## Status
 
 **The core loop is built and the compile-first bet is measured.** The toolchain analyzes a notebook, derives the graph from `go/types`, generates a registry via `go build -overlay` (never touching your source tree), and runs it through a glitch-free reactive engine served to a browser — or headless as a batch job.
@@ -80,7 +101,8 @@ Overlapping the rebuild with the running binary ([#22](https://github.com/scttfr
 
 | | |
 |---|---|
-| [`docs/paper.md`](docs/paper.md) | **The system paper** — the whole design, distilled, honest, one read. Start here for the overview. |
+| [`docs/authoring.md`](docs/authoring.md) | **Write your first notebook** — a from-scratch walkthrough. Start here to *use* it. |
+| [`docs/paper.md`](docs/paper.md) | **The system paper** — the whole design, distilled, one read. Start here to *understand* it. |
 | [`docs/design.md`](docs/design.md) | The design record. The full derivation, the foreclosure table, the six corrections. |
 | [`docs/composition.md`](docs/composition.md) | How a notebook is arranged — `area=`/`layout`, the design decisions, why no spans/tabs. |
 | [`docs/notebook-as-service.md`](docs/notebook-as-service.md) | The notebook as an ephemeral HTTP service — the readiness/addressing seam. |
