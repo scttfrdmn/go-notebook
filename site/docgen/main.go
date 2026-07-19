@@ -42,7 +42,7 @@ var pages = []page{
 	{"docs/authoring.md", "authoring", "Write your first notebook", "From an empty file to a running, built notebook — the from-scratch walkthrough.", "Guide"},
 	{"docs/live-feeds.md", "live-feeds", "Live feeds", "Wire a sensor, socket, or polled API into a notebook: a feed is a driver on the set port.", "Guide"},
 
-	{"docs/reference-directives.md", "reference-directives", "Directives", "The //notebook: comment directives — slider, height, area, layout, nocache — and the presentation-only rule they share.", "Reference"},
+	{"docs/reference-directives.md", "reference-directives", "Directives", "The //notebook: comment directives — slider, height, area, layout — and the presentation-only rule they share.", "Reference"},
 	{"docs/reference-controls.md", "reference-controls", "Controls", "How a value becomes an input, and which widget it renders as — decided by type, not directive.", "Reference"},
 	{"docs/reference-rendering.md", "reference-rendering", "Rendering", "How a value is drawn: the Render method, the MIME types, and the degradation ladder.", "Reference"},
 	{"docs/reference-build-run.md", "reference-build-run", "Build & run", "The check/run/build verbs, the binary's --headless/--set/--json flags, and the WASM gate.", "Reference"},
@@ -158,7 +158,7 @@ func writeDiscoveryFiles(siteDir string) {
 	}
 	lm.WriteString("\n## Source\n\n")
 	lm.WriteString("- [Repository](https://github.com/scttfrdmn/go-notebook): the full source, Apache-2.0.\n")
-	lm.WriteString("- [Examples](https://github.com/scttfrdmn/go-notebook/tree/main/examples): ~39 notebooks read as Go.\n")
+	lm.WriteString("- [Examples](https://github.com/scttfrdmn/go-notebook/tree/main/examples): 44 notebooks read as Go.\n")
 	must(os.WriteFile(filepath.Join(siteDir, "llms.txt"), []byte(lm.String()), 0o644))
 
 	fmt.Println("docs: wrote robots.txt, sitemap.xml, llms.txt")
