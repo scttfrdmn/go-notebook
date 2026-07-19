@@ -77,6 +77,10 @@ type Opts struct {
 	YLog bool
 	// Height is the drawing height in px; 0 uses a per-form default.
 	Height int
+	// Fit draws a least-squares trend line through a [Scatter]'s points (via
+	// [LinFit]) — the one sanctioned overlay, because it annotates the same data
+	// on the same axes rather than adding a form. Ignored by the other charts.
+	Fit bool
 }
 
 // Render envelope constants, kept here so the forms don't each restate them.

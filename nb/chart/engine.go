@@ -144,26 +144,27 @@ func fmtNum(v float64) string {
 		return "0"
 	}
 	abs := math.Abs(v)
-	// Large magnitudes: comma-group the integer part (0 / 1,000 / 20,000).
-	if abs >= 1000 && v == math.Trunc(v) {
-		return group(strconv.FormatInt(int64(v), 10))
-	}
-	// Otherwise pick a decimal precision from the magnitude, then trim.
-	prec := 0
+	// Pick a decimal precision from the magnitude, then trim trailing zeros. Even
+	// large numbers keep two places at format time so a real fraction survives
+	// (6452.5 → "6,452.5"); the trim below collapses clean integers back to no
+	// decimal, so round axis ticks still read "1,000", not "1,000.00".
+	prec := 2
 	switch {
 	case abs < 0.1:
 		prec = 3
 	case abs < 1:
 		prec = 2
-	case abs < 100:
-		prec = 2
-	default:
-		prec = 0
 	}
 	s := strconv.FormatFloat(v, 'f', prec, 64)
-	if strings.Contains(s, ".") {
-		s = strings.TrimRight(s, "0")
-		s = strings.TrimRight(s, ".")
+	// Comma-group the integer part for readability, keeping any fractional part
+	// intact — so 6452.5 stays "6,452.5", never silently rounded to "6,452".
+	intPart, frac, hasFrac := strings.Cut(s, ".")
+	s = group(intPart)
+	if hasFrac {
+		frac = strings.TrimRight(frac, "0")
+		if frac != "" {
+			s += "." + frac
+		}
 	}
 	return s
 }
