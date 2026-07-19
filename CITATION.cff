@@ -27,6 +27,6 @@ keywords:
 license: Apache-2.0
 version: 0.2.0
 date-released: "2026-07-19"
-# After enabling the Zenodo–GitHub integration and cutting a release, Zenodo mints
-# a DOI. Add it here so "Cite this repository" and downstream tools surface it:
-# doi: 10.5281/zenodo.XXXXXXX
+# The Zenodo concept DOI — always resolves to the latest version, so it never
+# needs updating. (The v0.2.0 version DOI is 10.5281/zenodo.21440009.)
+doi: 10.5281/zenodo.21440008

@@ -7,6 +7,7 @@
   <a href="https://github.com/scttfrdmn/go-notebook/actions/workflows/lint.yml"><img src="https://github.com/scttfrdmn/go-notebook/actions/workflows/lint.yml/badge.svg" alt="golangci-lint"></a>
   <a href="https://pkg.go.dev/github.com/scttfrdmn/go-notebook"><img src="https://pkg.go.dev/badge/github.com/scttfrdmn/go-notebook.svg" alt="Go Reference"></a>
   <img src="https://img.shields.io/badge/go-1.25-00ADD8?logo=go&logoColor=white" alt="Go 1.25">
+  <a href="https://doi.org/10.5281/zenodo.21440008"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.21440008.svg" alt="DOI"></a>
 </p>
 
 **A reactive notebook where the notebook *is* an ordinary Go package.**
