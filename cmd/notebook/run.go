@@ -80,11 +80,21 @@ func cmdRun(args []string) int {
 		return nb, "http://" + childAddr, nil
 	}
 
+	// The source file the browser editor reads and writes (A1/A2). A notebook is
+	// a single file by convention; a multi-file package can't be safely targeted
+	// by a whole-file editor, so srcPath stays empty there and the editor
+	// feature-detects itself off. Only the parent holds this path — the child is
+	// launched from a throwaway overlay dir and never learns it.
+	srcPath := ""
+	if len(res.Package.GoFiles) == 1 {
+		srcPath = res.Package.GoFiles[0]
+	}
+
 	// The supervisor owns the port and always answers — building, build-failed,
 	// or crashed — so the browser never hits a dead port or a blank page.
 	st := &status{phase: phaseBuilding}
 	go func() {
-		if err := http.ListenAndServe(*addr, newSupervisor(st)); err != nil {
+		if err := http.ListenAndServe(*addr, newSupervisor(st, srcPath)); err != nil {
 			fmt.Fprintf(os.Stderr, "notebook run: supervisor: %v\n", err)
 		}
 	}()

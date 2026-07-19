@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 )
@@ -86,12 +87,13 @@ func (s *status) snapshot() (phase, string, string) {
 
 // supervisor is the user-facing HTTP surface.
 type supervisor struct {
-	status *status
-	proxy  *httputil.ReverseProxy
+	status  *status
+	proxy   *httputil.ReverseProxy
+	srcPath string // the notebook's .go source file, served at /__source ("" disables it)
 }
 
-func newSupervisor(st *status) *supervisor {
-	s := &supervisor{status: st}
+func newSupervisor(st *status, srcPath string) *supervisor {
+	s := &supervisor{status: st, srcPath: srcPath}
 	s.proxy = &httputil.ReverseProxy{
 		// Director reads the CURRENT child target on every request, so a swap to
 		// a new child needs no proxy rebuild.
@@ -189,6 +191,18 @@ func (s *supervisor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The notebook's raw source — served directly by the supervisor, never
+	// proxied, because the child (launched from a throwaway overlay dir) does not
+	// know the source path; only the parent does. This stays within the
+	// guardrail: the supervisor reads a file it was handed a path to, and knows
+	// nothing of the cells inside it. Answering here (not via the proxy) means it
+	// works even before the first child is up (phaseBuilding), so a browser editor
+	// can load the source while the notebook is still compiling.
+	if r.URL.Path == "/__source" {
+		s.handleSource(w, r)
+		return
+	}
+
 	p, detail, to := s.status.snapshot()
 	// No healthy child to proxy to: answer ourselves rather than a dead port.
 	if to == "" || p == phaseCrashed {
@@ -204,6 +218,33 @@ func (s *supervisor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// injected status poller (see banner) surfaces a build-failed overlay on the
 	// already-open page without touching the child.
 	s.proxy.ServeHTTP(w, r)
+}
+
+// handleSource serves the notebook's raw .go source. A1 implements GET (read the
+// file verbatim from disk); POST (write) arrives in A2. When no source path is
+// configured (srcPath == "", e.g. a multi-file package the editor can't safely
+// target), it 404s so the client feature-detects the editor as unavailable and
+// falls back to read-only source.
+func (s *supervisor) handleSource(w http.ResponseWriter, r *http.Request) {
+	if s.srcPath == "" {
+		http.Error(w, "source editing unavailable", http.StatusNotFound)
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	// Read the file fresh on every request — an external editor may have changed
+	// it, and the point is to show the current on-disk source, not a cached copy.
+	src, err := os.ReadFile(s.srcPath)
+	if err != nil {
+		http.Error(w, "read source: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(src)
 }
 
 // pickFreePort asks the OS for an unused localhost TCP port for the child. The

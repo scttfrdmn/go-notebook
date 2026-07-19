@@ -4,8 +4,11 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -38,7 +41,7 @@ func TestSupervisorProxiesAndStreams(t *testing.T) {
 
 	st := &status{}
 	st.setChild(child.URL)
-	sup := httptest.NewServer(newSupervisor(st))
+	sup := httptest.NewServer(newSupervisor(st, ""))
 	defer sup.Close()
 
 	// Ordinary request proxies through.
@@ -80,7 +83,7 @@ func TestSupervisorProxiesAndStreams(t *testing.T) {
 // page).
 func TestSupervisorAlwaysAnswers(t *testing.T) {
 	st := &status{}
-	sup := httptest.NewServer(newSupervisor(st))
+	sup := httptest.NewServer(newSupervisor(st, ""))
 	defer sup.Close()
 
 	// Building: no child yet → a building page, HTTP 200 (not a connection error).
@@ -118,7 +121,7 @@ func TestSupervisorInjectsStatusPollerIntoHTML(t *testing.T) {
 
 	st := &status{}
 	st.setChild(child.URL)
-	sup := httptest.NewServer(newSupervisor(st))
+	sup := httptest.NewServer(newSupervisor(st, ""))
 	defer sup.Close()
 
 	// HTML gets the poller appended.
@@ -151,6 +154,62 @@ func TestStatusRecoversFromBuildFailed(t *testing.T) {
 	if p, d, to := st.snapshot(); p != phaseOK || d != "" || to != "http://127.0.0.1:2" {
 		t.Fatalf("recovery should be ok with cleared detail and new child; got %v %q %q", p, d, to)
 	}
+}
+
+// TestSupervisorServesSource is A1's falsification: GET /__source returns the
+// exact on-disk bytes and is served by the supervisor ITSELF — so it works even
+// with no child (phaseBuilding), which is the point (a browser editor loads the
+// source while the notebook is still compiling). And with no source path
+// configured it 404s, so the client feature-detects the editor off.
+func TestSupervisorServesSource(t *testing.T) {
+	const src = "//go:notebook\npackage demo\n\nfunc x() (n int) { return 42 }\n"
+	dir := t.TempDir()
+	path := filepath.Join(dir, "demo.go")
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// No child set: phase is the zero value (phaseBuilding), childTo == "".
+	st := &status{}
+	sup := httptest.NewServer(newSupervisor(st, path))
+	defer sup.Close()
+
+	resp, err := http.Get(sup.URL + "/__source")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /__source status = %d, want 200 (must serve during phaseBuilding)", resp.StatusCode)
+	}
+	got := readAllRaw(t, resp)
+	if got != src {
+		t.Errorf("GET /__source returned\n%q\nwant\n%q", got, src)
+	}
+
+	// With no source path, the endpoint 404s (editor unavailable → client falls
+	// back to read-only source).
+	supNo := httptest.NewServer(newSupervisor(&status{}, ""))
+	defer supNo.Close()
+	r2, err := http.Get(supNo.URL + "/__source")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = r2.Body.Close()
+	if r2.StatusCode != http.StatusNotFound {
+		t.Errorf("GET /__source with no srcPath = %d, want 404", r2.StatusCode)
+	}
+}
+
+// readAllRaw reads the full body verbatim (bytes preserved, unlike readAll which
+// scans line by line and drops newlines).
+func readAllRaw(t *testing.T, resp *http.Response) string {
+	t.Helper()
+	defer func() { _ = resp.Body.Close() }()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }
 
 func readAll(t *testing.T, resp *http.Response) string {
