@@ -18,7 +18,6 @@ func arrivalRate() (lambda PerHour) { return 1200 }
 | `//notebook:height=<px>` | cell | Sets the rendered height (pixels) reserved for this cell's view. |
 | `//notebook:area=<name>` | cell | Tags the cell into a named layout region (see [layout](reference-layout.html)). |
 | `//notebook:layout <row>` | package | One presentation row; `\|` splits equal-flex columns (see [layout](reference-layout.html)). |
-| `//notebook:nocache` | cell | Opts the cell out of result caching — it recomputes every wave. |
 
 ## `slider`
 
@@ -49,9 +48,9 @@ Groups a cell into a named region referenced by a `//notebook:layout` row. Cells
 func dials(cpuPct, memMB int) (view Gauges) { return Gauges{CPU: cpuPct, MemMB: memMB} }
 ```
 
-## `nocache`
+## Not a directive: caching
 
-By default the engine caches a cell's result and only recomputes it when an input changes. `//notebook:nocache` forces recomputation every wave — for a cell whose output legitimately varies without an input change. Use it rarely; caching is what makes the reactive graph cheap.
+There is deliberately **no** `//notebook:nocache`. Whether a cell's result can be cached is *derived* from its call graph — a cell that transitively reaches `time.Now()`, an RNG, or I/O is impure and recomputes on its own; everything else is cached. Cacheability affects correctness, and the governing rule is that a comment never decides correctness — only the code does. (An early design had such a directive; it was removed for exactly this reason. See [the design](design.html), *Cacheability is derived, not declared*.)
 
 ## The rule they share
 

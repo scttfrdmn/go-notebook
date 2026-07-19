@@ -60,7 +60,7 @@ The graph is not something you maintain alongside the code — it is *derived fr
 
 Before you go further, the rules that will trip you up once and never again. Each is a direct consequence of "a cell is a function," and `go tool notebook check .` catches most of them with a pointed message.
 
-1. **A cell is a documented function with *named* results.** `func celsius() (c int)` is a cell; `func celsius() int` is not (no named result = no edge = not a cell). This is also how you write a **helper**: give it *unnamed* returns and it stays ordinary Go, invisible to the graph — e.g. `func clamp(v, lo, hi int) int`.
+1. **A cell is a top-level function with *named* results.** `func celsius() (c int)` is a cell; `func celsius() int` is not (no named result = no edge = not a cell). The named result is the marker — *not* the doc comment, which only supplies the human label. This is also how you write a **helper**: give it *unnamed* returns and it stays ordinary Go, invisible to the graph — e.g. `func clamp(v, lo, hi int) int`. (A documented function with unnamed returns is still a helper; an undocumented function with a named result is still a cell, just labelled from its function name. Documenting cells is strongly recommended for the label and tooltip — but it is not what makes them cells.)
 
 2. **The result name *is* the edge.** To wire a value into a consumer, the producer's result must be named exactly what the consumer's parameter is named. Rename `celsius`'s result from `c` to `temp` and the build fails with:
 
@@ -75,9 +75,35 @@ Before you go further, the rules that will trip you up once and never again. Eac
 
 4. **Keep `fmt` out of cell bodies.** A notebook that compiles to the browser (`GOOS=js`) must not have a *cell* whose call graph reaches `fmt`/`os`/`net` (the portability gate is derived from the graph). Formatting belongs in a `Render()` method — which the engine calls, and which is not a cell — not in a cell body. Use `strconv` if a cell body genuinely needs to format a number.
 
-## 4. Add a chart
+## 4. Add a rich view (the easy way first)
 
-A cell's output is drawn by *structural probe*: return a value with a `Render() Rendered` method and the client draws its MIME-tagged content. Add a thermometer:
+A cell's output is drawn by *structural probe*: return a value with a `Render() Rendered` method and the client draws its MIME-tagged content, decided by the MIME type the method returns. There are two common routes, and the gentlest is **HTML** — no drawing, just markup:
+
+```go
+import "fmt"
+
+// A summary card, drawn as HTML.
+//notebook:height=90
+func card(c, f int) (view Card) { return Card{C: c, F: f} }
+
+// Card renders an HTML card. fmt lives HERE, in Render (the engine calls it) —
+// never in a cell body, so the WASM portability gate stays clear.
+type Card struct{ C, F int }
+
+func (c Card) Render() Rendered {
+	return Rendered{MIME: "text/html", Data: fmt.Sprintf(
+		`<div style="font:600 22px sans-serif;color:#1b3a6b">%d°C = %d°F</div>`, c.C, c.F)}
+}
+
+// A notebook imports nothing from this project; redeclare the tiny display type.
+type Rendered struct{ MIME, Data string }
+```
+
+Run it: the card updates live as you drag. When the answer is a document — a card, a table, an invoice — HTML is the least work. (Prefer autocomplete and a compile-time check that you spelled `Render` right? Import the optional [`nb`](https://github.com/scttfrdmn/go-notebook/tree/main/nb) package and return `nb.HTML(…)` instead of redeclaring `Rendered`. Same result; see [rendering](reference-rendering.html).)
+
+## 5. Draw it yourself with SVG (the low-level route)
+
+When the answer is a *picture* rather than a document, build the SVG markup yourself. This is the most control and still requires no imports beyond the standard library — but it is deliberately low-level, so reach for it when HTML won't do. Replace the card with a thermometer:
 
 ```go
 import (
@@ -108,12 +134,9 @@ func (t Thermo) Render() Rendered {
 	b.WriteString(`</svg>`)
 	return Rendered{MIME: "image/svg+xml", Data: b.String()}
 }
-
-// A notebook imports nothing from this project; redeclare the tiny display type.
-type Rendered struct{ MIME, Data string }
 ```
 
-`gauge` takes `c` and `f` — so it wires downstream of both `celsius` and `fahrenheit`, and the graph forks. Run again and drag the slider: the thermometer fills and both numbers update, live.
+(It reuses the same `Rendered` type you declared in §4 — one per notebook is enough.) `gauge` takes `c` and `f` — so it wires downstream of both `celsius` and `fahrenheit`, and the graph forks. Run again and drag the slider: the thermometer fills and both numbers update, live.
 
 Here is exactly that notebook, compiled to WebAssembly and running right here — drag it:
 
@@ -121,11 +144,11 @@ Here is exactly that notebook, compiled to WebAssembly and running right here �
 
 *(The client renders `image/svg+xml` and `text/html` as markup; a scalar with no `Render()` shows as a text readout; anything else stays hidden — the **degradation ladder**: losing the view costs polish, never correctness.)*
 
-## 5. Controls come from types
+## 6. Controls come from types
 
 You already used one: `//notebook:slider min=-40 max=120` refines how the `celsius` input looks. But *whether* something is an input is decided by its **type**, never by the comment — a directive only refines an already-input control's appearance. A type carrying `Bounds()` renders as a ranged slider on its own; `Options()` gives a select; `Reconcile()` gives a stateful widget (`Multi`, `Range`, `Table`, a draggable). Delete every directive and every control is still there, just plainer.
 
-## 6. Arrange it (optional)
+## 7. Arrange it (optional)
 
 By default cells stack in source order. To present a designed layout, add `//notebook:area=` to cells and a package-level `//notebook:layout` block:
 
@@ -136,7 +159,7 @@ By default cells stack in source order. To present a designed layout, add `//not
 
 That puts the Celsius control beside the thermometer instead of stacked. The full vocabulary — named regions, columns, cards — is in [Layout](reference-layout.html). It is presentation-only: strip the layout and the notebook still renders correctly.
 
-## 7. Ship it
+## 8. Ship it
 
 The same file is also a job. Build a standalone binary:
 
@@ -158,6 +181,44 @@ That is the whole loop: **one Go file is a live browser app, a batch job, and a 
 
 ---
 
+## "An ordinary Go package" — what that actually means
+
+The claim is literal, and the edges are worth spelling out:
+
+- **One file per package carries `//go:notebook`.** Cells are the top-level
+  functions *in that file*. You can split the rest of the package across as many
+  `.go` files as you like — types, helpers, tests — and they are ordinary Go.
+  Only the marked file's functions are scanned for cells.
+- **A named-result function in an *unmarked* file is not a cell.** It is a plain
+  helper the cells can call. (So "move this out of the graph" can be as simple as
+  moving it to another file in the package.)
+- **The package imports and compiles normally.** `go build`, `go test`, `go doc`,
+  and gopls all work on it — it is a real package. A notebook can define exported
+  APIs and be imported by other Go code; the `//go:notebook` marker only tells
+  *this* toolchain which file to read as a notebook.
+- **Methods and generic functions are never cells.** A method isn't a top-level
+  function; a generic function has no concrete result type to wire. Both are
+  fine to define and call — they just aren't cells.
+- **Tests are ordinary tests.** Because a cell is a function, you test it by
+  calling it: `go test` runs `TestX(t)` against your cells with no notebook
+  runtime involved (see the [`testing`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/testing)
+  example).
+
+## Why `fmt` in a cell body breaks the browser build
+
+One surprise worth naming directly: `fmt` in a *cell body* fails the WASM
+portability gate, and Go developers reasonably expect `fmt.Sprintf` to be pure.
+It is — but the gate is a **conservative over-approximation of the reachable call
+graph**, and `fmt` transitively reaches `os`. The analyzer can't prove a
+particular `fmt` call never touches the OS-facing paths, so it flags the whole
+cell rather than risk a notebook that compiles but can't run in a browser. Keep
+formatting in a `Render()` method (which the engine calls, and which is not a
+cell) — as this walkthrough does — and use `strconv` if a cell body genuinely
+must format a number. This is analyzer conservatism, not a claim that `fmt` does
+I/O.
+
+---
+
 ## Where to go next
 
 **Reference** — every feature, in depth:
@@ -173,4 +234,4 @@ That is the whole loop: **one Go file is a live browser app, a batch job, and a 
 
 - [The paper](paper.html) — the system, end to end, and why it is shaped this way.
 - [The design](design.html) — the full design record.
-- The [`examples/` directory](https://github.com/scttfrdmn/go-notebook/tree/main/examples) — ~39 notebooks on GitHub, from an M/M/c queue to a Simpson's-paradox table; read them as Go.
+- The [`examples/` directory](https://github.com/scttfrdmn/go-notebook/tree/main/examples) — 44 notebooks on GitHub, from an M/M/c queue to a Simpson's-paradox table; read them as Go.

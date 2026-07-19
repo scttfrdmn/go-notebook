@@ -72,7 +72,7 @@ One sentence unfolds into a system: **a cell is a function → the graph is deri
 - Line: **Go owns the science; HTML owns the presentation.** The view is a projection of the cells, never a second source of truth.
 
 ### 11 — The corpus as a falsification instrument
-- ~39 notebooks, 34 live — not a demo gallery, a stress test.
+- 44 notebooks, 38 live — not a demo gallery, a stress test.
 - The finding that matters: **19 notebooks across GPU / DFT / ODE / gradient-descent / cellular-automata → zero engine changes, zero "a cell is a function" violations.**
 - Sub-point: porting found real *bugs in the originals* — `lego` multiplied dollars by dollars (a unit type made it a compile error).
 

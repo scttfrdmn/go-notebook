@@ -52,10 +52,11 @@ Verified end-to-end: a driver POSTing `v=42` to a served notebook recomputes the
 
 ## Worked examples
 
-Three drivers, one pattern, in `examples/`:
+Four drivers, one pattern, in `examples/`:
 
 - **`sensorfeed`** — a driver samples the host's own CPU/memory and POSTs it every second; the notebook is a pure dashboard (gauges + a rolling window). Keyless, offline, runs anywhere — the machine itself is the feed.
 - **`tickerfeed`** — a driver subscribes to a public price WebSocket and pushes each tick; the notebook computes price, a moving average, and the spread, pure.
 - **`apifeed`** — a driver polls a keyless public JSON API (USGS earthquakes / ISS position) on an interval; the notebook renders the latest reading and a derived view.
+- **`homefeed`** — a bidirectional feed: the driver both pushes live readings *in* and reacts to notebook outputs *out* (a smart-home loop over Matter/Hue), exercising `set` and `subscribe` in both directions.
 
 Each ships the notebook (pure), the driver (`driver/main.go`, the only impure part), and a short README showing `notebook run` + starting the driver. The notebook alone is a static, portable artifact; the driver is what makes it live.

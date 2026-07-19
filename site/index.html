@@ -151,22 +151,35 @@
   .corpus h2 { color: var(--navy); font-size: var(--t-h2); margin: 0 0 .3rem; }
   .corpus .lead { color: var(--muted); margin: 0 0 1.5rem; max-width: 64ch; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+  /* A group heading spans the full grid row so themed collections read as bands. */
+  .tilegroup { grid-column: 1 / -1; margin: 1.4rem 0 .1rem; }
+  .tiles > .tilegroup:first-child { margin-top: 0; }
+  .grouphd { font-size: var(--t-lead); margin: 0; color: var(--navy); }
+  .groupsub { margin: .15rem 0 0; color: var(--muted); font-size: var(--t-meta); }
   .tile { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px;
           padding: 1rem 1.1rem; background: #fff; box-shadow: 0 1px 3px rgba(20,30,60,.05);
-          text-decoration: none; color: inherit; transition: border-color .12s, box-shadow .12s, transform .12s; }
-  a.tile:hover { border-color: var(--go); box-shadow: 0 3px 10px rgba(20,30,60,.10); transform: translateY(-1px); }
+          color: inherit; transition: border-color .12s, box-shadow .12s, transform .12s; }
+  .tile:hover { border-color: var(--go); box-shadow: 0 3px 10px rgba(20,30,60,.10); transform: translateY(-1px); }
   .tile .top { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
   .tile h3 { font-size: var(--t-lead); margin: 0; color: var(--navy); }
+  .tile h3 a { color: var(--navy); text-decoration: none; }
+  .tile h3 a:hover { text-decoration: underline; }
   .tile .what { color: var(--ink); font-size: var(--t-meta); margin: .4rem 0 .7rem; line-height: 1.45; flex: 1; }
-  .tile .foot { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
+  .tile .foot { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
   .badge { font: 600 var(--t-micro)/1 var(--font); padding: .28rem .5rem; border-radius: 20px;
            letter-spacing: .02em; white-space: nowrap; }
   .badge.live { background: #e7f7ea; color: #237a2b; }
   .badge.batch { background: #eef1f6; color: #5b6472; }
   .tag { display: inline-block; font: 500 var(--t-micro)/1 var(--mono); color: var(--blue);
          background: #eff6fc; padding: .28rem .5rem; border-radius: 6px; }
-  .tile .go { font-size: var(--t-small); color: var(--go-text); font-weight: 600; margin-top: .55rem; }
-  a.tile .go::after { content: " →"; }
+  /* The per-tile action links: Open demo (primary), View source, Learn. */
+  .tlinks { display: flex; flex-wrap: wrap; gap: .1rem .9rem; margin-top: .7rem; align-items: baseline; }
+  .tlinks a { font-size: var(--t-small); text-decoration: none; }
+  .tlinks .go { color: var(--go-text); font-weight: 600; }
+  .tlinks .go::after { content: " →"; }
+  .tlinks .go:hover, .tlinks .src:hover, .tlinks .mino:hover { text-decoration: underline; }
+  .tlinks .src { color: var(--muted); }
+  .tlinks .mino { color: var(--blue); }
 
   .reveal { margin-top: 1rem; }
   .reveal .call { font-size: var(--t-meta); color: var(--muted); margin: 0 0 .5rem; }
@@ -287,275 +300,291 @@
 
   <section class="corpus" id="corpus">
     <h2>The corpus — thirty-eight notebooks you can drag</h2>
-    <p class="lead">Every notebook is a plain Go package, compiled to WebAssembly and running right here in your browser — a notebook is browser-portable only if it touches no <code>net</code>, <code>os</code>, or cgo, and the toolchain derives that from the call graph. Several were ported from marimo's gallery (porting them found real bugs); others are originals built to put one mechanism on stage — including a few that render not a chart but a <em>document</em>: an invoice, a table, a heatmap, drawn in HTML because that is the medium the answer takes.</p>
+    <p class="lead">Every notebook is a plain Go package, compiled to WebAssembly and running right here in your browser — a notebook is browser-portable only if it touches no <code>net</code>, <code>os</code>, or cgo, and the toolchain derives that from the call graph. Several were ported from marimo's gallery (porting them found real bugs); others are originals built to put one mechanism on stage — including a few that render not a chart but a <em>document</em>: an invoice, a table, a heatmap, drawn in HTML because that is the medium the answer takes. Each tile links to its source; many link to the <a href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal">minimal recipe</a> for the mechanism it puts on stage — the smallest copyable version.</p>
     <div class="tiles">
 
-      <a class="tile" href="demos/capacity/index.html">
-        <div class="top"><h3>capacity</h3><span class="tag">graph</span></div>
+      <div class="tilegroup">
+        <h3 class="grouphd">Controls & direct manipulation</h3>
+        <p class="groupsub">Sliders, grips, and draggable views — the input side.</p>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/capacity/index.html">capacity</a></h3><span class="tag">graph</span></div>
         <p class="what">An M/M/c fleet-capacity model. Drag arrival rate and server count; watch cost and latency curves recompute through the derived graph.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/curvefit/index.html">
-        <div class="top"><h3>curvefit</h3><span class="tag">grips</span></div>
+        <div class="tlinks"><a class="go" href="demos/capacity/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/capacity">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/headless">Learn: the model + headless ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/curvefit/index.html">curvefit</a></h3><span class="tag">grips</span></div>
         <p class="what">Least-squares fitting by hand. Drag a data point or the polynomial degree; the fit follows live. The design's falsification test for direct manipulation.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/bayes/index.html">
-        <div class="top"><h3>bayes</h3><span class="tag">purity</span></div>
-        <p class="what">Bayesian linear regression (Bishop §3.3). Add data and the posterior collapses onto the truth; scrub back and it re-widens — because it's a pure function of sums, not a fold.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/anscombe/index.html">
-        <div class="top"><h3>anscombe</h3><span class="tag">grips</span></div>
+        <div class="tlinks"><a class="go" href="demos/curvefit/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/curvefit">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/draggable">Learn: draggable points ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/anscombe/index.html">anscombe</a></h3><span class="tag">grips</span></div>
         <p class="what">Summary statistics lie. Drag the scatter into any shape — a dinosaur, a line — and the mean, variance, correlation, and fitted line scarcely move. Only the plot shows what the numbers hide. Every point is a grip.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/nbody/index.html">
-        <div class="top"><h3>nbody</h3><span class="tag">running ≠ passing</span></div>
-        <p class="what">Three bodies under gravity. Forward Euler's orbits look fine — but the energy plot beside them shows it manufacturing energy every step, while symplectic Verlet stays flat. The bug is invisible until you plot the invariant.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/turing/index.html">
-        <div class="top"><h3>turing</h3><span class="tag">fan-out</span></div>
-        <p class="what">Gray-Scott reaction-diffusion: spots, stripes, and mazes from two numbers. Scrub the step count to grow the pattern. The grid update is embarrassingly parallel — the fan-out is real natively and absent in the single-threaded tab, the WASM caveat as the exhibit.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/surface/index.html">
-        <div class="top"><h3>surface</h3><span class="tag">escape hatch</span></div>
-        <p class="what">A shaded 3D surface spinning on the GPU. The corpus's deliberate exception: WebGL has no Go form, so this one drops to raw HTML/JS — the framework boundary, labeled. Go still owns the math (the heightfield); the GPU only draws it.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/gpulife/index.html">
-        <div class="top"><h3>gpulife</h3><span class="tag">webgpu</span></div>
-        <p class="what">Conway's Life on a WebGPU compute shader — a quarter-million cells stepping many times a second. The answer to turing's caveat: the parallel dividend, back in the tab, on the GPU. Go owns the seed grid; the shader owns the iteration.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/percolation/index.html">
-        <div class="top"><h3>percolation</h3><span class="tag">purity</span></div>
-        <p class="what">A phase transition you can scrub. Fill a grid with probability p; drag it up through p_c ≈ 0.593 and a spanning cluster suddenly lights up top to bottom. Pure (grid, union-find, spanning test), so you can sweep back and forth across the transition exactly.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/lotka/index.html">
-        <div class="top"><h3>lotka</h3><span class="tag">linked views</span></div>
-        <p class="what">Predator and prey, one trajectory drawn two ways — a time series and a phase portrait, both reading the same run, both redrawing from one edit. Drag the starting point on the phase plane to pick a different orbit. The dependency graph forks trajectory → {series, portrait}.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/clt/index.html">
-        <div class="top"><h3>clt</h3><span class="tag">purity</span></div>
-        <p class="what">The Central Limit Theorem, and why it needs purity. Sculpt any wild population by dragging its bars; the distribution of the sample mean beside it stays a bell. Scrub n back down and it <em>un-converges</em> — reversible because it's pure, not a fold.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/boundary/index.html">
-        <div class="top"><h3>boundary</h3><span class="tag">grips</span></div>
+        <div class="tlinks"><a class="go" href="demos/anscombe/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/anscombe">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/draggable">Learn: draggable points ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/boundary/index.html">boundary</a></h3><span class="tag">grips</span></div>
         <p class="what">What did the classifier learn? A logistic-regression decision surface over two draggable clouds. Drag a point across the line and watch the boundary chase it; drag an outlier and turn regularization up to watch L2 refuse to chase it. Two grip leaves on one chart.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/fourier/index.html">
-        <div class="top"><h3>fourier</h3><span class="tag">grips + purity</span></div>
-        <p class="what">Any closed curve is a sum of rotating circles. Drag a star's vertices; scrub the number of circles and watch the reconstruction sharpen onto the corners — Gibbs ringing appearing and <em>vanishing</em> as you slide, because it's pure, not a fold.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/kmeans/index.html">
-        <div class="top"><h3>kmeans</h3><span class="tag">grips</span></div>
+        <div class="tlinks"><a class="go" href="demos/boundary/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/boundary">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/draggable">Learn: draggable points ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/kmeans/index.html">kmeans</a></h3><span class="tag">grips</span></div>
         <p class="what">k-means, and why initialization ruins your day. Drag the initial centroids and watch the clustering change; step the seed and watch the converged inertia jump between local minima — same data, same k, a different answer. Lloyd's iteration as a pure cell.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
+        <div class="tlinks"><a class="go" href="demos/kmeans/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/kmeans">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/draggable">Learn: draggable points ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/fourier/index.html">fourier</a></h3><span class="tag">grips + purity</span></div>
+        <p class="what">Any closed curve is a sum of rotating circles. Drag a star's vertices; scrub the number of circles and watch the reconstruction sharpen onto the corners — Gibbs ringing appearing and <em>vanishing</em> as you slide, because it's pure, not a fold.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/fourier/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/fourier">View source ↗</a></div>
+      </div>
 
-      <a class="tile" href="demos/spectrogram/index.html">
-        <div class="top"><h3>spectrogram</h3><span class="tag">linked views</span></div>
+      <div class="tilegroup">
+        <h3 class="grouphd">Linked views</h3>
+        <p class="groupsub">One change, several views recomputing together.</p>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/lotka/index.html">lotka</a></h3><span class="tag">linked views</span></div>
+        <p class="what">Predator and prey, one trajectory drawn two ways — a time series and a phase portrait, both reading the same run, both redrawing from one edit. Drag the starting point on the phase plane to pick a different orbit. The dependency graph forks trajectory → {series, portrait}.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/lotka/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/lotka">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/fanin">Learn: fan-in ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/spectrogram/index.html">spectrogram</a></h3><span class="tag">linked views</span></div>
         <p class="what">A signal three ways — waveform, spectrum, spectrogram — all from one source. Switch the analysis window from rectangular to Hann and watch spectral leakage collapse: the skirts around each tone were an artifact of the window, not the signal.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/reliability/index.html">
-        <div class="top"><h3>reliability</h3><span class="tag">graph</span></div>
-        <p class="what">Nines, in series and in parallel. A request path (load balancer → app tier → database) as a reliability block diagram: availabilities in series multiply, so the whole is worse than its worst part. Add a replica and watch the nines jump — an SRE budget tool.</p>
+        <div class="tlinks"><a class="go" href="demos/spectrogram/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/spectrogram">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/nbody/index.html">nbody</a></h3><span class="tag">running ≠ passing</span></div>
+        <p class="what">Three bodies under gravity. Forward Euler's orbits look fine — but the energy plot beside them shows it manufacturing energy every step, while symplectic Verlet stays flat. The bug is invisible until you plot the invariant.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/little/index.html">
-        <div class="top"><h3>little</h3><span class="tag">units</span></div>
-        <p class="what">Little's Law: L = λ·W, concurrency = throughput × latency, drawn as an area. The units carry the law — PerSecond × Seconds is the only product that typechecks to Requests, so you can't wire a rate into a latency slot. The dimensional discipline, in three cells.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/critpath/index.html">
-        <div class="top"><h3>critpath</h3><span class="tag">graph</span></div>
-        <p class="what">The critical path of a build pipeline, where speeding up a task does nothing. Drag lint to zero — the finish doesn't move, because it had slack. The reflexive one: go-notebook's derived graph above a subject that is itself a task DAG.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/amdahl/index.html">
-        <div class="top"><h3>amdahl</h3><span class="tag">fan-out</span></div>
-        <p class="what">Why more cores stop helping. speedup = 1/((1−p)+p/n) — the serial part sets a hard ceiling, so 95% parallel caps at 20× forever. Drag it and watch the curve flatten against the wall; Gustafson's line shows the escape hatch (grow the problem, not the cores).</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/roofline/index.html">
-        <div class="top"><h3>roofline</h3><span class="tag">fan-out</span></div>
-        <p class="what">Compute-bound or memory-bound? The roofline: a bandwidth slope meeting a peak-compute plateau at the ridge. Drag a kernel's arithmetic intensity across the ridge and the verdict flips — left of it, faster cores do nothing, because the cores are already waiting on memory.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/fleet/index.html">
-        <div class="top"><h3>fleet</h3><span class="tag">units</span></div>
-        <p class="what">Fleet cost and carbon — the two numbers on a procurement request. Drag the spot fraction and the bill drops while the carbon doesn't move a gram: cost is what you pay, carbon is energy used. The units keep dollars and kilograms from ever crossing.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/pid/index.html">
-        <div class="top"><h3>pid</h3><span class="tag">step response</span></div>
+        <div class="tlinks"><a class="go" href="demos/nbody/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/nbody">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/errorcell">Learn: an error cell ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/pid/index.html">pid</a></h3><span class="tag">step response</span></div>
         <p class="what">Your autoscaler is a PID controller — here's the step response. Load jumps; drag the three gains and see the failures every operator has caused: too much Kp rings, no Ki droops off target, too much Kd saws the replica count while the queue looks fine. The control loop is a fold run to a fixed horizon in one cell, so scrub it both ways.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
+        <div class="tlinks"><a class="go" href="demos/pid/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/pid">View source ↗</a></div>
+      </div>
 
-      <a class="tile" href="demos/retrystorm/index.html">
-        <div class="top"><h3>retrystorm</h3><span class="tag">hysteresis</span></div>
-        <p class="what">Watch a healthy service tip into metastable collapse. Retries are more load on a drowning server, so goodput cliffs — and backing the load off doesn't bring it back. The phase loop (goodput vs offered) traces a loop you can't retrace; that enclosed area is the trap. Arm the circuit breaker and watch the loop snap shut.</p>
+      <div class="tilegroup">
+        <h3 class="grouphd">Pure recomputation & statistics</h3>
+        <p class="groupsub">Reversible scrubbing, because a cell is a pure function.</p>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/bayes/index.html">bayes</a></h3><span class="tag">purity</span></div>
+        <p class="what">Bayesian linear regression (Bishop §3.3). Add data and the posterior collapses onto the truth; scrub back and it re-widens — because it's a pure function of sums, not a fold.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/backfill/index.html">
-        <div class="top"><h3>backfill</h3><span class="tag">scheduling</span></div>
-        <p class="what">The Slurm scheduler trick that cuts wait without cutting the line. FIFO lets one wide job block the queue behind it; EASY backfill streams small jobs into the idle gaps — and the blocking job still starts at the same tick. Toggle the policy, read the Gantt chart like squeue: same jobs, tighter packing, median wait halved.</p>
+        <div class="tlinks"><a class="go" href="demos/bayes/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/bayes">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/clt/index.html">clt</a></h3><span class="tag">purity</span></div>
+        <p class="what">The Central Limit Theorem, and why it needs purity. Sculpt any wild population by dragging its bars; the distribution of the sample mean beside it stays a bell. Scrub n back down and it <em>un-converges</em> — reversible because it's pure, not a fold.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/cachepolicy/index.html">
-        <div class="top"><h3>cachepolicy</h3><span class="tag">LRU vs LFU</span></div>
-        <p class="what">The best cache-eviction rule depends on the workload — here's the proof. On recency traffic LRU wins and its hit-rate cliffs then plateaus (2× the cache buys nothing); on popularity traffic LFU wins. Flip the workload and watch the two curves swap places. The "is more cache worth it?" decision, replayed not formula'd.</p>
+        <div class="tlinks"><a class="go" href="demos/clt/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/clt">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/percolation/index.html">percolation</a></h3><span class="tag">purity</span></div>
+        <p class="what">A phase transition you can scrub. Fill a grid with probability p; drag it up through p_c ≈ 0.593 and a spanning cluster suddenly lights up top to bottom. Pure (grid, union-find, spanning test), so you can sweep back and forth across the transition exactly.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/latencybw/index.html">
-        <div class="top"><h3>latencybw</h3><span class="tag">networking</span></div>
-        <p class="what">Why your fast link feels slow — and when it doesn't. Transfer time is latency + size/bandwidth, so a small file pays only the latency and a fat pipe buys nothing. Compare a near link and a far fat one; slide the file size across the crossover and watch the winner flip. Units keep milliseconds and megabits from ever crossing.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/aimd/index.html">
-        <div class="top"><h3>aimd</h3><span class="tag">congestion</span></div>
-        <p class="what">The TCP sawtooth that makes the internet fair. Additive increase, multiplicative decrease: one flow climbs and halves forever; two flows starting unequal converge to a fair share. Flip the decrease from multiplicative to additive and watch fairness break — the whole Chiu–Jain argument in one drag.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/bdp/index.html">
-        <div class="top"><h3>bdp</h3><span class="tag">networking</span></div>
-        <p class="what">Why a 10-gigabit link can run at dial-up speed. Throughput is capped at window/RTT, so filling a link needs a window as big as its bandwidth-delay product. The classic 64 KB window fills 0.03% of a fat long pipe. Sweep the window and watch throughput knee up to line rate exactly at the BDP.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/fattree/index.html">
-        <div class="top"><h3>fattree</h3><span class="tag">interconnect</span></div>
-        <p class="what">The cluster interconnect trade nobody sees until the all-to-all crawls. A non-blocking fat-tree scales bisection bandwidth with node count; oversubscribing the upper tiers saves switch budget but compounds — 2:1 per tier over four tiers is 8× slower, not 2×. Drag depth and fatness; watch the upper links thin and the bisection cut starve.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/mandelbrot/index.html">
-        <div class="top"><h3>mandelbrot</h3><span class="tag">fractal</span></div>
+        <div class="tlinks"><a class="go" href="demos/percolation/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/percolation">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/mandelbrot/index.html">mandelbrot</a></h3><span class="tag">fractal</span></div>
         <p class="what">Zoom the Mandelbrot set until float64 runs out of mantissa and the boundary goes blocky — the numerical edge of double precision, on screen. Every pixel is an independent escape-time calculation, so the whole image is a pure function of the viewport; drag the center and zoom and it recomputes from scratch.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
+        <div class="tlinks"><a class="go" href="demos/mandelbrot/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/mandelbrot">View source ↗</a></div>
+      </div>
 
-      <a class="tile" href="demos/invoice/index.html">
-        <div class="top"><h3>invoice</h3><span class="tag">design in HTML</span></div>
+      <div class="tilegroup">
+        <h3 class="grouphd">Documents rendered in HTML</h3>
+        <p class="groupsub">When the answer is a document, not a chart.</p>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/invoice/index.html">invoice</a></h3><span class="tag">design in HTML</span></div>
         <p class="what">A cloud bill, not a chart. Drag the fleet knobs — instances, spot mix, egress, committed-use tier — and a styled HTML invoice re-totals live, line items to the bold TOTAL DUE. Go owns the pricing; the view is deferred to HTML because the answer is a document. The same file you'd run as a batch job to emit the number finance approves.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/simpson/index.html">
-        <div class="top"><h3>simpson</h3><span class="tag">design in HTML</span></div>
+        <div class="tlinks"><a class="go" href="demos/invoice/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/invoice">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/htmlcard">Learn: an HTML view ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/simpson/index.html">simpson</a></h3><span class="tag">design in HTML</span></div>
         <p class="what">Simpson's paradox, on the real 1986 kidney-stone data: Treatment A wins the small-stone group and the large-stone group, yet loses the pool. The reveal is a table — you read A, A … then the TOTAL row flips to B — so the view is an HTML table a bar chart couldn't be. Drag the case mix and watch the paradox switch on and off.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/consistenthash/index.html">
-        <div class="top"><h3>consistenthash</h3><span class="tag">distributed</span></div>
-        <p class="what">Add a server, move a few keys — not all of them. Servers and keys sit on a hash ring; a key belongs to the next server clockwise. Toggle "add a server" and compare: consistent hashing moves ~1/N of the keys, plain <code>key % N</code> moves nearly all. The ring is the picture, colored by owner; the churn count is the proof.</p>
-        <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/punchcard/index.html">
-        <div class="top"><h3>punchcard</h3><span class="tag">design in HTML</span></div>
+        <div class="tlinks"><a class="go" href="demos/simpson/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/simpson">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/table">Learn: an editable table ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/punchcard/index.html">punchcard</a></h3><span class="tag">design in HTML</span></div>
         <p class="what">When is the cluster busy? A 7 × 24 utilization heatmap — one box per hour of the week, darker = busier — that answers "where's the headroom?" at a glance. The load model is pure Go; the picture is a CSS grid with hover, because a heatmap is a grid of colored boxes and HTML does that natively. Drag the knobs to reshape the week.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
+        <div class="tlinks"><a class="go" href="demos/punchcard/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/punchcard">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/htmlcard">Learn: an HTML view ↗</a></div>
+      </div>
 
-      <a class="tile" href="demos/sensorfeed/index.html">
-        <div class="top"><h3>sensorfeed</h3><span class="tag">live feed</span></div>
+      <div class="tilegroup">
+        <h3 class="grouphd">Typed units & the graph</h3>
+        <p class="groupsub">Semantic types and the derived dependency graph.</p>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/little/index.html">little</a></h3><span class="tag">units</span></div>
+        <p class="what">Little's Law: L = λ·W, concurrency = throughput × latency, drawn as an area. The units carry the law — PerSecond × Seconds is the only product that typechecks to Requests, so you can't wire a rate into a latency slot. The dimensional discipline, in three cells.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/little/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/little">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/fanout">Learn: the graph ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/fleet/index.html">fleet</a></h3><span class="tag">units</span></div>
+        <p class="what">Fleet cost and carbon — the two numbers on a procurement request. Drag the spot fraction and the bill drops while the carbon doesn't move a gram: cost is what you pay, carbon is energy used. The units keep dollars and kilograms from ever crossing.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/fleet/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/fleet">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/reliability/index.html">reliability</a></h3><span class="tag">graph</span></div>
+        <p class="what">Nines, in series and in parallel. A request path (load balancer → app tier → database) as a reliability block diagram: availabilities in series multiply, so the whole is worse than its worst part. Add a replica and watch the nines jump — an SRE budget tool.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/reliability/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/reliability">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/critpath/index.html">critpath</a></h3><span class="tag">graph</span></div>
+        <p class="what">The critical path of a build pipeline, where speeding up a task does nothing. Drag lint to zero — the finish doesn't move, because it had slack. The reflexive one: go-notebook's derived graph above a subject that is itself a task DAG.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/critpath/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/critpath">View source ↗</a></div>
+      </div>
+
+      <div class="tilegroup">
+        <h3 class="grouphd">Systems, scheduling & networking</h3>
+        <p class="groupsub">The research-computing corpus.</p>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/amdahl/index.html">amdahl</a></h3><span class="tag">fan-out</span></div>
+        <p class="what">Why more cores stop helping. speedup = 1/((1−p)+p/n) — the serial part sets a hard ceiling, so 95% parallel caps at 20× forever. Drag it and watch the curve flatten against the wall; Gustafson's line shows the escape hatch (grow the problem, not the cores).</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/amdahl/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/amdahl">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/roofline/index.html">roofline</a></h3><span class="tag">fan-out</span></div>
+        <p class="what">Compute-bound or memory-bound? The roofline: a bandwidth slope meeting a peak-compute plateau at the ridge. Drag a kernel's arithmetic intensity across the ridge and the verdict flips — left of it, faster cores do nothing, because the cores are already waiting on memory.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/roofline/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/roofline">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/backfill/index.html">backfill</a></h3><span class="tag">scheduling</span></div>
+        <p class="what">The Slurm scheduler trick that cuts wait without cutting the line. FIFO lets one wide job block the queue behind it; EASY backfill streams small jobs into the idle gaps — and the blocking job still starts at the same tick. Toggle the policy, read the Gantt chart like squeue: same jobs, tighter packing, median wait halved.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/backfill/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/backfill">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/cachepolicy/index.html">cachepolicy</a></h3><span class="tag">LRU vs LFU</span></div>
+        <p class="what">The best cache-eviction rule depends on the workload — here's the proof. On recency traffic LRU wins and its hit-rate cliffs then plateaus (2× the cache buys nothing); on popularity traffic LFU wins. Flip the workload and watch the two curves swap places. The "is more cache worth it?" decision, replayed not formula'd.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/cachepolicy/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/cachepolicy">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/latencybw/index.html">latencybw</a></h3><span class="tag">networking</span></div>
+        <p class="what">Why your fast link feels slow — and when it doesn't. Transfer time is latency + size/bandwidth, so a small file pays only the latency and a fat pipe buys nothing. Compare a near link and a far fat one; slide the file size across the crossover and watch the winner flip. Units keep milliseconds and megabits from ever crossing.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/latencybw/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/latencybw">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/aimd/index.html">aimd</a></h3><span class="tag">congestion</span></div>
+        <p class="what">The TCP sawtooth that makes the internet fair. Additive increase, multiplicative decrease: one flow climbs and halves forever; two flows starting unequal converge to a fair share. Flip the decrease from multiplicative to additive and watch fairness break — the whole Chiu–Jain argument in one drag.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/aimd/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/aimd">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/bdp/index.html">bdp</a></h3><span class="tag">networking</span></div>
+        <p class="what">Why a 10-gigabit link can run at dial-up speed. Throughput is capped at window/RTT, so filling a link needs a window as big as its bandwidth-delay product. The classic 64 KB window fills 0.03% of a fat long pipe. Sweep the window and watch throughput knee up to line rate exactly at the BDP.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/bdp/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/bdp">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/fattree/index.html">fattree</a></h3><span class="tag">interconnect</span></div>
+        <p class="what">The cluster interconnect trade nobody sees until the all-to-all crawls. A non-blocking fat-tree scales bisection bandwidth with node count; oversubscribing the upper tiers saves switch budget but compounds — 2:1 per tier over four tiers is 8× slower, not 2×. Drag depth and fatness; watch the upper links thin and the bisection cut starve.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/fattree/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/fattree">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/retrystorm/index.html">retrystorm</a></h3><span class="tag">hysteresis</span></div>
+        <p class="what">Watch a healthy service tip into metastable collapse. Retries are more load on a drowning server, so goodput cliffs — and backing the load off doesn't bring it back. The phase loop (goodput vs offered) traces a loop you can't retrace; that enclosed area is the trap. Arm the circuit breaker and watch the loop snap shut.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/retrystorm/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/retrystorm">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/consistenthash/index.html">consistenthash</a></h3><span class="tag">distributed</span></div>
+        <p class="what">Add a server, move a few keys — not all of them. Servers and keys sit on a hash ring; a key belongs to the next server clockwise. Toggle "add a server" and compare: consistent hashing moves ~1/N of the keys, plain <code>key % N</code> moves nearly all. The ring is the picture, colored by owner; the churn count is the proof.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/consistenthash/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/consistenthash">View source ↗</a></div>
+      </div>
+
+      <div class="tilegroup">
+        <h3 class="grouphd">Advanced browser integration</h3>
+        <p class="groupsub">Where the model meets the GPU and the single-threaded tab.</p>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/surface/index.html">surface</a></h3><span class="tag">escape hatch</span></div>
+        <p class="what">A shaded 3D surface spinning on the GPU. The corpus's deliberate exception: WebGL has no Go form, so this one drops to raw HTML/JS — the framework boundary, labeled. Go still owns the math (the heightfield); the GPU only draws it.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/surface/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/surface">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/gpulife/index.html">gpulife</a></h3><span class="tag">webgpu</span></div>
+        <p class="what">Conway's Life on a WebGPU compute shader — a quarter-million cells stepping many times a second. The answer to turing's caveat: the parallel dividend, back in the tab, on the GPU. Go owns the seed grid; the shader owns the iteration.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/gpulife/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/gpulife">View source ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/turing/index.html">turing</a></h3><span class="tag">fan-out</span></div>
+        <p class="what">Gray-Scott reaction-diffusion: spots, stripes, and mazes from two numbers. Scrub the step count to grow the pattern. The grid update is embarrassingly parallel — the fan-out is real natively and absent in the single-threaded tab, the WASM caveat as the exhibit.</p>
+        <div class="foot"><span class="badge live">runs in browser</span></div>
+        <div class="tlinks"><a class="go" href="demos/turing/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/turing">View source ↗</a></div>
+      </div>
+
+      <div class="tilegroup">
+        <h3 class="grouphd">Live feeds</h3>
+        <p class="groupsub">A driver pushes real data through the notebook's one set port.</p>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/sensorfeed/index.html">sensorfeed</a></h3><span class="tag">live feed</span></div>
         <p class="what">A live sensor dashboard — gauges and a rolling chart driven not by a slider but by a feed. A small driver samples the machine's metrics and pushes each reading to the notebook's <code>set</code> port; the notebook is pure cells reacting. The impure edge (the clock, the sampling) lives in the driver, outside the graph.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/homefeed/index.html">
-        <div class="top"><h3>homefeed</h3><span class="tag">live feed · bidirectional</span></div>
+        <div class="tlinks"><a class="go" href="demos/sensorfeed/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/sensorfeed">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/setport">Learn: the set port ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/homefeed/index.html">homefeed</a></h3><span class="tag">live feed · bidirectional</span></div>
         <p class="what">A smart-home controller, both directions over one port. A bridge feed (Hue/Matter) pushes sensors <em>in</em> — motion, temperature, ambient light; the notebook computes, purely, what the lights should do; the driver reads those decisions <em>out</em> of the event stream and applies them. Turning a light on isn't something a cell does — it's a boolean a cell computes and the driver subscribes to.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/tickerfeed/index.html">
-        <div class="top"><h3>tickerfeed</h3><span class="tag">live feed</span></div>
+        <div class="tlinks"><a class="go" href="demos/homefeed/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/homefeed">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/setport">Learn: the set port ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/tickerfeed/index.html">tickerfeed</a></h3><span class="tag">live feed</span></div>
         <p class="what">A live price ticker. A driver streams trade ticks from an exchange and pushes each to the notebook; the notebook derives the last price, a moving average, and the spread — pure, no socket, no timer. The rolling window lives in the driver, because a cell is stateless; the math lives in the graph.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
-      <a class="tile" href="demos/apifeed/index.html">
-        <div class="top"><h3>apifeed</h3><span class="tag">live feed</span></div>
+        <div class="tlinks"><a class="go" href="demos/tickerfeed/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/tickerfeed">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/setport">Learn: the set port ↗</a></div>
+      </div>
+      <div class="tile">
+        <div class="top"><h3><a href="demos/apifeed/index.html">apifeed</a></h3><span class="tag">live feed</span></div>
         <p class="what">Where is the ISS right now? A driver polls a public JSON API on an interval and pushes the live position; the notebook plots it on a world map and reads out the coordinates — the "poll a REST feed" shape, the most common live-data pattern of all. The poll lives in the driver; the notebook stays a pure function of the position.</p>
         <div class="foot"><span class="badge live">runs in browser</span></div>
-        <span class="go">Open demo</span>
-      </a>
-
+        <div class="tlinks"><a class="go" href="demos/apifeed/index.html">Open demo</a><a class="src" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/apifeed">View source ↗</a>
+          <a class="mino" href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/setport">Learn: the set port ↗</a></div>
+      </div>
     </div>
     <p class="lead" style="margin-top:1.25rem">The last four take a <b>live feed</b>: they run in your browser like the rest, but their gauges move when a small companion <em>driver</em> pushes real data to the notebook's one <code>set</code> port — a feed is just a program with its hand on the knob (see <a href="https://github.com/scttfrdmn/go-notebook/blob/main/docs/live-feeds.md">docs/live-feeds.md</a>). A few notebooks beyond these — the marimo ports that stream a file too big for memory or benchmark across real cores — need a laptop or a cluster, not a tab. <a href="https://github.com/scttfrdmn/go-notebook/tree/main/examples">All in the repo →</a></p>
   </section>

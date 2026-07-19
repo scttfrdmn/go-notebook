@@ -65,6 +65,53 @@ func priceRange(all []Set) (prices Range) { return Range{} }
 	}
 }
 
+// TestCellMarkerIsNamedResult pins the rule that the *named result* — not the
+// doc comment — is what makes a top-level function a cell. The docs once claimed
+// "undocumented functions are not cells" (design.md), but the analyzer marks a
+// cell by its named results and treats the doc comment as the label only. This
+// test is the guard so that claim cannot silently re-drift from the code.
+func TestCellMarkerIsNamedResult(t *testing.T) {
+	src := `
+//notebook:slider min=0 max=100
+func base() (x int) { return 20 }
+
+// This one HAS a doc comment and a named result → a cell (with a label).
+func documented(x int) (y int) { return x * 2 }
+
+func undocumented(x int) (z int) { return x + 1 }
+
+// This one HAS a doc comment but UNNAMED returns → a helper, not a cell.
+func documentedHelper(x int) int { return x - 1 }
+
+func undocumentedHelper(x int) int { return x }
+`
+	dir := writeNotebook(t, src)
+	g, _, err := TypesAnalyzer{}.Analyze(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Named results → cells, regardless of documentation.
+	for _, id := range []string{"base", "documented", "undocumented"} {
+		if _, ok := g.Cells[graph.CellID(id)]; !ok {
+			t.Errorf("cell %q not found — a named result must make a cell whether or not it is documented", id)
+		}
+	}
+	// Unnamed returns → helpers, regardless of documentation.
+	for _, id := range []string{"documentedHelper", "undocumentedHelper"} {
+		if _, ok := g.Cells[graph.CellID(id)]; ok {
+			t.Errorf("%q became a cell — an unnamed-return function is a helper even when documented", id)
+		}
+	}
+	// The doc comment is the label: documented has one, undocumented does not.
+	if got := g.Cells["documented"].Label; got == "" {
+		t.Error("documented cell has no label; the doc comment should supply it")
+	}
+	if got := g.Cells["undocumented"].Label; got != "undocumented" {
+		t.Errorf("undocumented cell label = %q, want the function name %q as the fallback", got, "undocumented")
+	}
+}
+
 // TestWidgetKind pins the static, type-derived control descriptor: each leaf's
 // Kind is decided by capability (Options→multi/select, Bounds→range, bool→bool,
 // value-slice→table/draggable), and a Table carries its row type's column schema

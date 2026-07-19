@@ -36,6 +36,26 @@ The method runs **in Go, in-process** — on your laptop, on the server, or comp
 
 Formatting a value for display uses `fmt`, and `fmt` transitively reaches `os` — which the WASM portability gate forbids in a **cell**. But `Render()` is **not a cell** (it is a method the engine calls), so `fmt` there is fine. Put formatting in `Render`, keep it out of cell bodies, and the notebook stays browser-portable. (Use `strconv` if a cell body genuinely must format a number.) See [build & run](reference-build-run.html) for the portability gate.
 
+## Rich output is trusted code
+
+`image/svg+xml` and `text/html` are **injected as markup** — so whatever your
+`Render()` returns runs with the privileges of the host page. This is deliberate
+(it is what makes an HTML invoice or an SVG chart possible, and it is the
+`text/html` escape hatch the paper describes — an author can even ride JavaScript
+in an image `onerror`). But it means:
+
+- **A notebook's rendered output is code you are choosing to run.** Treat a
+  notebook from an untrusted source the way you'd treat any untrusted program —
+  do not serve it casually.
+- **Never build HTML/SVG from untrusted input without sanitizing it.** If a cell
+  incorporates external data into markup, escape it; the engine injects what you
+  return verbatim (only `text/markdown` passes through a safe-subset converter).
+- `text/plain`, `text/markdown` source, and scalar readouts are set as **text**,
+  never injected — they cannot execute.
+
+The trust boundary is the same one Go always has: you are running Go code. Rich
+rendering just extends that to the markup it emits.
+
 ## The degradation ladder
 
 Rendering degrades gracefully:

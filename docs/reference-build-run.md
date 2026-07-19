@@ -16,6 +16,23 @@ go tool notebook build .    # compile a standalone binary
 
 Analyzes the notebook and prints the derived dependency graph — every cell, its inputs (with the producer each wires to), and its output. It is how you see the graph without running anything, and how wiring errors surface with a pointed message. `--timing` prints the graph-derivation wall time.
 
+For the two-cell `hello` notebook, success looks like:
+
+```
+graph: 2 cells
+
+  celsius  [impure]
+    label: Temperature in Celsius.
+    out  c float64
+
+  fahrenheit  [impure]
+    label: Temperature in Fahrenheit — wired in by the parameter name `c`.
+    in   c float64  <- celsius
+    out  f float64
+```
+
+The `<- celsius` on `fahrenheit`'s input is the edge — the graph read back to you. A wiring mistake prints a pointed diagnostic here instead (see [troubleshooting](troubleshooting.html)).
+
 ### `run`
 
 Builds the notebook and serves it in your browser over HTTP, rebuilding on source edits. Flags: `--addr` (listen address, default `127.0.0.1:8080`), `--no-open` (don't launch a browser), `--timing`.
@@ -50,6 +67,20 @@ A native binary you built is itself runnable, with its own flags:
 | `--head <file>` | where slider positions persist between runs |
 
 `--set` names the input by its **result name** — the same name that is the edge in the graph. `--set c=100` sets the cell whose result is `c`.
+
+A `--json` run prints the final values (and a provenance record):
+
+```json
+{
+  "provenance": {"sourceHash":"56f8…19bc","commit":"77cd3cc","dirty":true,"builtAt":"2026-07-19T11:03:31Z","goVersion":"go1.26.5"},
+  "values": {
+    "c": 20,
+    "f": 68
+  }
+}
+```
+
+Keys under `values` are result names, so a downstream tool reads `f` the same way a cell wired to `f` does.
 
 ## One file, three topologies
 
