@@ -48,6 +48,26 @@ the host annualizes it.
 `connect()` throws if no port is found (the script ran before the WASM published
 `globalThis.notebook`, or you passed something that is not a notebook port).
 
+## Feature detection
+
+A notebook's port grows over time (typed values, per-wave epochs, leaf types were
+all added after the first release). Rather than call a method and catch an
+exception to find out what an older `.wasm` supports, ask:
+
+```js
+nb.capabilities();      // e.g. ["typed-events", "wave-settled", "epoch-events", "leaf-types"]
+nb.can("typed-events"); // true — branch on this instead of try/catch
+```
+
+The list is **derived from the port itself, never hand-maintained** — so it can't
+claim more than the port delivers. `typed-events` is present when `subscribeValues`
+is; `leaf-types` when at least one leaf carries its Go type. The behavioral pair,
+`wave-settled` and `epoch-events` (below), can't be probed from a static object, so
+they are reported together with `typed-events` — they shipped in the same release,
+so a port that has one has all three, and an older port truthfully reports none.
+There is deliberately **no version number**: a capability set that is always true
+of the port in hand beats a version a client has to map to features.
+
 ## Typed values out — the point
 
 `subscribeValues` delivers each cell's value **as a JavaScript value**, not as the

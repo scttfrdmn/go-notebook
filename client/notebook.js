@@ -109,6 +109,47 @@ export class Notebook {
     this.port = port;
   }
 
+  /**
+   * The capabilities this notebook's port supports — for feature detection
+   * instead of calling a method and catching an exception. Each entry is DERIVED
+   * from the port itself, never a hand-maintained list that could claim more than
+   * the port delivers:
+   *
+   *   - `"typed-events"`  — subscribeValues is present (the port hands typed Go
+   *                         values, not just rendered strings).
+   *   - `"leaf-types"`    — at least one leaf carries its Go result type (so a
+   *                         host can validate a value's shape before set()).
+   *   - `"wave-settled"`  — the value stream emits a {settled} marker per wave.
+   *   - `"epoch-events"`  — value events carry their wave's epoch.
+   *
+   * The last two are behavioral (a static object can't be probed for them), so
+   * they are gated on the one thing that proves the build generation that added
+   * them: subscribeValues. They shipped in the same release, so a port that has
+   * subscribeValues has all three, and one that doesn't claims none of them —
+   * the list stays honest without a version number.
+   * @returns {string[]}
+   */
+  capabilities() {
+    const caps = [];
+    if (typeof this.port.subscribeValues === "function") {
+      caps.push("typed-events", "wave-settled", "epoch-events");
+    }
+    if (this.port.meta.some((m) => m.Type)) {
+      caps.push("leaf-types");
+    }
+    return caps;
+  }
+
+  /**
+   * Whether the port supports a named capability — the ergonomic form of
+   * [capabilities]. `if (nb.can("typed-events")) …` reads better than a method
+   * probe, and unlike a try/catch it does not run the call to find out.
+   * @param {string} cap @returns {boolean}
+   */
+  can(cap) {
+    return this.capabilities().includes(cap);
+  }
+
   /** Every cell's metadata. @returns {CellMeta[]} */
   cells() {
     return this.port.meta;
