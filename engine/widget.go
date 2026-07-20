@@ -2,7 +2,20 @@ package engine
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
+)
+
+// ErrUnknownLeaf and ErrBadValue classify a rejected leaf edit so a transport can
+// map it to a status without string-matching. A generated leaf coercer wraps one
+// of these (via %w) on failure: ErrUnknownLeaf when no cell produces the named
+// leaf, ErrBadValue when the leaf exists but the value will not coerce to its
+// type. The HTTP /set handler uses errors.Is to answer 404 vs 422; the CLI --set
+// and the wasm bridge just report the wrapped message. They live here beside
+// CoerceWire because that is the coercion contract they describe.
+var (
+	ErrUnknownLeaf = errors.New("unknown leaf")
+	ErrBadValue    = errors.New("uncoercible value")
 )
 
 // Widget discovery is capability probing, never a type switch. Adding a new
