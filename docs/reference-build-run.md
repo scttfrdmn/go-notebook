@@ -21,17 +21,19 @@ For the two-cell `hello` notebook, success looks like:
 ```
 graph: 2 cells
 
-  celsius  [impure]
+  celsius  [pure]
     label: Temperature in Celsius.
     out  c float64
 
-  fahrenheit  [impure]
+  fahrenheit  [pure]
     label: Temperature in Fahrenheit — wired in by the parameter name `c`.
     in   c float64  <- celsius
     out  f float64
 ```
 
 The `<- celsius` on `fahrenheit`'s input is the edge — the graph read back to you. A wiring mistake prints a pointed diagnostic here instead (see [troubleshooting](troubleshooting.html)).
+
+The `[pure]` tag is the analyzer reporting that it proved each cell a pure function of its inputs — no I/O, no clock, no global state — so the engine can cache the result and skip recomputing it while nothing upstream changes. A cell that reads a file, the time, or randomness is marked `[impure]` and always recomputes (see the [`csv-native`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/csv-native) recipe, whose file-reading `rows` cell is `[impure]`). Purity is derived, never declared — you never annotate it.
 
 ### `run`
 

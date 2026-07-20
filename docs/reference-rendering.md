@@ -60,12 +60,24 @@ it — see [charts](reference-charts.html) for its `nb/chart` sibling.)
 |------|----------------|
 | `image/svg+xml` | injected as markup (a chart, a gauge, a diagram) |
 | `text/html` | injected as markup (a table, a card, an invoice — anything HTML) |
-| `text/markdown` | shown as source text |
+| `text/markdown` | converted to a **safe HTML subset** and injected (see below) |
 | `text/plain` | shown as a text readout |
 | (no `Render`, a bare scalar) | shown as a plain value readout |
 | (no `Render`, not a scalar) | stays hidden |
 
-`image/svg+xml` and `text/html` are injected as HTML; everything else is set as text (never injected). This is why a chart is SVG or HTML and a number is just a readout.
+`image/svg+xml` and `text/html` are injected as raw markup; `text/markdown` is converted to a safe HTML subset and injected; everything else is set as text (never injected). This is why a chart is SVG or HTML and a number is just a readout.
+
+### Markdown is a safe subset, not raw HTML
+
+A cell that returns `text/markdown` (every notebook's `intro()` does) is converted to HTML at the one render chokepoint — so it arrives at the client as `text/html` and shows as formatted prose, not literal `**asterisks**`. But unlike raw `text/html`, the converter is **safe by construction**: every run of literal text is HTML-escaped, the only tags emitted are a fixed set, and a link's `href` must start with `http`, `https`, or `#` — so a notebook's markdown prose cannot inject script. It is a deliberate stdlib-only subset (no CommonMark parser, so the engine stays dependency-free and cross-compiles to a static binary and WASM):
+
+- `#` / `##` / `###` headings
+- `-` and `*` bullet lists
+- `**bold**`, `*italic*`, `` `code` ``
+- `[text](url)` links (`http`/`https`/`#` targets only)
+- blank-line-separated paragraphs
+
+Anything else degrades to escaped plain text rather than breaking — the same degradation ladder the rest of the view uses.
 
 ## Why `fmt` belongs in Render, not a cell body
 
@@ -83,10 +95,13 @@ in an image `onerror`). But it means:
   notebook from an untrusted source the way you'd treat any untrusted program —
   do not serve it casually.
 - **Never build HTML/SVG from untrusted input without sanitizing it.** If a cell
-  incorporates external data into markup, escape it; the engine injects what you
-  return verbatim (only `text/markdown` passes through a safe-subset converter).
-- `text/plain`, `text/markdown` source, and scalar readouts are set as **text**,
-  never injected — they cannot execute.
+  incorporates external data into `text/html` or `image/svg+xml`, escape it; the
+  engine injects what you return **verbatim**.
+- `text/markdown` is the exception: it is injected, but through a safe-subset
+  converter that escapes all literal text and validates link targets — so
+  markdown prose (even from untrusted input) cannot execute.
+- `text/plain` and scalar readouts are set as **text**, never injected — they
+  cannot execute.
 
 The trust boundary is the same one Go always has: you are running Go code. Rich
 rendering just extends that to the markup it emits.

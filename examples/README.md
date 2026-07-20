@@ -2,9 +2,10 @@
 
 Two layers, two jobs.
 
-- **[`minimal/`](minimal) — learn by copying.** Small, single-mechanism
-  notebooks (15–65 lines each) meant to be copied into your own project. Start
-  here if you are building your first real notebook.
+- **[`minimal/`](minimal) — learn by copying.** Single-mechanism notebooks meant
+  to be copied into your own project — most under ~75 lines, a few worked
+  examples (a draggable plot, wrapping an existing package) longer. Start here if
+  you are building your first real notebook.
 - **The corpus (this directory) — see what it can do.** Larger notebooks that
   each put one design property under pressure — direct manipulation, linked
   views, typed units, document rendering, live feeds, native fan-out. 38 of them
