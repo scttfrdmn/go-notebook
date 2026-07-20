@@ -56,6 +56,7 @@ you know which is a one-mechanism recipe and which is a worked example.
 | [`fanin`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/fanin) | many results feeding one cell (a joining graph) | 22 | [design](design.html) |
 | [`errorcell`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/errorcell) | a `(value, error)` cell, partial failure, blocked-upstream | 50 | [design](design.html) |
 | [`cancel`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/cancel) | `context.Context` injection, cancellable recompute | 40 | [design](design.html) |
+| [`multi-file-package`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/multi-file-package) | a notebook spanning several `.go` files: only one carries `//go:notebook`, but cells use types/methods/helpers from the sibling files — it is an ordinary Go package | 3 files | [design](design.html) |
 
 ## Build, run, feed, test
 

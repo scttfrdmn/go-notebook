@@ -52,6 +52,7 @@ Read them roughly top-to-bottom; each builds on the last.
 | [`fanin`](fanin) | many results feeding one cell (a joining graph) | 22 | [design](https://go-notebook.dev/docs/design.html) |
 | [`errorcell`](errorcell) | a `(value, error)` cell, partial failure, blocked-upstream | 50 | [design](https://go-notebook.dev/docs/design.html) |
 | [`cancel`](cancel) | `context.Context` injection, cancellable recompute | 40 | [design](https://go-notebook.dev/docs/design.html) |
+| [`multi-file-package`](multi-file-package) | a notebook spanning several `.go` files: only one carries `//go:notebook`, but cells use types/methods/helpers from the sibling files — it is an ordinary Go package | 3 files | [design](https://go-notebook.dev/docs/design.html) |
 
 ## Build, run, feed, test
 
