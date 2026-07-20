@@ -81,6 +81,37 @@ nb.values();
 `subscribeValues` throws on a notebook whose port predates it (an older `.wasm`).
 Catch it and fall back to `subscribe` if you must support both.
 
+### Coherent per-wave snapshots
+
+Each value event carries the **`epoch`** of the wave it belongs to, and every wave
+ends with one terminal marker `{ epoch, settled: true }` (no `cell`/`value`). So a
+host combining several derived values from one edit can tell that its set is from
+*one* wave, not a mix of an old and a new one:
+
+```js
+nb.subscribeValues((ev) => {
+  if (ev.settled) { /* every value for ev.epoch has now arrived */ }
+  else            { /* ev.epoch, ev.cell, ev.value */ }
+});
+```
+
+`subscribeEpoch` is the convenience for exactly this — it buffers a wave's values
+and calls you once, when the wave settles, with `{ epoch, values }`:
+
+```js
+nb.subscribeEpoch(({ epoch, values }) => {
+  // values.hourlyCost and values.carbon are from the SAME wave — safe to combine
+  render(values.hourlyCost, values.carbon);
+});
+```
+
+A superseded wave never settles (the engine only emits the marker for the wave
+that actually completed), so `subscribeEpoch` silently drops the abandoned buffer
+and only ever hands you a coherent set. It is built entirely on the one value
+stream; delete it and `subscribeValues` still works. (Value events key by **cell
+id** — `ev.cell`, `values.hourlyCost` — while `set()` and `values()` key by leaf
+symbol; see [A note on casing](#a-note-on-casing).)
+
 ## Each leaf carries its type
 
 Every leaf reports its Go result type, so a program can **validate a value's

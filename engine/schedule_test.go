@@ -357,3 +357,140 @@ func TestSubscribeValuesTypedWhileSubscribeWireOnly(t *testing.T) {
 		t.Errorf("wire projection MIME = %q, want text/plain", w.MIME)
 	}
 }
+
+// TestWaveSettledMarker is item 2 of the port-coherence work (#214): a completed
+// wave emits exactly one terminal StateSettled event, carrying that wave's epoch
+// and an empty cell, AFTER every cell's own event. A program driving the notebook
+// watches for it to know a coherent set of values from one wave has all arrived.
+func TestWaveSettledMarker(t *testing.T) {
+	// leaf n → double → sink: two derived cells so "settled comes last" is a real
+	// ordering claim, not trivially true of a one-cell graph.
+	leaf := fnNode{
+		id: "n", out: []Symbol{"n"},
+		run: func(_ context.Context, _ Inputs) (Outputs, error) { return Outputs{"n": 0}, nil }, // schema default; head's saved value reconciles in
+	}
+	double := fnNode{
+		id: "double", in: []Symbol{"n"}, out: []Symbol{"d"}, pure: true,
+		run: func(_ context.Context, in Inputs) (Outputs, error) { return Outputs{"d": in["n"].(int) * 2}, nil },
+	}
+	sink := fnNode{
+		id: "sink", in: []Symbol{"d"}, out: []Symbol{"s"}, pure: true,
+		run: func(_ context.Context, in Inputs) (Outputs, error) { return Outputs{"s": in["d"].(int) + 1}, nil },
+	}
+	cfg := Config{
+		Nodes:  []Node{leaf, double, sink},
+		Leaves: []LeafID{"n"},
+		Levels: [][]CellID{{"n"}, {"double"}, {"sink"}},
+	}
+	head := NewHead()
+	head.Set("n", 5)
+	rt := NewRuntime(cfg, head, NewMemoStore())
+
+	drain := collectEvents(rt)
+	rt.RunAll(context.Background())
+	events := drain()
+
+	// Exactly one settled marker, empty cell, and it is the LAST event (every
+	// cell's done arrived before the wave declared itself settled).
+	var settledCount int
+	var settledIdx = -1
+	for i, ev := range events {
+		if ev.State == StateSettled {
+			settledCount++
+			settledIdx = i
+			if ev.Cell != "" {
+				t.Errorf("settled marker has cell %q, want empty (it is a wave-level event)", ev.Cell)
+			}
+		}
+	}
+	if settledCount != 1 {
+		t.Fatalf("got %d settled markers, want exactly 1 (events: %+v)", settledCount, events)
+	}
+	if settledIdx != len(events)-1 {
+		t.Errorf("settled marker at index %d, want last (%d) — a coherence consumer must see every cell first", settledIdx, len(events)-1)
+	}
+
+	// The marker carries the wave's epoch (the same epoch the cell events carried).
+	settled := events[settledIdx]
+	var cellEpoch Epoch
+	for _, ev := range events {
+		if ev.Cell == "sink" && ev.State == StateDone {
+			cellEpoch = ev.Epoch
+		}
+	}
+	if settled.Epoch != cellEpoch {
+		t.Errorf("settled epoch = %d, want %d (the wave's epoch)", settled.Epoch, cellEpoch)
+	}
+}
+
+// TestSupersededWaveDoesNotSettle is the coherence guarantee: a wave that is
+// superseded by a newer edit must NOT emit a settled marker — only the wave that
+// actually wins does. Otherwise a consumer buffering by epoch could see an older
+// epoch "settle" after a newer epoch's values, the exact incoherence the marker
+// exists to prevent. A slow cell lets a second Set supersede the first mid-wave.
+func TestSupersededWaveDoesNotSettle(t *testing.T) {
+	release := make(chan struct{})
+	var started sync.WaitGroup
+	started.Add(1)
+	var startOnce sync.Once
+
+	// The cell blocks ONLY for the first wave's value (n=1): that wave parks in the
+	// cell until released or cancelled. The winning wave (n=2) runs straight
+	// through, so its synchronous Set returns and the test can proceed.
+	slow := fnNode{
+		id: "slow", in: []Symbol{"n"}, out: []Symbol{"v"},
+		run: func(ctx context.Context, in Inputs) (Outputs, error) {
+			if in["n"].(int) != 1 {
+				return Outputs{"v": in["n"]}, nil // the winner: run fast
+			}
+			startOnce.Do(started.Done) // signal wave A has entered the cell
+			select {
+			case <-release:
+			case <-ctx.Done(): // superseded: abandon
+				return nil, ctx.Err()
+			}
+			return Outputs{"v": in["n"]}, nil
+		},
+	}
+	cfg := Config{Nodes: []Node{slow}, Leaves: []LeafID{"n"}, Levels: [][]CellID{{"slow"}}}
+	head := NewHead()
+	head.Set("n", 1)
+	rt := NewRuntime(cfg, head, NewMemoStore())
+
+	drain := collectEvents(rt)
+
+	// Wave A (epoch of n=1) enters the slow cell and blocks there.
+	var wgA sync.WaitGroup
+	wgA.Add(1)
+	go func() { defer wgA.Done(); rt.Set(context.Background(), "n", 1) }()
+	started.Wait()
+
+	// Wave B supersedes A. Its Set cancels A's context (see Runtime.Set), so A's
+	// slow cell returns ctx.Err() and A never reaches the settled emit. B runs
+	// straight through (n≠1) so this Set returns.
+	rt.Set(context.Background(), "n", 2)
+	close(release) // A's cell already returned via ctx.Done(); this is cleanup
+	wgA.Wait()
+
+	events := drain()
+	// Exactly one settled marker, and it belongs to the WINNER (the highest epoch
+	// seen on any event) — never the superseded wave.
+	var maxEpoch Epoch
+	for _, ev := range events {
+		if ev.Epoch > maxEpoch {
+			maxEpoch = ev.Epoch
+		}
+	}
+	var settled []Event
+	for _, ev := range events {
+		if ev.State == StateSettled {
+			settled = append(settled, ev)
+		}
+	}
+	if len(settled) != 1 {
+		t.Fatalf("got %d settled markers, want exactly 1 (only the winning wave settles); events: %+v", len(settled), events)
+	}
+	if settled[0].Epoch != maxEpoch {
+		t.Errorf("settled epoch = %d, want the winning epoch %d — a superseded wave must not settle", settled[0].Epoch, maxEpoch)
+	}
+}

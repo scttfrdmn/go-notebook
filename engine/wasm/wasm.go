@@ -23,8 +23,10 @@
 //	notebook.provenance    build identity (or null) — what produced this .wasm
 //	notebook.set(leaf, v)  edit a leaf (data in); v is a JS scalar/array
 //	notebook.subscribe(fn)       fn(ev) per cell update (data out); returns an unsubscribe fn
-//	                             ev = {epoch, cell, state, mime, data, err}
-//	notebook.subscribeValues(fn) fn({cell, value}) as each cell's TYPED value changes
+//	                             ev = {epoch, cell, state, mime, data, err}; a wave-settled
+//	                             marker arrives as {epoch, cell:"", state:"settled"}
+//	notebook.subscribeValues(fn) fn({epoch, cell, value}) as each cell's TYPED value changes;
+//	                             a wave-settled marker arrives as {epoch, settled:true}
 //	                             (data out); returns an unsubscribe fn
 //	notebook.values()            snapshot {leaf: value} of every cell's latest value (Finals)
 //	notebook.start()             run the first wave, so cells paint their defaults
@@ -213,9 +215,24 @@ func (p *port) pump(sub <-chan engine.Event) {
 		if len(values) > 0 && ev.State == engine.StateDone && ev.Value != nil {
 			// value crosses ONLY through jsonToJS (as values() does), so a named
 			// numeric type can't panic js.ValueOf; anything unflattenable → JS null.
+			// epoch lets a consumer group a wave's values coherently and pair them
+			// with the settled marker below.
 			obj := js.ValueOf(map[string]any{
+				"epoch": float64(ev.Epoch),
 				"cell":  string(ev.Cell),
 				"value": jsonToJS(ev.Value),
+			})
+			for _, fn := range values {
+				fn.Invoke(obj)
+			}
+		}
+		if len(values) > 0 && ev.State == engine.StateSettled {
+			// The wave-settled marker on the value stream: {epoch, settled:true},
+			// no cell/value. A consumer buffering values by epoch flushes when it
+			// arrives, knowing every value for that epoch has been delivered.
+			obj := js.ValueOf(map[string]any{
+				"epoch":   float64(ev.Epoch),
+				"settled": true,
 			})
 			for _, fn := range values {
 				fn.Invoke(obj)
