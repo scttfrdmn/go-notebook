@@ -6,6 +6,7 @@ import (
 	"go/printer"
 	"go/token"
 	"go/types"
+	"sort"
 	"strings"
 
 	"golang.org/x/tools/go/packages"
@@ -77,6 +78,7 @@ func buildFromTypes(fset *token.FileSet, files []*ast.File, tpkg *types.Package)
 	g := graph.New()
 	var diags []graph.Diagnostic
 	q := types.RelativeTo(tpkg)
+	imp := newImportRecorder(tpkg)
 	scope := tpkg.Scope()
 
 	for _, decl := range file.Decls {
@@ -104,6 +106,12 @@ func buildFromTypes(fset *token.FileSet, files []*ast.File, tpkg *types.Package)
 		}
 		g.Add(cell)
 		diags = append(diags, cellDiags...)
+		// Record the packages this cell's WIRED inputs name, for the registry's
+		// import block (see importRecorder). Only wired params become `in[...].(T)`
+		// assertions; context (injected) renders as ctx, results are assigned.
+		if sig, ok := fnObj.Type().(*types.Signature); ok {
+			recordWiredImports(imp, sig)
+		}
 	}
 
 	// The optional presentation layout is parsed from the file's package doc.
@@ -111,8 +119,58 @@ func buildFromTypes(fset *token.FileSet, files []*ast.File, tpkg *types.Package)
 	// after the graph is built and does not participate in validation.
 	g.Layout = parseLayout(file)
 
+	// The packages whose types sit on WIRED edges — collected during the build
+	// loop above through a recording qualifier (imp). The generated registry
+	// asserts each wired input as `in[...].(T)`, so it must import every package a
+	// wired-input type names (a `*regexp.Regexp` edge needs `import "regexp"`).
+	// Result types are assigned, never asserted, so they never enter this set.
+	g.Imports = imp.list()
+
 	diags = append(diags, g.Check()...)
 	return g, diags, nil
+}
+
+// importRecorder accumulates the non-local packages named by the wired-edge
+// types it is asked to render. It is a types.Qualifier that delegates to a base
+// (RelativeTo the notebook package, so the package's own types stay unqualified
+// and record nothing) and remembers every foreign package the base names. The
+// recorded set is exactly what the generated registry must import: TypeString
+// invokes the qualifier for precisely the packages that appear in the rendered
+// type string.
+type importRecorder struct {
+	base types.Qualifier
+	seen map[string]graph.Import
+}
+
+func newImportRecorder(tpkg *types.Package) *importRecorder {
+	return &importRecorder{base: types.RelativeTo(tpkg), seen: map[string]graph.Import{}}
+}
+
+// qualify is the types.Qualifier: it records p (when foreign) and returns the
+// name the base qualifier chose, so rendered type strings are unchanged.
+func (r *importRecorder) qualify(p *types.Package) string {
+	name := r.base(p) // "" for the local package → nothing to import
+	if name != "" {
+		r.seen[p.Path()] = graph.Import{Path: p.Path(), Name: name}
+	}
+	return name
+}
+
+// list returns the recorded imports in stable path order, or nil if none.
+func (r *importRecorder) list() []graph.Import {
+	if len(r.seen) == 0 {
+		return nil
+	}
+	paths := make([]string, 0, len(r.seen))
+	for p := range r.seen {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	out := make([]graph.Import, len(paths))
+	for i, p := range paths {
+		out[i] = r.seen[p]
+	}
+	return out
 }
 
 // findNotebookFile returns the single file carrying the //go:notebook
@@ -270,6 +328,22 @@ func classifyResults(results *types.Tuple) (named int, hasUnnamedData bool) {
 // isBlank reports whether a result/parameter name is absent or the blank
 // identifier — either way it names no dataflow symbol.
 func isBlank(name string) bool { return name == "" || name == "_" }
+
+// recordWiredImports renders each WIRED parameter's type through the recorder,
+// so its qualifier notes every foreign package the type names. Only wired params
+// matter: injected (context) params render as ctx in the generated call and are
+// never asserted, and result types are assigned rather than type-asserted. The
+// rendered string is discarded — the side effect (recording) is the point.
+func recordWiredImports(imp *importRecorder, sig *types.Signature) {
+	params := sig.Params()
+	for i := 0; i < params.Len(); i++ {
+		v := params.At(i)
+		if paramKind(v.Type()) != graph.Wired {
+			continue
+		}
+		types.TypeString(v.Type(), imp.qualify)
+	}
+}
 
 // buildParams renders each parameter into the IR, classifying its kind.
 func buildParams(fset *token.FileSet, params *types.Tuple, q types.Qualifier) []graph.Param {
