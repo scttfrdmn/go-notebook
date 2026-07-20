@@ -1,10 +1,14 @@
 package server
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/scttfrdmn/go-notebook/engine"
 )
 
 // TestHandleIndexServesPage confirms the index handler returns the client page
@@ -67,5 +71,57 @@ func TestNewNilSetFallback(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNoContent {
 		t.Errorf("POST /set = %d, want 204", rec.Code)
+	}
+}
+
+// validatingSet mirrors the generated SetFunc's contract for the test: it coerces
+// synchronously, wrapping engine.ErrUnknownLeaf for a name it doesn't know and
+// engine.ErrBadValue for a value of the wrong kind, and only "applies" (a no-op
+// here) on success. This is what a real built notebook's /set closure does, so the
+// handler's status mapping is exercised against the true contract, not a mock that
+// always succeeds.
+func validatingSet(_ context.Context, leaf string, raw any) error {
+	if leaf != "n" {
+		return fmt.Errorf("%w: %s", engine.ErrUnknownLeaf, leaf)
+	}
+	// A real leaf coercer runs engine.CoerceWire first (json.Number → float64),
+	// then asserts the leaf's kind. Do the same here so the test drives the true
+	// path: the handler's UseNumber decoder hands us a json.Number for a number and
+	// a string for a string.
+	norm, ok := engine.CoerceWire(raw)
+	if !ok {
+		return fmt.Errorf("%w: leaf %q: cannot coerce %v (%T)", engine.ErrBadValue, leaf, raw, raw)
+	}
+	if _, ok := norm.(float64); !ok { // "n" is numeric
+		return fmt.Errorf("%w: leaf %q: want a number, got %v (%T)", engine.ErrBadValue, leaf, norm, norm)
+	}
+	return nil
+}
+
+// TestHandleSetStatusReflectsValidation is the #3 behavior: an invalid /set no
+// longer looks successful. A typo'd leaf gets 404, a wrong-typed value gets 422,
+// and only an accepted edit gets 204 — so a programmatic driver can tell a
+// silently-dropped edit from an applied one. Before this, all three returned 204.
+func TestHandleSetStatusReflectsValidation(t *testing.T) {
+	rt, meta := testRuntime(t)
+	h := New(rt, meta, validatingSet).Handler()
+
+	cases := []struct {
+		name, body string
+		want       int
+	}{
+		{"accepted edit", `{"leaf":"n","value":7}`, http.StatusNoContent},
+		{"unknown leaf", `{"leaf":"nope","value":7}`, http.StatusNotFound},
+		{"uncoercible value", `{"leaf":"n","value":"not a number"}`, http.StatusUnprocessableEntity},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/set", strings.NewReader(tc.body))
+			h.ServeHTTP(rec, req)
+			if rec.Code != tc.want {
+				t.Errorf("POST /set %s = %d, want %d (body: %s)", tc.name, rec.Code, tc.want, rec.Body.String())
+			}
+		})
 	}
 }

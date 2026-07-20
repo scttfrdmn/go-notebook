@@ -150,15 +150,31 @@ func leaves() []engine.LeafID {
 // wrong shape is exactly the inert-control bug this path exists to prevent.
 func writeSetLeafValue(b *bytes.Buffer, g *graph.Graph, alias string) {
 	b.WriteString(`// setLeafValue coerces a raw leaf value to its static type and writes it through
-// rt.Set (head chokepoint + version bump + wave). raw is normalized first via
+// rt.Set (head chokepoint + version bump + wave). It is the blocking form used by
+// the CLI --set and the wasm bridge; the HTTP /set path uses coerceLeafValue to
+// validate synchronously and runs rt.Set itself (so the POST need not wait for
+// the wave). Both share the one coercer, so the wire contract cannot fork.
+func setLeafValue(ctx context.Context, rt *engine.Runtime, name string, raw any) error {
+	typed, err := coerceLeafValue(name, raw)
+	if err != nil {
+		return err
+	}
+	rt.Set(ctx, engine.LeafID(name), typed)
+	return nil
+}
+
+// coerceLeafValue coerces a raw leaf value to its static Go type WITHOUT writing
+// it — the pure, synchronous half of a leaf edit. raw is normalized first via
 // engine.CoerceWire: json.Number → float64 and []any → []string/[]float64, so
 // both the scalar cases (which assert float64) and widget leaves see clean
-// primitives. It returns an error on any mismatch; no path stores a raw value
-// it could not coerce.
-func setLeafValue(ctx context.Context, rt *engine.Runtime, name string, raw any) error {
+// primitives. It returns the typed value ready for rt.Set, or an error on any
+// mismatch: engine.ErrUnknownLeaf for a name no cell produces, engine.ErrBadValue
+// for a value that will not coerce — so a caller (the HTTP handler) can map each
+// to the right status. No path stores a raw value it could not coerce.
+func coerceLeafValue(name string, raw any) (any, error) {
 	norm, ok := engine.CoerceWire(raw)
 	if !ok {
-		return fmt.Errorf("leaf %q: cannot coerce selection %v (%T)", name, raw, raw)
+		return nil, fmt.Errorf("%w: leaf %q: cannot coerce selection %v (%T)", engine.ErrBadValue, name, raw, raw)
 	}
 	raw = norm
 	switch name {
@@ -168,19 +184,19 @@ func setLeafValue(ctx context.Context, rt *engine.Runtime, name string, raw any)
 		writeCoerceCase(b, alias, leaf)
 	}
 	b.WriteString(`	default:
-		return fmt.Errorf("unknown leaf: %s", name)
+		return nil, fmt.Errorf("%w: %s", engine.ErrUnknownLeaf, name)
 	}
 }
 
 `)
 }
 
-// writeCoerceCase converts a raw JSON leaf value to its static type and sets it
-// via rt.Set. JSON numbers arrive as float64 and bools as bool; the leaf's
-// underlying kind (from the IR, not guessed) selects the conversion. A scalar
-// leaf handed a value of the wrong kind returns an error rather than dropping
-// the set: a --set that names a numeric leaf but passes a string is a user
-// error worth reporting, not a silent no-op.
+// writeCoerceCase converts a raw JSON leaf value to its static type and RETURNS
+// it (the caller writes it via rt.Set). JSON numbers arrive as float64 and bools
+// as bool; the leaf's underlying kind (from the IR, not guessed) selects the
+// conversion. A scalar leaf handed a value of the wrong kind returns
+// engine.ErrBadValue rather than dropping the set: a --set that names a numeric
+// leaf but passes a string is a user error worth reporting, not a silent no-op.
 func writeCoerceCase(b *bytes.Buffer, alias string, leaf leafInfo) {
 	name := string(leaf.name)
 	qualified := qualifyType(alias, leaf.typ)
@@ -188,35 +204,31 @@ func writeCoerceCase(b *bytes.Buffer, alias string, leaf leafInfo) {
 	case kindInt:
 		fmt.Fprintf(b, `		f, ok := raw.(float64)
 		if !ok {
-			return fmt.Errorf("leaf %%q: want a number, got %%v (%%T)", %q, raw, raw)
+			return nil, fmt.Errorf("%%w: leaf %%q: want a number, got %%v (%%T)", engine.ErrBadValue, %q, raw, raw)
 		}
-		rt.Set(ctx, %q, %s(int(f)))
-		return nil
-`, name, name, qualified)
+		return %s(int(f)), nil
+`, name, qualified)
 	case kindFloat:
 		fmt.Fprintf(b, `		f, ok := raw.(float64)
 		if !ok {
-			return fmt.Errorf("leaf %%q: want a number, got %%v (%%T)", %q, raw, raw)
+			return nil, fmt.Errorf("%%w: leaf %%q: want a number, got %%v (%%T)", engine.ErrBadValue, %q, raw, raw)
 		}
-		rt.Set(ctx, %q, %s(f))
-		return nil
-`, name, name, qualified)
+		return %s(f), nil
+`, name, qualified)
 	case kindBool:
 		fmt.Fprintf(b, `		v, ok := raw.(bool)
 		if !ok {
-			return fmt.Errorf("leaf %%q: want a bool, got %%v (%%T)", %q, raw, raw)
+			return nil, fmt.Errorf("%%w: leaf %%q: want a bool, got %%v (%%T)", engine.ErrBadValue, %q, raw, raw)
 		}
-		rt.Set(ctx, %q, %s(v))
-		return nil
-`, name, name, qualified)
+		return %s(v), nil
+`, name, qualified)
 	default:
 		// A widget leaf: raw is already homogenized (CoerceWire at entry) to
 		// []string / []float64 / string / bool — the clean primitive the
-		// notebook's Reconcile asserts. Set it; Reconcile does the domain
+		// notebook's Reconcile asserts. Return it; Reconcile does the domain
 		// resolution (label→Theme) itself. A cell never sees a wire shape.
-		fmt.Fprintf(b, `		rt.Set(ctx, %q, raw)
-		return nil
-`, name)
+		fmt.Fprintf(b, `		return raw, nil
+`)
 	}
 }
 
@@ -295,10 +307,17 @@ func mainBody(alias string) string {
 		return
 	}
 
-	set := func(c context.Context, leaf string, raw any) {
-		if err := setLeafValue(c, rt, leaf, raw); err != nil {
+	set := func(c context.Context, leaf string, raw any) error {
+		// Coerce synchronously so /set can answer 404/422 for a bad edit; on
+		// success apply the write and run the wave in the background so the POST
+		// returns without waiting for recompute (results stream over /events).
+		typed, err := coerceLeafValue(leaf, raw)
+		if err != nil {
 			log.Printf("notebook: /set: %v", err)
+			return err
 		}
+		go rt.Set(c, engine.LeafID(leaf), typed)
+		return nil
 	}
 	// onReady fires once the listener is bound, with the RESOLVED address (so
 	// --addr :0 reports its real port). It emits one machine-readable readiness

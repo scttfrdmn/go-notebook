@@ -62,8 +62,18 @@ func TestServiceReadinessAndDrive(t *testing.T) {
 		t.Fatalf("POST /set on the reported port: %v", err)
 	}
 	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("accepted /set = %d, want 204", resp.StatusCode)
+	}
 
-	// By consequence: the drive on the reported port took effect.
+	// A bad edit must fail loud on the REAL generated coercer — not a silent 204.
+	// This is #3 end-to-end: an unknown leaf is 404, a wrong-typed value is 422, so
+	// a programmatic driver can tell a dropped edit from an applied one. Before, all
+	// three returned 204 and the error was only logged on the far side.
+	assertSetStatus(t, base, `{"leaf":"nope","value":1}`, http.StatusNotFound)
+	assertSetStatus(t, base, `{"leaf":"c","value":"not a number"}`, http.StatusUnprocessableEntity)
+
+	// By consequence: the accepted drive on the reported port took effect.
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		if leafC(t, base) == 40 {
@@ -123,4 +133,19 @@ func leafC(t *testing.T, base string) float64 {
 	}
 	c, _ := vals["c"].(float64)
 	return c
+}
+
+// assertSetStatus POSTs a /set body to the built binary and checks the HTTP
+// status — the observable signal a driver reads to know whether its edit was
+// accepted, applied against the real generated coercer.
+func assertSetStatus(t *testing.T, base, body string, want int) {
+	t.Helper()
+	resp, err := http.Post(base+"/set", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST /set %s: %v", body, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != want {
+		t.Errorf("POST /set %s = %d, want %d", body, resp.StatusCode, want)
+	}
 }

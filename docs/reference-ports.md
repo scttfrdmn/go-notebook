@@ -32,10 +32,21 @@ Request body:
   coercer a browser edit crosses. A scalar, a bool, a string, an array (a
   multi-select or draggable selection), or an object (a structured/handle leaf)
   are all accepted; numeric values keep int-vs-float via `json.Number`.
-- **Returns `204 No Content` immediately.** The recompute wave runs in the
-  background; results arrive over `/events`. A malformed body is `400`.
-- An unknown leaf or an uncoercible value fails on the far side and is logged; it
-  does not fail the request (the wave simply doesn't change that leaf).
+- **The edit is validated synchronously; the recompute runs asynchronously.** The
+  server coerces the value to the leaf's type before returning, then runs the wave
+  in the background — results arrive over `/events`. The status tells a driver
+  whether the edit was accepted:
+  - **`204 No Content`** — accepted; the wave is running.
+  - **`404 Not Found`** — no leaf by that name (a typo'd `leaf`, or the *result*
+    symbol of a derived cell rather than an input leaf).
+  - **`422 Unprocessable Entity`** — the leaf exists but the value will not coerce
+    to its Go type (e.g. a string for a numeric leaf).
+  - **`400 Bad Request`** — the body itself is malformed JSON.
+
+  So a mistaken edit fails loud instead of looking successful: a `404`/`422` means
+  nothing changed, and you know it at the POST rather than discovering it by the
+  cell that never updated. Validation does not wait for the wave — only coercion,
+  which is synchronous.
 
 ### `GET /events` — subscribe to cell updates (SSE)
 

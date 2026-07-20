@@ -15,6 +15,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -33,12 +34,16 @@ type Server struct {
 	mux    *http.ServeMux
 }
 
-// SetFunc applies a leaf edit: it coerces the raw JSON value (numbers arrive as
-// float64) into the leaf's static Go type and writes it through the head, then
-// runs the wave. The generated main supplies this because only codegen knows
-// each leaf's real type — the server itself is type-agnostic. A nil SetFunc
-// falls back to writing the raw value (used in tests with already-typed values).
-type SetFunc func(ctx context.Context, leaf string, raw any)
+// SetFunc validates and applies a leaf edit. It coerces the raw JSON value
+// (numbers arrive as float64) into the leaf's static Go type SYNCHRONOUSLY,
+// returning an error if the leaf is unknown or the value will not coerce (wrapping
+// [engine.ErrUnknownLeaf] / [engine.ErrBadValue] so the handler can map the
+// status); on success it applies the write, running the recompute wave in the
+// background so the caller need not wait for it. The generated main supplies this
+// because only codegen knows each leaf's real type — the server itself is
+// type-agnostic. A nil SetFunc falls back to writing the raw value (used in tests
+// with already-typed values), which cannot fail, so it returns nil.
+type SetFunc func(ctx context.Context, leaf string, raw any) error
 
 // New builds a server for a runtime, its cell metadata, and a type-aware leaf
 // setter. If set is nil, edits write the raw JSON value directly (fine for
@@ -53,8 +58,12 @@ func New(rt *engine.Runtime, meta []engine.CellMeta, set SetFunc) *Server {
 // older signature keeps working unchanged.
 func NewNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, set SetFunc) *Server {
 	if set == nil {
-		set = func(ctx context.Context, leaf string, raw any) {
-			rt.Set(ctx, engine.LeafID(leaf), raw)
+		set = func(ctx context.Context, leaf string, raw any) error {
+			// Tests supply already-typed values and no coercer; there is nothing to
+			// validate, so this never fails. Background the wave to match the real
+			// SetFunc's contract (the POST returns before recompute finishes).
+			go rt.Set(ctx, engine.LeafID(leaf), raw)
+			return nil
 		}
 	}
 	s := &Server{rt: rt, meta: meta, prov: prov, set: set, mux: http.NewServeMux()}
@@ -130,11 +139,22 @@ func (s *Server) handleSet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	// Run the wave in the background so the POST returns immediately; the client
-	// sees results stream in over /events. Coalescing in the scheduler handles
-	// rapid drags. The set func coerces the raw JSON value to the leaf's type.
-	go s.set(context.Background(), req.Leaf, req.Value)
-	w.WriteHeader(http.StatusNoContent)
+	// Validate synchronously: the set func coerces the value to the leaf's type
+	// and returns an error for an unknown leaf or an uncoercible value, WITHOUT
+	// waiting for the recompute wave (it backgrounds that itself). So a bad edit
+	// gets a real status instead of a silent 204 that changed nothing — a typo'd
+	// leaf name used to look successful. errors.Is distinguishes the two failure
+	// kinds; the wave still runs asynchronously and streams over /events.
+	switch err := s.set(context.Background(), req.Leaf, req.Value); {
+	case err == nil:
+		w.WriteHeader(http.StatusNoContent)
+	case errors.Is(err, engine.ErrUnknownLeaf):
+		http.Error(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, engine.ErrBadValue):
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+	default:
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 }
 
 // handleLeaves returns each leaf's current value keyed by leaf symbol, so the
