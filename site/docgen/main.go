@@ -74,6 +74,12 @@ func main() {
 	root, err := os.Getwd()
 	must(err)
 	outDir := filepath.Join(root, "site", "docs")
+	// Atomic publication: wipe the output directory before regenerating, so a
+	// renamed or removed doc can't leave stale HTML behind (a docs re-review found
+	// the deployed site showing pages from two generations at once — an old page
+	// lingering in the output dir is one way that happens). site/docs is generated
+	// output (gitignored), never hand-edited, so removing it is safe.
+	must(os.RemoveAll(outDir))
 	must(os.MkdirAll(outDir, 0o755))
 
 	buildStamp = computeBuildStamp()
@@ -141,7 +147,47 @@ func main() {
 	fmt.Println("docs: wrote site/docs/index.html")
 
 	checkLinks(outDir)
+	if missing := stamplessPages(outDir, buildStamp); len(missing) > 0 {
+		fmt.Fprintf(os.Stderr, "docgen: pages missing the build stamp %q (skew guard):\n", buildStamp)
+		for _, m := range missing {
+			fmt.Fprintln(os.Stderr, "  "+m)
+		}
+		os.Exit(1)
+	}
+	fmt.Printf("docs: build-stamp check passed (%q on every page)\n", buildStamp)
 	writeDiscoveryFiles(filepath.Join(root, "site"))
+}
+
+// stamplessPages returns the generated pages whose footer is missing the current
+// build stamp. The stamp is the docs' own provenance (commit + date); a page
+// without it did not come from this generation — exactly the skew a docs
+// re-review caught, where the deployed site mixed pages from two commits. Making
+// the stamp a checked invariant means "every page is from this build" is
+// verified, not hoped. (The output dir is wiped before generation, so a stale
+// file can't survive to be checked — this catches the other direction: a page
+// that generated without the footer at all.) Returns the offending slugs so a
+// caller (main, or a test) decides how to report; kept pure for testability.
+func stamplessPages(outDir, stamp string) []string {
+	var missing []string
+	for _, slug := range outputSlugs() {
+		htmlBytes, err := os.ReadFile(filepath.Join(outDir, slug+".html"))
+		must(err)
+		if !strings.Contains(string(htmlBytes), html.EscapeString(stamp)) {
+			missing = append(missing, slug+".html")
+		}
+	}
+	return missing
+}
+
+// outputSlugs is every slug docgen writes: one per curated page, plus the index.
+// A freshly-allocated slice (never the shared `pages` backing array), so callers
+// can range over it without aliasing surprises.
+func outputSlugs() []string {
+	slugs := make([]string, 0, len(pages)+1)
+	for _, p := range pages {
+		slugs = append(slugs, p.slug)
+	}
+	return append(slugs, "index")
 }
 
 // baseURL is the site's canonical origin (a custom domain on GitHub Pages). Used

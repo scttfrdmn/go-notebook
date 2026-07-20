@@ -88,6 +88,8 @@ jobs:
 
 Enable Pages for the repository with **Settings → Pages → Source: GitHub Actions**, then push to `main`. The notebook is rebuilt from source on every push, so the published page can never drift from the committed code. GitHub Pages already serves `.wasm` as `application/wasm`.
 
+One caveat specific to GitHub Pages: it serves HTML with a fixed `Cache-Control: max-age=600` and gives you no way to override it (there is no `_headers` file support). Because the `.wasm` is content-addressed, this never serves a stale *notebook* — a new build is a new URL. But it does mean a reader who loaded `index.html` can hold it for up to ten minutes across a deploy, so immediately after pushing you may briefly see the previous HTML shell around the new WASM. If you need `no-cache` on the HTML itself (so a deploy is visible instantly), front Pages with a CDN you control, or use one of the static-host recipes below where the cache header is yours to set.
+
 ### Project sites live at a subpath
 
 A user or org Pages site is served at the domain root (`https://you.github.io/`). A **project** site is served at `https://you.github.io/<repo>/` — a subpath. Because `index.html` references its assets by relative path, this needs **no configuration**: the page fetches `notebook-<hash>.wasm` relative to wherever `index.html` was loaded from, subpath or not. A custom domain (a `CNAME` file in the output) puts the site back at a root. The only thing that would break under a subpath is an absolute asset URL, and the build emits none.
