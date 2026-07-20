@@ -67,6 +67,7 @@ which is a worked example.
 | [`headless`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/headless) | the same file as an interactive app and a `--headless --set --json` batch job | 50 | [build & run](reference-build-run.html) |
 | [`setport`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/setport) | the minimal live feed: a driver POSTs one leaf, a pure cell reacts | 23 + driver | [ports](reference-ports.html) |
 | [`testing`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/testing) | cells tested as ordinary Go functions (`go test`) | 52 | — |
+| [`component-host`](https://github.com/scttfrdmn/go-notebook/tree/main/site/component) | a foreign page drives a WASM notebook through the JS client — its own layout, `subscribeValues` for typed output, no built-in UI *(worked example)* | index.html + app.js | [JS client](reference-js-client.html#the-complete-host-page) |
 
 ## Two things every recipe shows
 
