@@ -39,6 +39,15 @@ await new Promise((r) => setTimeout(r, 100));
 const { connect } = await import(pathToFileURL(path.join(dir, "notebook-client.js")).href);
 const nb = connect();
 
+// Feature-detect what the port supports, derived from the port itself (never a
+// hand-maintained list). A current build supports all four; an older .wasm would
+// report fewer, and can() lets a host branch without a try/catch.
+console.log("capabilities:", nb.capabilities().join(", "));
+if (!nb.can("typed-events")) {
+  console.error("ANTI-PASS FAIL: a freshly-built notebook does not report the typed-events capability");
+  process.exit(1);
+}
+
 console.log("leaves:", nb.leaves().map((l) => `${l.symbol}(${l.kind ?? "scalar"})`).join(", "));
 
 // Each leaf now carries its Go result type — the declared name and the basic
@@ -71,14 +80,23 @@ if (numericLeaf) {
 }
 
 const typed = {};
-nb.subscribeValues((ev) => (typed[ev.cell] = ev.value));
+nb.subscribeValues((ev) => {
+  if (!ev.settled && ev.cell !== undefined) typed[ev.cell] = ev.value;
+});
+// subscribeEpoch delivers a COHERENT snapshot of each wave's values, all at once
+// when the wave settles — so a host combining several derived values never mixes
+// two waves. We keep the latest snapshot to show it lines up with the stream.
+let lastSnapshot = null;
+nb.subscribeEpoch((snap) => (lastSnapshot = snap));
 nb.start();
 await new Promise((r) => setTimeout(r, 300));
 
 console.log("initial typed values:", JSON.stringify(typed));
+if (lastSnapshot) console.log(`epoch ${lastSnapshot.epoch} settled with ${Object.keys(lastSnapshot.values).length} coherent values`);
 
 // Set the first scalar leaf to a new number and watch derived values recompute.
 const first = nb.leaves()[0];
 nb.set(first.symbol, 1);
 await new Promise((r) => setTimeout(r, 300));
 console.log(`after set(${first.symbol}, 1):`, JSON.stringify(typed));
+if (lastSnapshot) console.log(`epoch ${lastSnapshot.epoch} settled with ${Object.keys(lastSnapshot.values).length} coherent values`);

@@ -41,17 +41,23 @@ export interface CellMeta {
 
 export interface WireEvent {
   epoch: number;
+  /** the cell id; empty on the wave-settled marker */
   cell: string;
-  state: "running" | "done" | "error" | "blocked" | "stale";
+  state: "running" | "done" | "error" | "blocked" | "stale" | "settled";
   mime?: string;
   data?: string;
   err?: string;
 }
 
 export interface ValueEvent {
-  cell: string;
-  /** the cell's typed value, flattened to a plain JS value */
-  value: unknown;
+  /** the wave this value belongs to; absent on a port that predates it */
+  epoch?: number;
+  /** the cell whose value this is; absent on a settled marker */
+  cell?: string;
+  /** the cell's typed value, flattened to a plain JS value; absent on a settled marker */
+  value?: unknown;
+  /** true on the terminal wave-settled marker: every value for `epoch` has arrived */
+  settled?: boolean;
 }
 
 /** The raw globalThis.notebook object the WASM build publishes. */
@@ -88,6 +94,10 @@ export function connect(port?: NotebookPort): Notebook;
 export class Notebook {
   constructor(port: NotebookPort);
   readonly port: NotebookPort;
+  /** the capabilities this port supports, derived from the port (never a lie) */
+  capabilities(): string[];
+  /** whether the port supports a named capability (feature detection, no try/catch) */
+  can(cap: string): boolean;
   /** every cell's metadata */
   cells(): CellMeta[];
   /** the input leaves — the settable surface */
@@ -100,8 +110,10 @@ export class Notebook {
   values(): Record<string, unknown>;
   /** subscribe to rendered events (mime/data) */
   subscribe(fn: (ev: WireEvent) => void): () => void;
-  /** subscribe to typed value events ({cell, value}); throws on an older port */
+  /** subscribe to typed value events ({epoch, cell, value}); throws on an older port */
   subscribeValues(fn: (ev: ValueEvent) => void): () => void;
+  /** coherent per-wave value snapshots: fn({epoch, values}) once per settled wave */
+  subscribeEpoch(fn: (snapshot: { epoch: number; values: Record<string, unknown> }) => void): () => void;
   /** run the first wave */
   start(): void;
 }
