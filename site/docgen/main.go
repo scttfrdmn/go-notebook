@@ -19,9 +19,11 @@ import (
 	"fmt"
 	"html"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/yuin/goldmark"
@@ -44,6 +46,7 @@ var pages = []page{
 	{"docs/authoring.md", "authoring", "Write your first notebook", "From an empty file to a running, built notebook — the from-scratch walkthrough.", "Start here"},
 	{"docs/names.md", "names", "How the names work", "Function name, result name, type, and label are four different things — the result name is the edge.", "Start here"},
 
+	{"docs/recipes.md", "recipes", "Recipes", "The cookbook: one mechanism per recipe, smallest correct form, meant to be copied — inputs, outputs, graph shape, build/feed/test.", "Learn"},
 	{"docs/live-feeds.md", "live-feeds", "Live feeds", "Wire a sensor, socket, or polled API into a notebook: a feed is a driver on the set port.", "Learn"},
 	{"docs/troubleshooting.md", "troubleshooting", "Troubleshooting", "An index of the check/run/build messages, what each means, and the fix.", "Learn"},
 
@@ -51,6 +54,7 @@ var pages = []page{
 	{"docs/reference-controls.md", "reference-controls", "Controls", "How a value becomes an input, and which widget it renders as — decided by type, not directive.", "Reference"},
 	{"docs/reference-rendering.md", "reference-rendering", "Rendering", "How a value is drawn: the Render method, the MIME types, and the degradation ladder.", "Reference"},
 	{"docs/reference-js-client.md", "reference-js-client", "JS client", "Drive a WASM notebook from a host page: enumerate its inputs and compute on its typed value stream — no build step.", "Reference"},
+	{"docs/reference-ports.md", "reference-ports", "Ports & wire formats", "The exact contract for driving a notebook from outside: /set, /events (SSE), /leaves, the browser port, and the security boundary.", "Reference"},
 	{"docs/reference-charts.md", "reference-charts", "Charts", "The optional nb/chart package: five chart forms and summary statistics, drawn well — the 1% of a plotting library, on purpose.", "Reference"},
 	{"docs/reference-build-run.md", "reference-build-run", "Build & run", "The check/run/build verbs, the binary's --headless/--set/--json flags, and the WASM gate.", "Reference"},
 	{"docs/reference-layout.md", "reference-layout", "Layout", "Arrange a notebook with area + layout — presentation over source order, degrading to linear.", "Reference"},
@@ -60,11 +64,18 @@ var pages = []page{
 	{"docs/paper.md", "paper", "The paper", "Why it works this way — the system paper, with the corpus, the numbers, and the findings.", "Deep reads"},
 }
 
+// buildStamp is the docs' own provenance — the commit and date these pages were
+// generated from — shown in every page footer. A project whose core story is
+// artifact provenance should date its own documentation. Computed once in main.
+var buildStamp string
+
 func main() {
 	root, err := os.Getwd()
 	must(err)
 	outDir := filepath.Join(root, "site", "docs")
 	must(os.MkdirAll(outDir, 0o755))
+
+	buildStamp = computeBuildStamp()
 
 	md := goldmark.New(
 		goldmark.WithExtensions(
@@ -343,7 +354,9 @@ func shell(title, sidebar, content, slug, desc string) string {
 </nav>
 <div class="docwrap">
   <aside class="sidebar"><nav aria-label="Documentation">` + sidebar + `</nav></aside>
-  <main class="doc" id="main">` + content + `</main>
+  <main class="doc" id="main">` + content + `
+    <footer class="docprov">` + html.EscapeString(buildStamp) + ` · <a href="https://github.com/scttfrdmn/go-notebook">source</a></footer>
+  </main>
 </div>
 <script>
 // Add a copy-to-clipboard button to every code block. No dependency: wrap each
@@ -387,6 +400,31 @@ func must(err error) {
 		fmt.Fprintln(os.Stderr, "docgen:", err)
 		os.Exit(1)
 	}
+}
+
+// computeBuildStamp returns "built <UTC date> · <short commit>" for the docs
+// footer, best-effort: if git is unavailable (a source tarball) the commit is
+// omitted and only the date shows. Prefers SOURCE_DATE_EPOCH-style reproducibility
+// via git's own commit date rather than wall-clock, so a rebuild of the same
+// commit stamps the same date.
+func computeBuildStamp() string {
+	commit := ""
+	date := ""
+	if out, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output(); err == nil {
+		commit = strings.TrimSpace(string(out))
+	}
+	// The commit's own date, so the stamp is a property of the source, not of when
+	// the build machine happened to run.
+	if out, err := exec.Command("git", "show", "-s", "--format=%cs", "HEAD").Output(); err == nil {
+		date = strings.TrimSpace(string(out))
+	}
+	if date == "" {
+		date = time.Now().UTC().Format("2006-01-02")
+	}
+	if commit == "" {
+		return "built " + date
+	}
+	return "built " + date + " · " + commit
 }
 
 // docCSS is the docs stylesheet: the landing page's fonts/palette (fonts live one
@@ -506,6 +544,11 @@ const docCSS = `
   .pager a.next { text-align:right; margin-left:auto; }
   .pager .dir { font-size:.8rem; color:var(--muted); }
   .pager .ttl { color:var(--navy); font-weight:600; }
+
+  .docprov { margin:2.5rem 0 0; padding-top:1rem; border-top:1px solid var(--line);
+             font-size:.8rem; color:var(--muted); font-family:var(--mono); }
+  .docprov a { color:var(--muted); text-decoration:underline; }
+  .docprov a:hover { color:var(--go-text); }
 
   @media (max-width:720px) {
     .docwrap { grid-template-columns:1fr; gap:0; }
