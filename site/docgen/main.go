@@ -48,6 +48,7 @@ var pages = []page{
 
 	{"docs/recipes.md", "recipes", "Recipes", "The cookbook: one mechanism per recipe, smallest correct form, meant to be copied — inputs, outputs, graph shape, build/feed/test.", "Learn"},
 	{"docs/live-feeds.md", "live-feeds", "Live feeds", "Wire a sensor, socket, or polled API into a notebook: a feed is a driver on the set port.", "Learn"},
+	{"docs/deployment.md", "deployment", "Publish & deploy", "Get a built WASM notebook online: the three files, the required MIME type, caching, GitHub Pages / S3 / static hosts, and a copy-paste Action.", "Learn"},
 	{"docs/troubleshooting.md", "troubleshooting", "Troubleshooting", "An index of the check/run/build messages, what each means, and the fix.", "Learn"},
 
 	{"docs/reference-directives.md", "reference-directives", "Directives", "The //notebook: comment directives — slider, height, area, layout — and the presentation-only rule they share.", "Reference"},
