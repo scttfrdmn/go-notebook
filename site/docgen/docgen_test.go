@@ -131,7 +131,7 @@ func countLive(t *testing.T, root string) int {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		if m := buildShLive.FindStringSubmatch(strings.TrimSpace(sc.Text())); m != nil {
