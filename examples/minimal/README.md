@@ -34,7 +34,14 @@ Read them roughly top-to-bottom; each builds on the last.
 |---------|-----------|-------|-----------|
 | [`htmlcard`](htmlcard) | a `text/html` `Render()` — the gentlest rich output; uses the optional `nb` package | 45 | [rendering](https://go-notebook.dev/docs/reference-rendering.html) |
 | [`svgchart`](svgchart) | an `image/svg+xml` `Render()` — the low-level, zero-import route | 44 | [rendering](https://go-notebook.dev/docs/reference-rendering.html) |
-| [`csv`](csv) | normal analysis: parse CSV → filter → summarize → `nb/chart` Table + Bar, no dataframe (and the WASM portability line) | 201 | [charts](https://go-notebook.dev/docs/reference-charts.html) |
+| [`sales-analysis`](sales-analysis) | normal analysis end-to-end: parse → filter → summarize → `nb/chart` Table + Bar, no dataframe *(worked example)* | 206 | [charts](https://go-notebook.dev/docs/reference-charts.html) |
+
+## Getting data in
+
+| Example | Mechanism | Lines | Reference |
+|---------|-----------|-------|-----------|
+| [`embedded-data`](embedded-data) | `go:embed` a dataset (compile-time → still WASM-able), parse with `strings` | 74 | [charts](https://go-notebook.dev/docs/reference-charts.html) |
+| [`csv-native`](csv-native) | `os.Open` + `encoding/csv` with honest `(rows, error)`; native-only (the gate refuses `os`) | 125 | [charts](https://go-notebook.dev/docs/reference-charts.html) |
 
 ## Graph shape and behavior
 
