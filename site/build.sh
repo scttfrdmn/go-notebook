@@ -17,14 +17,6 @@ for nb in capacity curvefit bayes anscombe nbody turing surface gpulife percolat
   /tmp/notebook-build build --target=wasm --showcase -o "site/demos/$nb" "examples/$nb"
 done
 
-# Two minimal recipes that are WASM-able and worth showing live. embedded-data
-# demonstrates go:embed staying browser-portable; csv-native is deliberately
-# ABSENT here — it uses os.Open + encoding/csv, so the WASM gate refuses it (that
-# native-only tradeoff is the recipe's whole point).
-for nb in embedded-data; do
-  /tmp/notebook-build build --target=wasm --showcase -o "site/demos/$nb" "examples/minimal/$nb"
-done
-
 # tempconv is the notebook the authoring tutorial builds; it's embedded in that
 # doc page (and teased at the end of the quickstart) as a working view.
 /tmp/notebook-build build --target=wasm -o "site/demos/tempconv" "examples/tempconv"

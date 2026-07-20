@@ -68,6 +68,8 @@ A native binary you built is itself runnable, with its own flags:
 
 `--set` names the input by its **result name** — the same name that is the edge in the graph. `--set c=100` sets the cell whose result is `c`.
 
+A **headless** run (`--headless`/`--json`) is a pure function of the source and its `--set` overrides: it starts from a fresh head and does **not** read a `notebook-head.json` in the working directory, so the same binary and flags always emit the same result — the reproducibility the provenance record claims. A **served** (interactive) run does load and persist that file, so slider positions survive a restart. Pass `--head <file>` explicitly to opt a headless run back into a saved head — the deliberate, reproducible-by-path case.
+
 A `--json` run prints the final values (and a provenance record):
 
 ```json
