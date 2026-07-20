@@ -18,6 +18,14 @@ const (
 	// StateStale means the cell's wave was superseded by a newer epoch before
 	// it committed. Its result is discarded.
 	StateStale
+	// StateSettled is a WAVE-level terminal marker, not a cell state: it is
+	// emitted once when a wave has run every level to completion without being
+	// superseded, carrying that wave's Epoch and an empty Cell. A program driving
+	// the notebook watches for it to know a coherent set of values from ONE wave
+	// has arrived (every cell that was going to update, did). A superseded wave
+	// never emits it — the newer wave will. The default UI ignores it (it keys on
+	// a cell that doesn't exist).
+	StateSettled
 )
 
 // String renders a State for logs and tests.
@@ -33,6 +41,8 @@ func (s State) String() string {
 		return "blocked"
 	case StateStale:
 		return "stale"
+	case StateSettled:
+		return "settled"
 	default:
 		return "unknown"
 	}

@@ -225,11 +225,13 @@ func TestPortSubscribeValuesTyped(t *testing.T) {
 	})
 	var gotCell string
 	var gotValue js.Value
+	var gotEpoch float64
 	valueCalls := 0
 	fnValue := js.FuncOf(func(_ js.Value, args []js.Value) any {
 		valueCalls++
 		gotCell = args[0].Get("cell").String()
 		gotValue = args[0].Get("value")
+		gotEpoch = args[0].Get("epoch").Float()
 		return nil
 	})
 	p.subscribe(fnRendered.Value)
@@ -263,6 +265,11 @@ func TestPortSubscribeValuesTyped(t *testing.T) {
 	if gotValue.Float() != 40.24 {
 		t.Errorf("value event value = %v, want 40.24", gotValue.Float())
 	}
+	// The value event now carries its wave's epoch, so a consumer can group values
+	// coherently (#214 item 1).
+	if gotEpoch != 1 {
+		t.Errorf("value event epoch = %v, want 1", gotEpoch)
+	}
 
 	// A non-Done transition carries no typed value: the value subscriber must not
 	// fire, while the rendered subscriber still sees the lifecycle event.
@@ -275,5 +282,30 @@ func TestPortSubscribeValuesTyped(t *testing.T) {
 	}
 	if renderedCalls != 2 {
 		t.Errorf("rendered subscriber missed the running event: calls = %d, want 2", renderedCalls)
+	}
+
+	// The wave-settled marker (#214 item 2) reaches the value subscriber as
+	// {epoch, settled:true} with no cell/value — so a consumer buffering by epoch
+	// knows the wave is complete. The rendered subscriber gets it too, as the
+	// wire event {epoch, cell:"", state:"settled"}.
+	var settledEpoch float64
+	var sawSettled bool
+	fnSettled := js.FuncOf(func(_ js.Value, args []js.Value) any {
+		if args[0].Get("settled").Truthy() {
+			sawSettled = true
+			settledEpoch = args[0].Get("epoch").Float()
+		}
+		return nil
+	})
+	p.subscribeValues(fnSettled.Value)
+	ch3 := make(chan engine.Event, 1)
+	ch3 <- engine.Event{Epoch: 7, State: engine.StateSettled}
+	close(ch3)
+	p.pump(ch3)
+	if !sawSettled {
+		t.Error("value subscriber did not receive the wave-settled marker")
+	}
+	if settledEpoch != 7 {
+		t.Errorf("settled marker epoch = %v, want 7", settledEpoch)
 	}
 }

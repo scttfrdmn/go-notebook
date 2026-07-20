@@ -58,8 +58,10 @@
 
 /**
  * @typedef {Object} ValueEvent
- * @property {string} cell
- * @property {*} value   the cell's typed value, flattened to a plain JS value
+ * @property {number} [epoch]   the wave this value belongs to; lets a consumer group a wave's values coherently. Absent on a port that predates it.
+ * @property {string} [cell]    the cell whose value this is (absent on a settled marker)
+ * @property {*} [value]        the cell's typed value, flattened to a plain JS value (absent on a settled marker)
+ * @property {boolean} [settled] true on the terminal wave-settled marker: every value for `epoch` has now been delivered
  */
 
 /**
@@ -180,6 +182,42 @@ export class Notebook {
       throw new Error("go-notebook: this notebook's port has no subscribeValues (rebuild with a newer go-notebook)");
     }
     return this.port.subscribeValues(fn);
+  }
+
+  /**
+   * Subscribe to COHERENT per-wave value snapshots. This is the convenience over
+   * subscribeValues for a host that combines several derived values from one edit:
+   * it buffers each wave's typed values and calls fn once, when the wave settles,
+   * with { epoch, values } — every cell that updated in that wave, together, never
+   * a mix of two waves. Built entirely on the one value stream (the engine emits
+   * per-value events plus a terminal {settled} marker per wave); delete it and
+   * subscribeValues still works.
+   *
+   * Values from a superseded wave are dropped: the engine only emits a settled
+   * marker for the wave that actually completed, so a buffer for an abandoned
+   * epoch is discarded when a newer epoch's values arrive.
+   * @param {(snapshot: {epoch: number, values: Object<string,*>}) => void} fn
+   * @returns {() => void} unsubscribe
+   */
+  subscribeEpoch(fn) {
+    let epoch = null;
+    /** @type {Object<string,*>} */
+    let buf = {};
+    return this.subscribeValues((ev) => {
+      if (ev.settled) {
+        if (ev.epoch === epoch) fn({ epoch, values: buf });
+        // else: a settled marker for a wave we have no buffer for — ignore.
+        epoch = null;
+        buf = {};
+        return;
+      }
+      // A value for a newer wave supersedes any half-built older buffer.
+      if (ev.epoch !== epoch) {
+        epoch = ev.epoch;
+        buf = {};
+      }
+      if (ev.cell !== undefined) buf[ev.cell] = ev.value;
+    });
   }
 
   /** Run the first wave, so cells paint their defaults. */

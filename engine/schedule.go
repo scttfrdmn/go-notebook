@@ -285,6 +285,18 @@ func (r *Runtime) runWave(parent context.Context, epoch Epoch, snap map[LeafID]a
 			r.emit(r.doneEvent(epoch, res))
 		}
 	}
+
+	// The wave ran every level without being superseded: emit one terminal
+	// wave-settled marker (empty Cell) so a program consumer knows a COHERENT set
+	// of values — every cell that was going to update in this epoch — has arrived.
+	// Re-check supersession first: a newer edit may have landed while the last
+	// level ran, and in that case the newer wave will emit its own settled marker;
+	// emitting here too would let a consumer buffering by epoch see an older epoch
+	// settle after a newer one's values. A superseded wave returns above (markStale)
+	// and never reaches here.
+	if !r.superseded(epoch) {
+		r.emit(Event{Epoch: epoch, State: StateSettled})
+	}
 }
 
 // recordFinals stores the latest committed value of each produced symbol, for

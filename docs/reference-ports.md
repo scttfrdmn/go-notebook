@@ -63,14 +63,29 @@ The JSON payload is the frozen wire-event shape:
 | Field | Type | Meaning |
 |-------|------|---------|
 | `epoch` | number | the wave this event belongs to; monotonic, bumped per edit |
-| `cell` | string | the cell id |
-| `state` | string | `running` \| `done` \| `error` \| `blocked` \| `stale` |
+| `cell` | string | the cell id (empty on the wave-settled marker — see below) |
+| `state` | string | `running` \| `done` \| `error` \| `blocked` \| `stale` \| `settled` |
 | `mime` | string | present on `done` with rendered output (`image/svg+xml`, `text/html`, `text/markdown`, `text/plain`) |
 | `data` | string | the rendered payload for that MIME; omitted when empty |
 | `err` | string | present only on `state: "error"` |
 
 `mime`/`data`/`err` are omitted when empty (`omitempty`), so a bare transition
 carries only `epoch`/`cell`/`state`.
+
+**The wave-settled marker.** When a wave has run every cell to completion without
+being superseded by a newer edit, the stream emits one terminal event with an
+empty `cell`:
+
+```
+data: {"epoch":7,"cell":"","state":"settled"}
+```
+
+This tells a program the wave is coherent and complete — every cell that was going
+to update in epoch 7 has. A superseded wave never emits it (the newer wave will),
+so a consumer buffering by epoch can flush its set on `settled` and know it holds
+one wave's values, never a mix. The default UI ignores it (it keys on a cell that
+does not exist). This is the SSE parallel of the JS client's
+[`subscribeEpoch`](reference-js-client.html#coherent-per-wave-snapshots).
 
 ### `GET /leaves` — current leaf values
 
