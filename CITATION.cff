@@ -25,7 +25,7 @@ keywords:
   - literate computing
   - reproducibility
 license: Apache-2.0
-version: 0.4.0
+version: 0.5.0
 date-released: "2026-07-19"
 # The Zenodo concept DOI — always resolves to the latest version, so it never
 # needs updating. (The v0.2.0 version DOI is 10.5281/zenodo.21440009.)
