@@ -86,7 +86,7 @@ Keys under `values` are result names, so a downstream tool reads `f` the same wa
 
 The same notebook file compiles three ways, differing only in the compiler target:
 
-- **Interactive (WASM):** `build -target=wasm` → a directory you serve over HTTP; the notebook runs entirely client-side, no server.
+- **Interactive (WASM):** `build -target=wasm` → a directory you serve over HTTP; the notebook runs entirely client-side, no server. Getting that directory online — the required MIME type, caching, GitHub Pages / S3 / static hosts — is [publish & deploy](deployment.html).
 - **Headless (batch):** the native binary with `--headless --json` → run once, emit values; `scp` it to a cluster and `sbatch` it.
 - **Served (HTTP):** `run`, or the native binary serving → a live page backed by the process.
 
@@ -99,3 +99,7 @@ A common false positive: a cell that calls `fmt` on a number is flagged, because
 ## Provenance
 
 Every headless run and every built page carries a provenance record — see [provenance](reference-provenance.html) — so a figure can be traced to the exact source and toolchain that produced it.
+
+## Getting it online
+
+A `--target=wasm` build is a directory of static files. [Publish & deploy](deployment.html) covers serving it — the three emitted files, the one required `application/wasm` MIME type, the caching rule, GitHub Pages / S3+CloudFront / any static host, and a copy-paste GitHub Actions workflow.
