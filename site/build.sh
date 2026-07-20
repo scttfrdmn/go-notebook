@@ -17,12 +17,21 @@ for nb in capacity curvefit bayes anscombe nbody turing surface gpulife percolat
   /tmp/notebook-build build --target=wasm --showcase -o "site/demos/$nb" "examples/$nb"
 done
 
+# Two minimal recipes that are WASM-able and worth showing live. embedded-data
+# demonstrates go:embed staying browser-portable; csv-native is deliberately
+# ABSENT here — it uses os.Open + encoding/csv, so the WASM gate refuses it (that
+# native-only tradeoff is the recipe's whole point).
+for nb in embedded-data; do
+  /tmp/notebook-build build --target=wasm --showcase -o "site/demos/$nb" "examples/minimal/$nb"
+done
+
 # tempconv is the notebook the authoring tutorial builds; it's embedded in that
 # doc page (and teased at the end of the quickstart) as a working view.
 /tmp/notebook-build build --target=wasm -o "site/demos/tempconv" "examples/tempconv"
 
-# csv is the "normal analysis" example embedded live in the charts doc page.
-/tmp/notebook-build build --target=wasm --showcase -o "site/demos/csv" "examples/minimal/csv"
+# sales-analysis is the "normal analysis" example embedded live in the charts
+# doc page (the full parse → filter → summarize → chart workflow).
+/tmp/notebook-build build --target=wasm --showcase -o "site/demos/sales-analysis" "examples/minimal/sales-analysis"
 
 # The component demo: a host page that drives a notebook through the JS client
 # rather than mounting the built-in UI (site/component/{index,app}.js are

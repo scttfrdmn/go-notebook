@@ -1,32 +1,37 @@
 //go:notebook
 //
-// csv — normal analysis: read a CSV, filter it, summarize it, chart it.
+// sales-analysis — normal analysis, end to end: read a dataset, filter it,
+// summarize it, chart it.
 //
-// This is the shape most data work actually takes, and the one the other
-// examples skip: parse rows, drop the ones you don't want, compute a few
+// This is the shape most data work actually takes, and the one the smaller
+// recipes skip: parse rows, drop the ones you don't want, compute a few
 // numbers, and look at the result as a table and a picture. No dataframe, no
 // query language — the standard library and the optional nb/chart package.
 //
-// The CSV lives in a string constant (not a file) and is split with strings, so
-// the notebook is WASM-able and runs in the browser — strings touches neither the
-// filesystem nor the network. A note on the stdlib encoding/csv: it is the right
-// parser for real quoted/escaped CSV, but it transitively reaches os (through
-// fmt), so a cell that imports it is NOT browser-portable and the WASM gate will
-// refuse it. Use encoding/csv in a native/headless run (where you'd os.Open a
-// real file anyway); for the simple unquoted data here, a strings.Split parser is
-// both enough and portable. That tradeoff is the point, and it is visible in what
-// each cell is allowed to import.
+// The data lives in a string constant and is split with strings, so the whole
+// notebook is WASM-able and runs in the browser: strings touches neither the
+// filesystem nor the network. Two companion recipes isolate the two axes this
+// one combines:
 //
-//	go tool notebook run ./examples/minimal/csv
+//   - embedded-data — the same strings parser over a real go:embed'd file
+//     (compile-time, so still WASM-able). "Where does the data come from."
+//   - csv-native — os.Open + encoding/csv, the parser you reach for on real
+//     quoted data, with honest (row, error) handling. Native-only, because
+//     encoding/csv transitively reaches os and the WASM gate refuses it.
 //
-// Demonstrates: CSV parsing + filtering in a cell, nb/chart stats + Table + Bar,
-// and the WASM portability line. See https://go-notebook.dev/docs/reference-charts.html.
+// This file is the worked example the other two factor out of.
+//
+//	go tool notebook run ./examples/minimal/sales-analysis
+//
+// Demonstrates: parse + filter in a cell, nb/chart stats + Table + Bar, and the
+// full reactive workflow behind one slider. See
+// https://go-notebook.dev/docs/reference-charts.html.
 //
 //notebook:layout intro
 //notebook:layout summary | byRegion
 //notebook:layout rowsTable
 
-package csv
+package salesanalysis
 
 import (
 	"strconv"
@@ -37,8 +42,9 @@ import (
 )
 
 // The dataset, inlined so the notebook runs anywhere. Quarterly sales rows:
-// region, quarter, units, revenue. In a native run this would be os.Open(path)
-// piped to a parser.
+// region, quarter, units, revenue. The embedded-data recipe reads this exact
+// shape from a go:embed'd file instead; csv-native reads it from disk with
+// encoding/csv.
 const salesCSV = `region,quarter,units,revenue
 North,Q1,1200,54000
 North,Q2,1350,60750
@@ -63,10 +69,10 @@ West,Q3,780,35100`
 //notebook:slider min=0 max=60000 step=5000
 func minRevenue() (floor float64) { return 0 }
 
-// Parse the CSV and keep the rows at or above the floor. Split on newlines and
-// commas with strings — pure and WASM-able, no file and no socket (see the note
-// at the top on why encoding/csv would not be). Parsing lives in one cell so
-// everything downstream receives typed [Sale] rows, not raw strings.
+// Parse the dataset and keep the rows at or above the floor. Split on newlines
+// and commas with strings — pure and WASM-able, no file and no socket. Parsing
+// lives in one cell so everything downstream receives typed [Sale] rows, not raw
+// strings.
 func rows(floor float64) (sales []Sale) {
 	lines := strings.Split(strings.TrimSpace(salesCSV), "\n")
 	for _, line := range lines[1:] { // skip the header
@@ -142,9 +148,8 @@ func byRegion(sales []Sale) (bars chart.BarChart) {
 // as the cell result).
 func intro() (md Markdown) {
 	return `**Normal analysis, no dataframe.** A CSV in a string, parsed with the
-standard library (` + "`strings.Split`" + ` — see the source note on ` + "`encoding/csv`" + `
-and the browser), filtered with a plain ` + "`if`" + `, summarized and charted with
-the optional ` + "`nb/chart`" + ` package.
+standard library (` + "`strings.Split`" + `), filtered with a plain ` + "`if`" + `,
+summarized and charted with the optional ` + "`nb/chart`" + ` package.
 
 Drag **min revenue** above: the parse-and-filter cell reruns, and the table, the
 summary, and the bars downstream of it all recompute — because each is a function

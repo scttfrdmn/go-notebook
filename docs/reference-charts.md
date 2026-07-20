@@ -85,15 +85,15 @@ You do not configure any of this. It is the same on every chart, which is what l
 
 ## Try it
 
-The [`minimal/csv`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/csv) example — the "normal analysis" workflow, parse → filter → summarize → chart — compiled to WebAssembly and running right here. Drag **min revenue**: the parse-and-filter cell reruns, and the summary cards, the region bars, and the filtered table all recompute downstream.
+The [`minimal/sales-analysis`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/sales-analysis) example — the "normal analysis" workflow, parse → filter → summarize → chart — compiled to WebAssembly and running right here. Drag **min revenue**: the parse-and-filter cell reruns, and the summary cards, the region bars, and the filtered table all recompute downstream.
 
-<div class="demoframe"><iframe src="../demos/csv/index.html" loading="lazy" title="the minimal/csv notebook, live"></iframe></div>
+<div class="demoframe"><iframe src="../demos/sales-analysis/index.html" loading="lazy" title="the minimal/sales-analysis notebook, live"></iframe></div>
 
 ## The boundary
 
 > `nb/chart` draws five forms well and will never grow a sixth axis, subplots, secondary y-axes, custom themes, animation, or a legend DSL. It is the 1% done excellently, not a plotting library. When you need more: the raw HTML/SVG `Render()` escape hatch (always there) or import `gonum/plot`. The toolchain never depends on this package.
 
-This paragraph is the whole safety mechanism. The package is a **product boundary** — depth on a fixed set — not a scope that grows. The trap it avoids is the one every plotting library falls into: one more chart type, one more option, until the surface is unlearnable. There is also, deliberately, **no dataframe or query API** — no filter, group, or join. That is a second, deeper trap (a pandas in miniature). Normal analysis closes the gap with plain Go: parse with the standard library, filter with an `if`, group with a `map`. See the [`minimal/csv`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/csv) example, which does exactly that and charts the result.
+This paragraph is the whole safety mechanism. The package is a **product boundary** — depth on a fixed set — not a scope that grows. The trap it avoids is the one every plotting library falls into: one more chart type, one more option, until the surface is unlearnable. There is also, deliberately, **no dataframe or query API** — no filter, group, or join. That is a second, deeper trap (a pandas in miniature). Normal analysis closes the gap with plain Go: parse with the standard library, filter with an `if`, group with a `map`. See the [`minimal/sales-analysis`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/sales-analysis) example, which does exactly that and charts the result.
 
 ## Portability
 

@@ -14,9 +14,9 @@ go tool notebook check ./examples/minimal/<name>   # print the dependency graph
 
 Read them roughly top-to-bottom; each builds on the last. Every recipe links to
 its complete source and to the reference page for the mechanism it isolates. Most
-are 15–65 lines; two (`draggable`, `csv`) are longer because they include a full
-rendering and end-to-end composition — the line count is noted so you know which
-is a one-mechanism recipe and which is a worked example.
+are 15–65 lines; two (`draggable`, `sales-analysis`) are longer because they
+include a full rendering and end-to-end composition — the line count is noted so
+you know which is a one-mechanism recipe and which is a worked example.
 
 ## Inputs — how a value becomes a control
 
@@ -38,7 +38,14 @@ is a one-mechanism recipe and which is a worked example.
 |--------|-----------|-------|-----------|
 | [`htmlcard`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/htmlcard) | a `text/html` `Render()` — the gentlest rich output; uses the optional `nb` package | 45 | [rendering](reference-rendering.html) |
 | [`svgchart`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/svgchart) | an `image/svg+xml` `Render()` — the low-level, zero-import route | 44 | [rendering](reference-rendering.html) |
-| [`csv`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/csv) | normal analysis: parse CSV → filter → summarize → `nb/chart` Table + Bar, no dataframe *(worked example)* | 201 | [charts](reference-charts.html) |
+| [`sales-analysis`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/sales-analysis) | normal analysis end-to-end: parse → filter → summarize → `nb/chart` Table + Bar, no dataframe *(worked example)* | 206 | [charts](reference-charts.html) |
+
+## Getting data in
+
+| Recipe | Mechanism | Lines | Reference |
+|--------|-----------|-------|-----------|
+| [`embedded-data`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/embedded-data) | `go:embed` a dataset (compile-time → still WASM-able), parse with `strings` | 74 | [charts](reference-charts.html) |
+| [`csv-native`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/csv-native) | `os.Open` + `encoding/csv` with honest `(rows, error)`; native-only | 125 | [charts](reference-charts.html) |
 
 ## Graph shape and behavior
 
