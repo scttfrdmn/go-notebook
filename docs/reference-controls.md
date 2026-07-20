@@ -63,7 +63,7 @@ Each row links to a complete, buildable notebook in
 | Select (one choice) | a type with `Options() []string` + a scalar `Value` field | [`selectbox`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/selectbox) |
 | Multi-select | `Options() []string` + a **slice** `Value` field | [`multiselect`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/multiselect) |
 | Range (from/to) | a type with `Bounds() (lo, hi float64)` | [`rangecontrol`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/rangecontrol) |
-| Draggable points | a slice `Value` + a `Grip(i)` method, drawn as grip `Handle`s in a `Render` | [`draggable`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/draggable) |
+| Draggable points | a slice `Value` + a `Grip(i)` method, drawn as `Handle` grips in a `Render` | [`draggable`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/draggable) |
 | Editable table | a type with a slice-of-struct `Value` field | [`table`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/table) |
 
 A few specifics the table can't hold:

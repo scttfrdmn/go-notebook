@@ -14,10 +14,10 @@ go tool notebook check ./examples/minimal/<name>   # print the dependency graph
 
 Read them roughly top-to-bottom; each builds on the last. Every recipe links to
 its complete source and to the reference page for the mechanism it isolates. Most
-are 15–65 lines; a few (`draggable`, `sales-analysis`, `wrap-existing-package`)
-are longer because they include a full rendering, an end-to-end composition, or a
-wrapped API surface — the line count is noted so you know which is a one-mechanism
-recipe and which is a worked example.
+are under ~75 lines; a couple (`draggable`, `wrap-existing-package`) run longer
+because they include a full direct-manipulation rendering or a wrapped API
+surface — the line count is noted so you know which is a one-mechanism recipe and
+which is a worked example.
 
 ## Inputs — how a value becomes a control
 
