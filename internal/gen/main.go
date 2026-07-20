@@ -233,9 +233,34 @@ func mainBody(alias string) string {
 	flag.Var(&sets, "set", "override a leaf: --set leaf=value (repeatable)")
 	flag.Parse()
 
-	head, err := engine.OpenHead(*headPath)
-	if err != nil {
-		log.Fatalf("open head: %v", err)
+	// headSpecified reports whether --head was passed explicitly, distinct from
+	// the flag merely holding its default. It selects head persistence by mode
+	// below.
+	headSpecified := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "head" {
+			headSpecified = true
+		}
+	})
+
+	// Choose the head by mode. A batch run (--headless/--json) must be a pure
+	// function of (source, --set): it starts from a fresh in-memory head and
+	// applies only the --set overrides, so the SAME binary and flags give the
+	// SAME output regardless of what a prior interactive run left in the working
+	// directory. (An implicit notebook-head.json in the CWD silently merging into
+	// batch output is exactly the reproducibility hole #208 — printJSON's own
+	// provenance claim demands determinism.) An interactive run keeps its
+	// persisted head so restart is a non-event. Passing --head explicitly opts
+	// batch back into a named, reproducible-by-path head — the deliberate case.
+	var head *engine.Head
+	if (*headless || *asJSON) && !headSpecified {
+		head = engine.NewHead()
+	} else {
+		var err error
+		head, err = engine.OpenHead(*headPath)
+		if err != nil {
+			log.Fatalf("open head: %v", err)
+		}
 	}
 
 	rt := engine.NewRuntime(engine.Config{

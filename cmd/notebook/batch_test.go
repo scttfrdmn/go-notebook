@@ -274,6 +274,87 @@ func TestBatchHandleLeafDeliversNewData(t *testing.T) {
 	}
 }
 
+// TestBatchIgnoresStrayHeadInCWD is the anti-pass for #208: a headless --json
+// run must be a pure function of (source, --set). It must NOT silently merge a
+// notebook-head.json that a prior interactive or --set run left in the working
+// directory — same binary, same flags, different CWD state has to give the same
+// output, or the reproducibility claim printJSON makes ("the exact source/commit
+// that produced it") has no teeth. Driven on the real built binary in two
+// controlled working directories: the generated main is a template string that
+// go test never compiles (a build-tag-shaped blind spot, the #91 lesson), so
+// only a built binary exercises the head-selection path this guards.
+func TestBatchIgnoresStrayHeadInCWD(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds a binary; skipped in -short mode")
+	}
+	root := repoRoot(t)
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "capnb")
+	if code := cmdBuild([]string{"-o", bin, filepath.Join(root, "examples", "capacity")}); code != 0 {
+		t.Fatalf("build returned %d", code)
+	}
+
+	// Run headless --json in a given working directory with NO --head, so the
+	// binary falls back to its default head path (notebook-head.json, resolved
+	// relative to the CWD) — the exact path a stray file would occupy.
+	runIn := func(dir string) map[string]any {
+		cmd := exec.Command(bin, "--headless", "--json")
+		cmd.Dir = dir
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("run in %s: %v", dir, err)
+		}
+		return jsonValues(t, out)
+	}
+
+	// A clean directory: the batch result is the source's own defaults (c=80).
+	cleanDir := filepath.Join(tmp, "clean")
+	if err := os.Mkdir(cleanDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	clean := runIn(cleanDir)
+	if got := fmt.Sprint(clean["c"]); got != "80" {
+		t.Fatalf("clean batch c=%v, want 80 (the source default) — test premise broken", got)
+	}
+
+	// A directory a prior interactive/--set run polluted with a notebook-head.json
+	// overriding a leaf (c=200, vs the source default 80). Writing the file
+	// directly models the leftover artifact faithfully, independent of how the
+	// running binary happens to persist.
+	dirtyDir := filepath.Join(tmp, "dirty")
+	if err := os.Mkdir(dirtyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dirtyDir, "notebook-head.json"), []byte(`{"c":200}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dirty := runIn(dirtyDir)
+
+	// The whole claim: a no---set batch run reports the SOURCE default, never the
+	// stray head's override. Equal to the clean run, and concretely 80 (not 200).
+	if got := fmt.Sprint(dirty["c"]); got != "80" {
+		t.Errorf("batch --json merged a stray notebook-head.json: c=%v, want 80 "+
+			"(the source default, not the leftover 200) — batch output is not a "+
+			"pure function of (source, --set)", got)
+	}
+
+	// The explicit --head opt-in must still apply a named head in batch: that is
+	// the deliberate, reproducible-by-path mode (a launcher that WANTS a snapshot
+	// passes it explicitly). This pins the fix doesn't over-correct by ignoring
+	// head entirely — only the implicit CWD default is dropped for batch.
+	explicitHead := filepath.Join(tmp, "explicit-head.json")
+	if err := os.WriteFile(explicitHead, []byte(`{"c":200}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command(bin, "--headless", "--json", "--head", explicitHead).Output()
+	if err != nil {
+		t.Fatalf("explicit --head run: %v", err)
+	}
+	if got := fmt.Sprint(jsonValues(t, out)["c"]); got != "200" {
+		t.Errorf("explicit --head should apply the named head in batch: c=%v, want 200", got)
+	}
+}
+
 // jsonValues parses the batch --json envelope and returns its "values" submap
 // (the cell results), failing the test if the shape is wrong.
 func jsonValues(t *testing.T, out []byte) map[string]any {
