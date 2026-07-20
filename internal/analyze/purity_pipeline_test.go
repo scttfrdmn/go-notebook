@@ -48,3 +48,41 @@ func TestRefinePurityInColdPath(t *testing.T) {
 		t.Error("no cell is Pure after refinement — purity derivation did not run")
 	}
 }
+
+// TestWiredEdgeImportsCollected is the analyzer half of the check≠build fix: a
+// cell that takes a wired input whose type comes from an imported package must
+// record that package in Graph.Imports, so codegen can import it in the registry.
+// wrap-existing-package flows a *regexp.Regexp edge (produced by compile) into
+// three cells, so "regexp" must be recorded — and NOTHING else, since its view
+// types are local and no result type is a foreign package (results are assigned,
+// not asserted, so they contribute no import even when imported).
+func TestWiredEdgeImportsCollected(t *testing.T) {
+	dir := filepath.Join("..", "..", "examples", "minimal", "wrap-existing-package")
+	res, err := LoadPackage(dir)
+	if err != nil {
+		t.Fatalf("LoadPackage: %v", err)
+	}
+	if len(res.Graph.Imports) != 1 {
+		t.Fatalf("expected exactly one wired-edge import, got %+v", res.Graph.Imports)
+	}
+	if got := res.Graph.Imports[0]; got.Path != "regexp" || got.Name != "regexp" {
+		t.Errorf("wired-edge import = %+v, want {Path:regexp Name:regexp}", got)
+	}
+}
+
+// TestContextParamRecordsNoImport pins the injected-vs-wired distinction: a
+// context.Context parameter is supplied by the runtime and renders as ctx in the
+// generated call — it is never type-asserted, so it must NOT enter Graph.Imports
+// (which would emit a spurious, though harmless, "context" edge import). The
+// cancel example takes a context param and no other imported-package edge, so its
+// Imports must be empty.
+func TestContextParamRecordsNoImport(t *testing.T) {
+	dir := filepath.Join("..", "..", "examples", "minimal", "cancel")
+	res, err := LoadPackage(dir)
+	if err != nil {
+		t.Fatalf("LoadPackage: %v", err)
+	}
+	if len(res.Graph.Imports) != 0 {
+		t.Errorf("cancel has only a context param (injected, not wired) — Imports should be empty, got %+v", res.Graph.Imports)
+	}
+}

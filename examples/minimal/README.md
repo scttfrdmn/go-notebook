@@ -53,6 +53,7 @@ Read them roughly top-to-bottom; each builds on the last.
 | [`errorcell`](errorcell) | a `(value, error)` cell, partial failure, blocked-upstream | 50 | [design](https://go-notebook.dev/docs/design.html) |
 | [`cancel`](cancel) | `context.Context` injection, cancellable recompute | 40 | [design](https://go-notebook.dev/docs/design.html) |
 | [`multi-file-package`](multi-file-package) | a notebook spanning several `.go` files: only one carries `//go:notebook`, but cells use types/methods/helpers from the sibling files — it is an ordinary Go package | 3 files | [design](https://go-notebook.dev/docs/design.html) |
+| [`wrap-existing-package`](wrap-existing-package) | a thin reactive view over a mature Go API: cells just call the existing package (here stdlib `regexp`) — you wrap your code, you don't rewrite it | 195 | [design](https://go-notebook.dev/docs/design.html) |
 
 ## Build, run, feed, test
 

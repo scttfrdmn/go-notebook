@@ -14,9 +14,10 @@ go tool notebook check ./examples/minimal/<name>   # print the dependency graph
 
 Read them roughly top-to-bottom; each builds on the last. Every recipe links to
 its complete source and to the reference page for the mechanism it isolates. Most
-are 15–65 lines; two (`draggable`, `sales-analysis`) are longer because they
-include a full rendering and end-to-end composition — the line count is noted so
-you know which is a one-mechanism recipe and which is a worked example.
+are 15–65 lines; a few (`draggable`, `sales-analysis`, `wrap-existing-package`)
+are longer because they include a full rendering, an end-to-end composition, or a
+wrapped API surface — the line count is noted so you know which is a one-mechanism
+recipe and which is a worked example.
 
 ## Inputs — how a value becomes a control
 
@@ -57,6 +58,7 @@ you know which is a one-mechanism recipe and which is a worked example.
 | [`errorcell`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/errorcell) | a `(value, error)` cell, partial failure, blocked-upstream | 50 | [design](design.html) |
 | [`cancel`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/cancel) | `context.Context` injection, cancellable recompute | 40 | [design](design.html) |
 | [`multi-file-package`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/multi-file-package) | a notebook spanning several `.go` files: only one carries `//go:notebook`, but cells use types/methods/helpers from the sibling files — it is an ordinary Go package | 3 files | [design](design.html) |
+| [`wrap-existing-package`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/wrap-existing-package) | a thin reactive view over a mature Go API: cells just call the existing package (here stdlib `regexp`) — you wrap your code, you don't rewrite it | 195 | [design](design.html) |
 
 ## Build, run, feed, test
 

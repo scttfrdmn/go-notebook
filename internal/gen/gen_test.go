@@ -67,6 +67,54 @@ func TestRegistryIsValidGo(t *testing.T) {
 	}
 }
 
+// TestRegistryImportsWiredEdgePackages is the regression for the check≠build gap
+// that the wrap-existing-package example surfaced: a cell can take a wired input
+// whose type comes from an imported package (there, a *regexp.Regexp produced by
+// a compile cell). The registry asserts every wired input as `in[...].(T)`, so it
+// must IMPORT that package or the generated file won't compile — even though the
+// notebook itself type-checks fine. Before the fix the registry imported only
+// context+engine, so this notebook passed `check` and failed `build` with
+// "undefined: regexp". This pins both halves: the import is emitted, and the
+// assertion that needs it is present.
+func TestRegistryImportsWiredEdgePackages(t *testing.T) {
+	root := moduleRoot(t)
+	dir := filepath.Join(root, "examples", "minimal", "wrap-existing-package")
+
+	res, err := analyze.LoadPackage(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg, err := Registry(res.Graph, res.Package)
+	if err != nil {
+		t.Fatalf("Registry: %v", err)
+	}
+	src := string(reg.Content)
+
+	// The wired-input assertion that names the imported type...
+	if !strings.Contains(src, `in["re"].(*regexp.Regexp)`) {
+		t.Errorf("registry should assert the *regexp.Regexp edge; got:\n%s", src)
+	}
+	// ...and the import that makes it compile. Without this line the generated
+	// file is invalid Go ("undefined: regexp") — the bug this test guards.
+	if !regexp.MustCompile(`(?m)^\s*"regexp"\s*$`).MatchString(src) {
+		t.Errorf("registry must import \"regexp\" for the wired *regexp.Regexp edge; got:\n%s", src)
+	}
+
+	// And it really is valid Go end to end (the assertion + its import agree).
+	fset := token.NewFileSet()
+	if _, err := parser.ParseFile(fset, reg.Name, reg.Content, parser.AllErrors); err != nil {
+		t.Fatalf("generated registry is not valid Go: %v\n%s", err, reg.Content)
+	}
+
+	// A RESULT-only imported type must NOT drag in an import: results are assigned,
+	// never asserted, so they need nothing. The view types here (Highlight, …) are
+	// local, and no result type is a foreign package — so the ONLY edge import is
+	// regexp. This pins that we import for wired inputs, not for every type seen.
+	if got := len(res.Graph.Imports); got != 1 {
+		t.Errorf("expected exactly one wired-edge import (regexp), got %d: %+v", got, res.Graph.Imports)
+	}
+}
+
 // TestMetaCarriesDependencyEdges confirms the graph view's data: each cell's
 // CellMeta.In lists the cells whose output it consumes, derived from the wiring
 // (§8 — assert the actual edges, not that a field exists). utilization(a, c)

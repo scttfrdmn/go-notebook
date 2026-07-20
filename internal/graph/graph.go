@@ -163,6 +163,24 @@ type Graph struct {
 	// an empty Layout renders in source Order (degrade-to-linear). It carries no
 	// Go types and never affects execution or wiring; the scheduler never sees it.
 	Layout [][]string `json:"layout,omitempty"`
+	// Imports are the non-local packages whose types appear on WIRED edges — the
+	// types codegen renders inside `in[...].(T)` assertions in the registry. The
+	// registry lives in the notebook's package but is a separate generated file,
+	// so it must import every package a wired-input type names (e.g. `regexp` for
+	// a `*regexp.Regexp` edge). Derived by the analyzer from go/types, kept here
+	// as plain data (like Widget columns), so codegen never parses a type string
+	// to recover an import path. Result types need no entry — they are assigned,
+	// not asserted. Nil when every wired edge is a local or builtin type.
+	Imports []Import `json:"imports,omitempty"`
+}
+
+// Import is one package the generated registry must import: its import Path and
+// the package Name the rendered type strings qualify with (usually the last path
+// segment, but not always — codegen aliases when they differ). Plain data, no
+// go/types, so the IR stays serializable and compiler-free.
+type Import struct {
+	Path string `json:"path"`
+	Name string `json:"name"`
 }
 
 // New returns an empty Graph with initialized maps.
