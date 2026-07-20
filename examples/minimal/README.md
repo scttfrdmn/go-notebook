@@ -42,6 +42,7 @@ Read them roughly top-to-bottom; each builds on the last.
 |---------|-----------|-------|-----------|
 | [`embedded-data`](embedded-data) | `go:embed` a dataset (compile-time → still WASM-able), parse with `strings` | 74 | [charts](https://go-notebook.dev/docs/reference-charts.html) |
 | [`csv-native`](csv-native) | `os.Open` + `encoding/csv` with honest `(rows, error)`; native-only (the gate refuses `os`) | 125 | [charts](https://go-notebook.dev/docs/reference-charts.html) |
+| [`file-and-artifact`](file-and-artifact) | both I/O seams outside the cells: `go:embed` in (WASM-able), a sibling program that imports the cells and writes a `.svg` out | 119 + writer | [build & run](https://go-notebook.dev/docs/reference-build-run.html) |
 
 ## Graph shape and behavior
 

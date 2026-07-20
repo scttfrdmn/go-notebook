@@ -46,6 +46,7 @@ you know which is a one-mechanism recipe and which is a worked example.
 |--------|-----------|-------|-----------|
 | [`embedded-data`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/embedded-data) | `go:embed` a dataset (compile-time → still WASM-able), parse with `strings` | 74 | [charts](reference-charts.html) |
 | [`csv-native`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/csv-native) | `os.Open` + `encoding/csv` with honest `(rows, error)`; native-only | 125 | [charts](reference-charts.html) |
+| [`file-and-artifact`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/file-and-artifact) | both I/O seams outside the cells: `go:embed` in (WASM-able), a sibling program that imports the cells and writes a `.svg` out | 119 + writer | [build & run](reference-build-run.html) |
 
 ## Graph shape and behavior
 
