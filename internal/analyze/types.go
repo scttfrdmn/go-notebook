@@ -267,6 +267,10 @@ func buildCell(fset *token.FileSet, fn *ast.FuncDecl, fnObj *types.Func, q types
 	// A cell whose output has a Render() method must return the shape the
 	// engine's reflection probe reads; a typo would silently not render.
 	diags = append(diags, checkRenderShape(fset, cell.ID, cell.Pos, results)...)
+	// The input-side sibling: a control-capability method (Bounds/Options/
+	// Reconcile) named right but shaped wrong fails the engine's runtime interface
+	// probe and the control silently never appears — report the near-miss here.
+	diags = append(diags, checkCapabilityShapes(cell.ID, cell.Pos, results)...)
 	// Prev[T] folds are deferred this milestone. The Delayed edge kind and the
 	// analyzer branch ship now (the seam), but a notebook that actually uses a
 	// fold is reported as unsupported rather than silently mis-scheduled.
