@@ -8,13 +8,26 @@ Codegen fills a provenance record at build time; every transport displays it (a 
 
 | Field | Meaning |
 |-------|---------|
-| `sourceHash` | content hash of the notebook source — the identity of *what was built*, independent of path or filename. **Always present.** |
+| `sourceHash` | content hash of the notebook **package source** — all its non-generated `.go` files, independent of path or filename. **Always present.** (Scope below.) |
 | `commit` | the git commit, when the notebook is in a repo |
 | `dirty` | `true` if the working tree had uncommitted changes at build time |
 | `builtAt` | build time (RFC3339) |
-| `goVersion` | the toolchain that compiled the artifact |
+| `goVersion` | the Go toolchain that compiled the artifact |
+| `toolVersion` | the go-notebook toolchain that generated it — codegen changes can change behavior for identical source. Present only for a released tool (a dev build omits it). |
 
-All fields except `sourceHash` are best-effort: a notebook outside a git repo is a normal case, so the git fields are simply empty then. The content hash is always there — it is the artifact's true identity.
+All fields except `sourceHash` are best-effort: a notebook outside a git repo is a normal case, so the git fields are simply empty then, and `toolVersion` is empty for an un-versioned dev build. The source hash is always present.
+
+### What `sourceHash` covers — and what it doesn't
+
+`sourceHash` is the content identity of the **package source**: it hashes *every* non-generated `.go` file in the notebook's package (not just the file carrying `//go:notebook`), so a helper or type in a sibling `.go` changes the hash. Change one character in any of them and the hash changes; move or rename the directory and it does not.
+
+It is deliberately **not** a full build-input identity. It does **not** cover:
+
+- `go:embed`ed assets (a dataset baked into the binary — change it and `sourceHash` is unmoved),
+- `go.mod` / `go.sum` / imported module versions,
+- build tags or compiler flags.
+
+So `sourceHash` answers *"is this the same package source?"*, not *"is this bit-for-bit the same computation?"* — an honest narrow claim rather than a broad one the hash can't back. The **content-addressed `.wasm` filename** (`notebook-<hash>.wasm`) is the closest thing to a full artifact identity today, since it hashes the compiled bytes. Extending the record to layered identities (package source → build inputs → artifact bytes) for native and headless builds is tracked in [issue #224](https://github.com/scttfrdmn/go-notebook/issues/224).
 
 ## In the headless output
 
@@ -26,7 +39,8 @@ All fields except `sourceHash` are best-effort: a notebook outside a git repo is
     "sourceHash": "b6827ee1b90e…",
     "commit": "f7aab67",
     "builtAt": "2026-07-19T05:31:03Z",
-    "goVersion": "go1.26.5"
+    "goVersion": "go1.26.5",
+    "toolVersion": "v0.5.0"
   },
   "values": { "c": 20, "f": 68 }
 }
