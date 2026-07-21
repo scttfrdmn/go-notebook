@@ -160,11 +160,12 @@ type WidgetColumn struct {
 // are best-effort — a notebook outside a git repo is a normal case, so SourceHash
 // alone (the content identity) is always present and the git fields may be empty.
 type Provenance struct {
-	// SourceHash is the content hash of the notebook PACKAGE source — all of its
-	// non-generated .go files, independent of path or filename. It is the content
-	// identity of the source, not a full build-input identity: it does not cover
-	// go:embed assets, the module graph, or build tags (see the provenance
-	// reference / issue #224). Always present.
+	// SourceHash is the content hash of the notebook PACKAGE source AND its
+	// embedded data — all of its non-generated .go files plus every file baked in
+	// with go:embed, independent of path or filename. It is the content identity of
+	// the source, not a full build-input identity: it does not cover the module
+	// graph (go.mod/go.sum) or build tags (see the provenance reference / issue
+	// #224). Always present.
 	SourceHash string `json:"sourceHash"`
 	// Commit and Dirty describe the git state, when a repo is present. Dirty
 	// means the working tree had uncommitted changes at build time.

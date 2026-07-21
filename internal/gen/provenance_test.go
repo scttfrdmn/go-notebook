@@ -20,7 +20,7 @@ func TestSourceHashIsContentIdentity(t *testing.T) {
 	if err := os.WriteFile(f, []byte("package nb\n\nfunc x() (a int) { return 1 }\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	h1, err := hashSources([]string{f})
+	h1, err := hashSources([]string{f}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,16 +29,71 @@ func TestSourceHashIsContentIdentity(t *testing.T) {
 	dir2 := t.TempDir()
 	f2 := filepath.Join(dir2, "nb.go")
 	_ = os.WriteFile(f2, []byte("package nb\n\nfunc x() (a int) { return 1 }\n"), 0o644)
-	h2, _ := hashSources([]string{f2})
+	h2, _ := hashSources([]string{f2}, nil)
 	if h1 != h2 {
 		t.Errorf("same contents at a different path must hash the same: %s vs %s", h1, h2)
 	}
 
 	// One character changed → different hash.
 	_ = os.WriteFile(f, []byte("package nb\n\nfunc x() (a int) { return 2 }\n"), 0o644)
-	h3, _ := hashSources([]string{f})
+	h3, _ := hashSources([]string{f}, nil)
 	if h1 == h3 {
 		t.Error("a one-character source change must change the hash")
+	}
+}
+
+// TestSourceHashCoversEmbeds is the #224 gap this closes: a go:embed'd asset is
+// part of what the built artifact computes over, so a change to it must change the
+// source hash — otherwise a dataset baked into the binary could change results
+// with the artifact's identity unmoved. Driven at the hash level: same .go, an
+// embed file whose one byte changes → a different hash.
+func TestSourceHashCoversEmbeds(t *testing.T) {
+	dir := t.TempDir()
+	goFile := filepath.Join(dir, "nb.go")
+	if err := os.WriteFile(goFile, []byte("package nb\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	data := filepath.Join(dir, "data.csv")
+	if err := os.WriteFile(data, []byte("a,b\n1,2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	withEmbed, err := hashSources([]string{goFile}, []string{data})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The same .go with NO embed hashes differently — the embed is part of identity.
+	goOnly, _ := hashSources([]string{goFile}, nil)
+	if withEmbed == goOnly {
+		t.Error("hashing with an embed file must differ from hashing the .go alone")
+	}
+
+	// One byte of the embedded data changes → the hash changes.
+	_ = os.WriteFile(data, []byte("a,b\n1,3\n"), 0o644)
+	changed, _ := hashSources([]string{goFile}, []string{data})
+	if withEmbed == changed {
+		t.Error("a one-byte change to an embedded asset must change the source hash")
+	}
+}
+
+// TestLoadPackageCapturesEmbeds confirms the codegen load actually surfaces the
+// embedded files, driven on the real embedded-data example (which embeds
+// sales.csv). Without this, hashSources would receive an empty embed set and the
+// coverage above would be dead in practice.
+func TestLoadPackageCapturesEmbeds(t *testing.T) {
+	root := moduleRoot(t)
+	res, err := analyze.LoadPackage(filepath.Join(root, "examples", "minimal", "embedded-data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, f := range res.Package.EmbedFiles {
+		if strings.HasSuffix(f, "sales.csv") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("LoadPackage did not capture the go:embed sales.csv; EmbedFiles = %v", res.Package.EmbedFiles)
 	}
 }
 
@@ -63,7 +118,7 @@ func TestRegistryEmitsProvenance(t *testing.T) {
 		t.Errorf("provenance should carry the Go version")
 	}
 	// The emitted hash must be the real one for these files, not a placeholder.
-	wantHash, _ := hashSources(res.Package.GoFiles)
+	wantHash, _ := hashSources(res.Package.GoFiles, res.Package.EmbedFiles)
 	if !strings.Contains(src, "SourceHash: \""+wantHash+"\"") {
 		t.Errorf("emitted source hash does not match the files' content hash")
 	}

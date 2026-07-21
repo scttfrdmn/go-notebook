@@ -49,7 +49,7 @@ type Provenance struct {
 // absent. builtAt is passed in rather than read from the clock so the caller
 // controls determinism (tests pass a fixed time; the CLI passes time.Now).
 func computeProvenance(info analyze.PackageInfo, builtAt time.Time) (Provenance, error) {
-	hash, err := hashSources(info.GoFiles)
+	hash, err := hashSources(info.GoFiles, info.EmbedFiles)
 	if err != nil {
 		return Provenance{}, err
 	}
@@ -64,36 +64,46 @@ func computeProvenance(info analyze.PackageInfo, builtAt time.Time) (Provenance,
 	}, nil
 }
 
-// hashSources content-hashes the notebook package's source files. The hash is
-// over each file's base name and bytes, in sorted order, so it is stable and
-// identifies the CONTENTS — change one character in any package .go file and the
-// hash changes; move or rename the directory and it does not.
+// hashSources content-hashes the notebook package's source: its non-generated
+// .go files AND its go:embed'd assets. The hash is over each file's base name and
+// bytes, in sorted order within each kind, so it is stable and identifies the
+// CONTENTS — change one character in any .go file, or one byte of an embedded
+// dataset, and the hash changes; move or rename the directory and it does not.
 //
-// SCOPE (deliberately named, not "everything"): this covers exactly the package's
-// non-generated .go files — all of them, not just the marked notebook file, so a
-// helper in a sibling .go changes the hash. It does NOT cover go:embed'd assets,
-// go.mod/go.sum, imported module versions, or build tags. So SourceHash is the
-// content identity of the PACKAGE SOURCE, not a full build-input identity — see
-// docs/reference-provenance.md and issue #224 for the layering that would add
-// those. Naming the scope honestly is the point: a narrow true claim beats a
-// broad one the hash can't back.
-func hashSources(goFiles []string) (string, error) {
-	files := append([]string(nil), goFiles...)
-	sort.Strings(files)
+// SCOPE (deliberately named, not "everything"): this covers all of the package's
+// non-generated .go files (not just the marked notebook file, so a helper in a
+// sibling .go changes the hash) and every file baked in with go:embed (so a
+// dataset compiled into the binary is part of its identity — a change to it can
+// change results, and now changes the hash). It does NOT cover go.mod/go.sum,
+// imported module versions, or build tags. So SourceHash is the content identity
+// of the PACKAGE SOURCE AND ITS EMBEDDED DATA, not a full build-input identity —
+// see docs/reference-provenance.md and issue #224 for the module-graph and
+// artifact-bytes layers still open. Naming the scope honestly is the point.
+//
+// go and embed files are hashed in separate framed groups so a contrived rename
+// (a .go and an embed asset sharing a base name) can never collide across the two
+// sets; within each group order is sorted for stability.
+func hashSources(goFiles, embedFiles []string) (string, error) {
 	h := sha256.New()
-	for _, f := range files {
-		b, err := os.ReadFile(f)
-		if err != nil {
-			return "", fmt.Errorf("hashing %s: %w", f, err)
+	for _, group := range [][]string{goFiles, embedFiles} {
+		files := append([]string(nil), group...)
+		sort.Strings(files)
+		for _, f := range files {
+			b, err := os.ReadFile(f)
+			if err != nil {
+				return "", fmt.Errorf("hashing %s: %w", f, err)
+			}
+			base := f
+			if i := strings.LastIndexByte(base, '/'); i >= 0 {
+				base = base[i+1:]
+			}
+			// Writes to a hash.Hash never error; the length prefixes frame each file
+			// so contents can't collide across boundaries.
+			_, _ = fmt.Fprintf(h, "%d:%s\n%d:", len(base), base, len(b))
+			_, _ = h.Write(b)
 		}
-		base := f
-		if i := strings.LastIndexByte(base, '/'); i >= 0 {
-			base = base[i+1:]
-		}
-		// Writes to a hash.Hash never error; the length prefixes frame each file
-		// so contents can't collide across boundaries.
-		_, _ = fmt.Fprintf(h, "%d:%s\n%d:", len(base), base, len(b))
-		_, _ = h.Write(b)
+		// A group separator so [{a},{b}] and [{a,b},{}] can't hash alike.
+		_, _ = fmt.Fprint(h, "|")
 	}
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }

@@ -22,6 +22,11 @@ type PackageInfo struct {
 	Dir string
 	// GoFiles are the absolute paths of the package's non-generated Go files.
 	GoFiles []string
+	// EmbedFiles are the absolute paths of files the package bakes in with
+	// go:embed. They are source of a kind — change one and the built artifact's
+	// behavior changes — so provenance hashes them alongside GoFiles. Populated
+	// only by LoadPackage (the codegen path), not by the interactive analyzer.
+	EmbedFiles []string
 }
 
 // Analysis is the full result of analyzing a notebook package for codegen: the
@@ -38,7 +43,12 @@ type Analysis struct {
 // surfaces the package metadata that the Analyzer interface intentionally omits
 // (the interface is the gopls seam and stays graph-only).
 func LoadPackage(dir string) (Analysis, error) {
-	cfg := &packages.Config{Mode: graphLoadMode, Dir: dir}
+	// NeedEmbedFiles ON TOP of graphLoadMode: codegen (this path) computes
+	// provenance, which hashes go:embed assets, so it needs their paths. It is NOT
+	// added to graphLoadMode itself — that mode is shared by the interactive
+	// Session (session.go), whose hot re-analyze loop must not pay for embed
+	// resolution it never uses.
+	cfg := &packages.Config{Mode: graphLoadMode | packages.NeedEmbedFiles, Dir: dir}
 	pkgs, err := packages.Load(cfg, ".")
 	if err != nil {
 		return Analysis{}, fmt.Errorf("loading package in %s: %w", dir, err)
@@ -62,6 +72,7 @@ func LoadPackage(dir string) (Analysis, error) {
 			Name:       pkg.Name,
 			Dir:        dir,
 			GoFiles:    append([]string(nil), pkg.GoFiles...),
+			EmbedFiles: append([]string(nil), pkg.EmbedFiles...),
 		},
 		Diagnostics: diags,
 	}, nil

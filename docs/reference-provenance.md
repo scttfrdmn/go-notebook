@@ -19,15 +19,29 @@ All fields except `sourceHash` are best-effort: a notebook outside a git repo is
 
 ### What `sourceHash` covers — and what it doesn't
 
-`sourceHash` is the content identity of the **package source**: it hashes *every* non-generated `.go` file in the notebook's package (not just the file carrying `//go:notebook`), so a helper or type in a sibling `.go` changes the hash. Change one character in any of them and the hash changes; move or rename the directory and it does not.
+`sourceHash` is the content identity of the **package source and its embedded
+data**. It hashes:
 
-It is deliberately **not** a full build-input identity. It does **not** cover:
+- *every* non-generated `.go` file in the notebook's package (not just the file
+  carrying `//go:notebook`), so a helper or type in a sibling `.go` changes the hash;
+- *every* file baked in with `go:embed`, so a dataset compiled into the binary is
+  part of its identity — change one byte of an embedded CSV and the hash changes.
 
-- `go:embed`ed assets (a dataset baked into the binary — change it and `sourceHash` is unmoved),
+Change one character in any `.go` file, or one byte of any embedded asset, and the
+hash changes; move or rename the directory and it does not.
+
+It is still deliberately **not** a full build-input identity. It does **not** cover:
+
 - `go.mod` / `go.sum` / imported module versions,
 - build tags or compiler flags.
 
-So `sourceHash` answers *"is this the same package source?"*, not *"is this bit-for-bit the same computation?"* — an honest narrow claim rather than a broad one the hash can't back. The **content-addressed `.wasm` filename** (`notebook-<hash>.wasm`) is the closest thing to a full artifact identity today, since it hashes the compiled bytes. Extending the record to layered identities (package source → build inputs → artifact bytes) for native and headless builds is tracked in [issue #224](https://github.com/scttfrdmn/go-notebook/issues/224).
+So `sourceHash` answers *"is this the same package source and embedded data?"*, not
+*"is this bit-for-bit the same computation?"* — an honest claim about what it hashes
+rather than a broad one it can't back. The **content-addressed `.wasm` filename**
+(`notebook-<hash>.wasm`) is the closest thing to a full artifact identity today,
+since it hashes the compiled bytes. Extending the record to the remaining layers
+(module graph, and an artifact-bytes hash for native/headless builds) is tracked in
+[issue #224](https://github.com/scttfrdmn/go-notebook/issues/224).
 
 ## In the headless output
 
