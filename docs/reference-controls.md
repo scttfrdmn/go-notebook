@@ -42,12 +42,16 @@ Grip(i int) Ref           // draggable — the leaf-index handle for the i-th po
 Reconcile(saved any) any  // how a saved value re-enters after a rebuild
 ```
 
-The analyzer picks the *widget kind* by method **name**, but the runtime reads
-the value back through a real Go interface (`Bounds() (lo, hi float64)` etc.), so
-the **return types are the contract**: a `Bounds() (lo, hi int)` is detected as a
-range at build time yet fails the runtime probe and delivers no bounds. Match the
-signatures above exactly. (`Grip`'s `Ref` return is a type the notebook defines —
-see the [`draggable`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/draggable) recipe.)
+The runtime reads the value back through a real Go interface
+(`Bounds() (lo, hi float64)` etc.), so the **return types are the contract**.
+`check` enforces this: a near-miss like `Bounds() (lo, hi int)` — named right,
+shaped wrong — is reported as an error naming the actual and required signatures
+(`cell "rate" declares Bounds() (int, int), but a control requires
+Bounds() (float64, float64)`), so you learn it before you run, not from a silently
+missing control. Match the signatures above exactly. (`Bounds`, `Options`, and
+`Reconcile` are signature-checked; `Grip`'s `Ref` return is a type the notebook
+defines, with no fixed engine contract, so only its presence is used — see the
+[`draggable`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/draggable) recipe.)
 
 ## Cookbook — need this UI, write this shape
 
