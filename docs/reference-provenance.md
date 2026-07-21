@@ -10,7 +10,7 @@ Codegen fills a provenance record at build time; every transport displays it (a 
 |-------|---------|
 | `sourceHash` | content hash of the notebook **package source** — all its non-generated `.go` files, independent of path or filename. **Always present.** (Scope below.) |
 | `commit` | the git commit, when the notebook is in a repo |
-| `dirty` | `true` if the working tree had uncommitted changes at build time |
+| `dirty` | `true` if the repository's working tree had **any** uncommitted change at build time — whole-tree, not just the notebook's directory, so a change to a shared helper elsewhere in the repo marks the build dirty (it matches Go's own `vcs.modified`) |
 | `builtAt` | build time (RFC3339) |
 | `goVersion` | the Go toolchain that compiled the artifact |
 | `toolVersion` | the go-notebook toolchain that generated it — codegen changes can change behavior for identical source. Present only for a released tool (a dev build omits it). |
@@ -37,11 +37,29 @@ It is still deliberately **not** a full build-input identity. It does **not** co
 
 So `sourceHash` answers *"is this the same package source and embedded data?"*, not
 *"is this bit-for-bit the same computation?"* — an honest claim about what it hashes
-rather than a broad one it can't back. The **content-addressed `.wasm` filename**
-(`notebook-<hash>.wasm`) is the closest thing to a full artifact identity today,
-since it hashes the compiled bytes. Extending the record to the remaining layers
-(module graph, and an artifact-bytes hash for native/headless builds) is tracked in
-[issue #224](https://github.com/scttfrdmn/go-notebook/issues/224).
+rather than a broad one it can't back.
+
+Two things a reader might expect are deliberately **not** in `sourceHash`, because
+each is better served elsewhere:
+
+- **The module graph** (imported third-party versions). Go already records this in
+  the native binary itself — `go version -m <binary>` prints every dependency
+  version plus the build's own VCS revision and settings. Duplicating it into
+  `sourceHash` would add a hard-to-verify surface for no gain over the Go
+  toolchain's own record; and it can't be read uniformly (the `.wasm` isn't in a
+  format `go version -m` parses). So the module identity is the Go binary's job,
+  and `commit`/`dirty` above already pin the repository state at build time.
+- **A bit-for-bit artifact hash.** The **content-addressed `.wasm` filename**
+  (`notebook-<hash>.wasm`) already is one — it hashes the compiled bytes, so a
+  different program gets a different URL. A native binary has no equivalent, and
+  adding one would mean a sidecar file (the hash can't live inside the artifact it
+  describes) with its own staleness and loss concerns — a new artifact type for a
+  guarantee `sourceHash` + `toolVersion` + the Go build record already approximate.
+
+In short: `sourceHash` covers what the notebook *author* controls (source + embedded
+data); the Go toolchain's own binary record covers the *build* (modules, VCS,
+settings); and the WASM filename covers the *bytes*. Three records, each owned by
+whoever is authoritative for it, rather than one hash straining to be all three.
 
 ## In the headless output
 
