@@ -171,15 +171,23 @@ a multi-user service:
 
 - **No authentication.** Any client that can reach the port may read `/events`
   and mutate **any** leaf via `/set`.
-- **No TLS** and **no per-request rate or size limits** beyond Go's defaults.
+- **No TLS** and **no per-request rate limit** beyond Go's defaults. `POST /set`
+  does cap its body (1 MiB → `413`); other endpoints do not.
 - **No CORS headers.** The server emits no `Access-Control-Allow-Origin`, so
   browsers apply the same-origin policy by default — a page from another origin
   cannot read `/events` or `/set` responses. (This is the opposite of a permissive
   `Access-Control-Allow-Origin: *`; the server neither loosens nor tightens CORS,
-  it stays silent and lets the browser's default stand.) Note the same-origin
-  policy does not stop a cross-origin page from *sending* a `POST /set` — a leaf
-  can still be driven blind by a malicious local page; bind to `127.0.0.1` and
-  front the server before exposing it.
+  it stays silent and lets the browser's default stand.)
+- **DNS-rebinding defense (Host check).** The same-origin policy does not stop a
+  cross-origin page from *sending* a `POST /set` — and a page at `evil.com` can
+  rebind its name to `127.0.0.1` to reach a localhost server. So when it is bound
+  to loopback (the default), the server **requires a loopback `Host` header**
+  (`127.0.0.1`, `localhost`, `[::1]`) and answers `403` otherwise. A browser
+  tricked into resolving `evil.com` to `127.0.0.1` still sends `Host: evil.com`,
+  which is refused; a real local client, or an `ssh -L` tunnel (which targets
+  `127.0.0.1` on the notebook's box), sends a loopback Host and is allowed. A
+  server you deliberately bind to a non-loopback address (`--addr 0.0.0.0`) has
+  opted into exposure — the Host check is off there and belongs to your proxy.
 - It binds `127.0.0.1` by default, so it is not exposed off the machine unless you
   change `--addr` or put it behind something.
 
