@@ -206,6 +206,8 @@
             background: #fff8f4; border-radius: 0 8px 8px 0; font-size: var(--t-meta); }
   .numbers .stand { font-size: var(--t-lead); margin: 1.4rem 0 0; max-width: 64ch; }
   .numbers .stand b { color: var(--navy); }
+  .numbers .how { font-size: var(--t-meta); color: var(--muted); margin: 1rem 0 0; max-width: 66ch; }
+  .numbers .how a { color: var(--go-text); }
 
   .act { border-top: 1px solid var(--line); padding: 2rem 0 1rem; }
   .act h2 { color: var(--navy); font-size: var(--t-h2); margin: 0 0 .5rem; }
@@ -599,10 +601,11 @@
     <p>That's why the demos lead with it, and why watching a wave propagate through it is the best debugger in the system: <span class="key">you can see exactly what recomputes and in what order</span>, live, with no server and no instrumentation. No other notebook can show you this, because in every other notebook the graph is incidental. It's the artifact.</p>
   </section>
 
-  <!-- NUMBERS — measured, reproduced in CI. -->
+  <!-- NUMBERS — measured. Browser figures are hand-measured; the native KC
+       benchmarks are in the repo and their harness runs in CI. -->
 
   <section class="numbers">
-    <h2>The numbers — measured, reproduced in CI</h2>
+    <h2>The numbers — measured</h2>
     <div class="grid">
       <div class="stat"><div class="n">~1 MB</div><div class="l">gzipped .wasm (whole notebook + engine)</div></div>
       <div class="stat"><div class="n">~40 ms</div><div class="l">cold load to an interactive slider</div></div>
@@ -610,6 +613,12 @@
       <div class="stat"><div class="n">0</div><div class="l">servers, kernels, or notebook files</div></div>
     </div>
     <p class="stand">A Pyodide-based notebook ships 10 MB+ of interpreter before your code and cold-starts in seconds — <b>because it ships an interpreter, and this ships a compiled program.</b></p>
+    <p class="how">These browser figures are hand-measured on an M4 Pro. The
+      engine's own kill-criteria — cold graph derivation, re-analysis after an
+      edit, the rebuild loop — are <a href="https://github.com/scttfrdmn/go-notebook/tree/main/internal/analyze/bench_test.go">Go benchmarks in the repo</a>,
+      and CI runs that harness on every push (it exercises the measurement, not a
+      wall-clock assertion — shared runners are too noisy for that). Full method
+      and the KC table: <a href="https://github.com/scttfrdmn/go-notebook#status">the README</a>.</p>
     <p class="caveat"><b>One limit worth naming:</b> in the browser, <code>GOOS=js</code> is single-threaded, so independent cells run serially — the scheduler's goroutine fan-out is a native-only dividend. It's invisible on these demos and would matter on a compute-heavy notebook; native builds (your laptop, an HPC node) fan out across cores.</p>
   </section>
 
@@ -628,7 +637,7 @@
 
   <footer>
     <p><a href="https://github.com/scttfrdmn/go-notebook">github.com/scttfrdmn/go-notebook</a> · Apache 2.0 · a cell is a function.</p>
-    <p>Five kill criteria on the board, a glitch-free scheduler guarded by a sabotage test, and every number here reproduced in CI. The source is one click away.</p>
+    <p>Five kill criteria on the board, a glitch-free scheduler guarded by a sabotage test, and a benchmark harness CI runs on every push. The source is one click away.</p>
   </footer>
 
 </div>

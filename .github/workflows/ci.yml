@@ -67,6 +67,17 @@ jobs:
           go test -run=xxx -fuzz=FuzzParseLayout -fuzztime=20s ./internal/analyze/
           go test -run=xxx -fuzz=FuzzDirectives -fuzztime=20s ./internal/analyze/
 
+      # Benchmark smoke — the KC benchmarks (KC1 cold analyze, KC2 re-analyze,
+      # KC4 build, the wave scheduler) are the source of the performance numbers
+      # the docs cite. Run each once (-benchtime=1x) so the harness that produces
+      # those numbers is exercised on every push: a benchmark that stops compiling
+      # or panics is caught here, so "measured" can't rot into an unrunnable claim.
+      # This does NOT assert wall-clock values — shared CI runners are too noisy for
+      # that; deep timing is a manual/local activity on known hardware (the docs say
+      # "measured on an M4 Pro"). What it guards is that the measurement still runs.
+      - name: benchmark smoke (the perf harness still runs)
+        run: go test -run=xxx -bench=. -benchtime=1x ./engine/ ./internal/analyze/ ./internal/gen/
+
       - name: coverage floor (library packages, examples excluded)
         run: |
           go test -coverprofile=cover.lib.out $(go list ./... | grep -v '/examples/') >/dev/null
