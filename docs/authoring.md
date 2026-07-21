@@ -62,7 +62,7 @@ Before you go further, the rules that will trip you up once and never again. Eac
 
 1. **A cell is a top-level function with *named* results.** `func celsius() (c int)` is a cell; `func celsius() int` is not (no named result = no edge = not a cell). The named result is the marker — *not* the doc comment, which only supplies the human label. This is also how you write a **helper**: give it *unnamed* returns and it stays ordinary Go, invisible to the graph — e.g. `func clamp(v, lo, hi int) int`. (A documented function with unnamed returns is still a helper; an undocumented function with a named result is still a cell, just labelled from its function name. Documenting cells is strongly recommended for the label and tooltip — but it is not what makes them cells.)
 
-2. **The result name *is* the edge.** To wire a value into a consumer, the producer's result must be named exactly what the consumer's parameter is named. Rename `celsius`'s result from `c` to `temp` and the build fails with:
+2. **The result name *is* the edge.** To wire a value into a consumer, the producer's result must be named exactly what the consumer's parameter is named. Rename `celsius`'s result from `c` to `temp` and `check` reports it (before you ever build):
 
    ```
    cell "fahrenheit" needs `c int`, but no cell produces it.
@@ -71,7 +71,7 @@ Before you go further, the rules that will trip you up once and never again. Eac
 
    The name carries the meaning; rename deliberately.
 
-3. **Result names must be unique across the notebook.** Two cells returning `(chart Chart)` collide — `check` passes but `build` fails ("a result name is an edge, must be unique"). Give each its own name.
+3. **Result names must be unique across the notebook.** Two cells returning `(chart Chart)` collide, and `check` rejects it (exit code 1) with a pointed error — `cell "second" produces \`chart Chart\`, but \`chart\` is already produced by cell "first"` and the hint *"a result name is an edge, so it must be unique."* Give each its own name.
 
 4. **Keep `fmt` out of cell bodies.** A notebook that compiles to the browser (`GOOS=js`) must not have a *cell* whose call graph reaches `fmt`/`os`/`net` (the portability gate is derived from the graph). Formatting belongs in a `Render()` method — which the engine calls, and which is not a cell — not in a cell body. Use `strconv` if a cell body genuinely needs to format a number.
 

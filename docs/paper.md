@@ -66,7 +66,7 @@ A control is a Go value whose type carries an input capability. A `Multi[Theme]`
 
 Direct manipulation — dragging a point on a chart — is the same mechanism, not a special case. A renderable value can draw **grips** (`data-grip="leaf:index"` handles) for a leaf it does not own; dragging one emits the whole point set through the same single mutation chokepoint a slider uses. The renderer reads, the runtime writes, and there is no cycle and no two-way binding. (A `leafToken` carrying which leaf a grip belongs to was nearly deleted as redundant with the widget's static `Kind` — until the corpus showed every grip is *cross-cell*, drawn by a cell that doesn't own its leaf, which `Kind` cannot identify. The token stays, justified structurally.)
 
-Three rules forbid the framework from growing back: no plugin system, no config format, no component model, no SVG abstraction, no DSL, no second way to declare a cell. These are not stylistic preferences; they are the anti-goals that keep the notebook a Go package.
+Three rules forbid the framework from growing back: no plugin system, no config format, no component model, no SVG abstraction, no DSL, no second way to declare a cell. These are not stylistic preferences; they are the anti-goals that keep the notebook a Go package. ("No component model" is about *internals* — there is no framework for composing a notebook out of sub-components. It does not preclude the opposite direction: the whole notebook can be embedded in a foreign page as an externally-driven computational component through its one port, which §13 develops. The anti-goal forbids a component framework inside; it does not forbid the notebook from being a component outside.)
 
 ## 5. State: the one genuinely new concept
 

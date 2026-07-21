@@ -94,6 +94,8 @@ The same notebook file compiles three ways, differing only in the compiler targe
 - **Headless (batch):** the native binary with `--headless --json` → run once, emit values; `scp` it to a cluster and `sbatch` it.
 - **Served (HTTP):** `run`, or the native binary serving → a live page backed by the process.
 
+(These are three **build targets**. The design doc counts topologies on a different axis — a *toolchain × compute* 2×2 (local/local, local/remote, remote/remote, remote/browser) — so it says "four." Same system, two framings: three ways to compile the file, four places the compiler and the compute can sit. See [the design](design.html) for the 2×2.)
+
 ## The WASM portability gate
 
 A notebook compiles to the browser only if **no cell's call graph reaches `net`, `os`, or cgo** — there is no browser equivalent. The toolchain derives this from the graph; you do not annotate it. `build -target=wasm` refuses a notebook that isn't portable and names the offending cells.
