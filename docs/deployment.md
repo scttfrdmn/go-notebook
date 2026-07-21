@@ -70,7 +70,9 @@ jobs:
           go-version: "1.25"
           cache: true
       - name: build the notebook to WASM
-        run: go run github.com/scttfrdmn/go-notebook/cmd/notebook build --target=wasm -o ./out ./mynotebook
+        run: |
+          go mod download
+          go tool notebook build --target=wasm -o ./out ./mynotebook
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -87,6 +89,8 @@ jobs:
 ```
 
 Enable Pages for the repository with **Settings → Pages → Source: GitHub Actions**, then push to `main`. The notebook is rebuilt from source on every push, so the published page can never drift from the committed code. GitHub Pages already serves `.wasm` as `application/wasm`.
+
+The recipe uses `go tool notebook` — the toolchain pinned in your `go.mod` by the `tool` directive (the same command the authoring guide uses locally), not an unversioned `go run github.com/…@latest`. That makes `go.mod` the single version authority: the tool that builds your production artifact is the exact version your repo committed, and it lands in the artifact's provenance (`toolVersion`). Bump it deliberately with `go get -tool`, not implicitly on every CI run.
 
 One caveat specific to GitHub Pages: it serves HTML with a fixed `Cache-Control: max-age=600` and gives you no way to override it (there is no `_headers` file support). Because the `.wasm` is content-addressed, this never serves a stale *notebook* — a new build is a new URL. But it does mean a reader who loaded `index.html` can hold it for up to ten minutes across a deploy, so immediately after pushing you may briefly see the previous HTML shell around the new WASM. If you need `no-cache` on the HTML itself (so a deploy is visible instantly), front Pages with a CDN you control, or use one of the static-host recipes below where the cache header is yours to set.
 

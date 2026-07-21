@@ -106,6 +106,35 @@ in an image `onerror`). But it means:
 The trust boundary is the same one Go always has: you are running Go code. Rich
 rendering just extends that to the markup it emits.
 
+## Accessible output
+
+A `Render()` that returns HTML or SVG is producing **application UI**, so the
+usual web accessibility applies — the engine can't add it for you, because it only
+injects the markup you return. A short checklist for the output you author:
+
+- **SVG needs a text alternative.** A chart or gauge is invisible to a screen
+  reader without one — add `role="img"` and a `<title>` (and `aria-labelledby`
+  pointing at it), or a `<desc>`, so the picture has a spoken form.
+- **Label values and carry units.** "42" is not "42 ms" — put the unit in the
+  text, not only in an axis a sighted reader infers.
+- **Draggable grips need a keyboard path.** A grip you can only drag with a mouse
+  excludes keyboard and assistive-tech users; expose the same leaf as a typed
+  input too (the [control degradation ladder](reference-controls.html) already
+  gives you this — a draggable is still a set of numbers you can type).
+- **Don't rely on color alone.** Pair a color with a label, shape, or pattern so a
+  distinction survives color-blindness and grayscale. (The `nb/chart` palette is
+  built for this — see [charts](reference-charts.html).)
+- **Contrast and focus.** Meet WCAG AA contrast for text and marks; keep a visible
+  focus ring on anything interactive.
+- **Semantic HTML.** Use a real `<table>` with `<th>` for tabular output, headings
+  for structure — the elements screen readers already understand.
+- **Honor `prefers-reduced-motion`.** If a view animates (a propagating graph, a
+  transition), gate the motion on that media query.
+
+None of this is a framework obligation — it is the same care any hand-authored web
+UI needs, applied to the markup a cell returns. The docs site itself follows it
+(skip links, focus rings, measured contrast, reduced-motion), as a worked example.
+
 ## The degradation ladder
 
 Rendering degrades gracefully:
