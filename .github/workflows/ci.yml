@@ -43,6 +43,20 @@ jobs:
           PATH="$GOROOT/lib/wasm:$GOROOT/misc/wasm:$PATH" \
             GOOS=js GOARCH=wasm go test ./engine/wasm/...
 
+      # Drive the JS client (client/notebook.js) against a REAL built wasm notebook
+      # under Node — the end-to-end anti-pass that the js,wasm go test lane above
+      # cannot cover, because it exercises the client library, not the engine. This
+      # closes the gap named across the #214 work: client/example.mjs verifies the
+      # whole port surface (enumerate → capabilities → subscribe → set → typed
+      # recompute → coherent snapshot) but was only ever run by hand. It asserts a
+      # set() produces a typed effect and exits non-zero on any anti-pass, so a
+      # regression in the client or the port contract now fails CI.
+      - name: JS client end-to-end (client/example.mjs under Node)
+        run: |
+          go run ./cmd/notebook build --target=wasm -o /tmp/nb examples/capacity
+          cp client/notebook.js /tmp/nb/notebook-client.js
+          node client/example.mjs /tmp/nb
+
       # Fuzz targets guard the untrusted-input paths (the /set wire coercer, the
       # directive + layout parsers). A short run on every push catches a newly
       # introduced panic or invariant break; deep fuzzing is a manual/scheduled
