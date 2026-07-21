@@ -48,6 +48,27 @@ Request body:
   cell that never updated. Validation does not wait for the wave — only coercion,
   which is synchronous.
 
+#### Atomic multi-leaf edit
+
+To change several leaves **together**, post a `values` map instead of a single
+`leaf`/`value`:
+
+```json
+{"values": {"principal": 250000, "rate": 0.065, "term": 30}}
+```
+
+- **All or nothing.** Every value is coerced *first*; if any leaf is unknown
+  (`404`) or a value won't coerce (`422`), the whole edit is rejected and **nothing
+  is written** — no partial application.
+- **One epoch, one wave.** The accepted values enter under a single epoch and drive
+  one recompute, so a subscriber never observes an intermediate combination (three
+  sliders moved together, not three separate waves). This is what makes the port
+  suitable for a form submit or a parameter-sweep step.
+- **The response reports the epoch.** On `204`, an `X-Notebook-Epoch` header carries
+  the committed epoch, so a driver can correlate the edit with the `settled` marker
+  it will see on `/events` (below). Unlike the single form, a batch edit runs its
+  wave before returning — it is a deliberate one-shot, not a fire-and-forget drag.
+
 ### `GET /events` — subscribe to cell updates (SSE)
 
 A `text/event-stream`. On connect, the server runs a full wave so a freshly

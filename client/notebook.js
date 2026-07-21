@@ -70,6 +70,7 @@
  * @property {*} provenance
  * @property {(string[][]|null)} layout
  * @property {(leaf: string, value: *) => void} set
+ * @property {(values: Object<string,*>) => void} [setMany]
  * @property {(fn: (ev: WireEvent) => void) => (() => void)} subscribe
  * @property {(fn: (ev: ValueEvent) => void) => (() => void)} [subscribeValues]
  * @property {() => Object<string,*>} values
@@ -101,6 +102,68 @@ export function connect(port) {
   return new Notebook(p);
 }
 
+/**
+ * loadNotebook fetches, instantiates, and starts a WASM notebook, then resolves
+ * to a connected {@link Notebook} once its port is published. It owns the whole
+ * boilerplate a host would otherwise hand-roll — the MIME-fallback instantiate,
+ * `go.run`, and the readiness poll — and, crucially, it has a TIMEOUT: a broken
+ * artifact or a build that never publishes the port rejects instead of polling
+ * forever (the gap the hand-rolled loader in the docs left open).
+ *
+ * Requires Go's wasm_exec.js to have run first (it defines `globalThis.Go`);
+ * load it with a plain <script src="wasm_exec.js"> before your module, exactly
+ * as the built notebook's own page does.
+ *
+ * @param {Object} opts
+ * @param {string} opts.wasm         URL of the .wasm to fetch
+ * @param {number} [opts.timeout]    ms to wait for the port before rejecting (default 10000)
+ * @param {*} [opts.Go]              the Go class (defaults to globalThis.Go)
+ * @returns {Promise<Notebook>} the connected client (call start() to run the first wave)
+ */
+export async function loadNotebook(opts) {
+  const { wasm, timeout = 10000 } = opts || {};
+  if (!wasm) throw new Error("go-notebook: loadNotebook needs a { wasm } URL");
+  const GoClass = opts.Go ?? globalThis.Go;
+  if (typeof GoClass !== "function") {
+    throw new Error("go-notebook: globalThis.Go not found — load Go's wasm_exec.js before loadNotebook");
+  }
+  const go = new GoClass();
+
+  // Instantiate: prefer streaming (compiles as it downloads); fall back to a
+  // buffered instantiate for a host that doesn't serve application/wasm, so a
+  // misconfigured MIME type slows the load rather than breaking it.
+  let result;
+  try {
+    result = await WebAssembly.instantiateStreaming(fetch(wasm), go.importObject);
+  } catch (_) {
+    const bytes = await (await fetch(wasm)).arrayBuffer();
+    result = await WebAssembly.instantiate(bytes, go.importObject);
+  }
+  go.run(result.instance); // publishes globalThis.notebook during init; never returns
+
+  // Poll for the port, but bounded: a wasm that fails to publish it must reject,
+  // not hang the caller. connect() validates the port shape once it appears.
+  const deadline = Date.now() + timeout;
+  return await new Promise((resolve, reject) => {
+    const tick = () => {
+      if (globalThis.notebook) {
+        try {
+          resolve(connect(globalThis.notebook));
+        } catch (e) {
+          reject(e);
+        }
+        return;
+      }
+      if (Date.now() >= deadline) {
+        reject(new Error(`go-notebook: notebook port did not appear within ${timeout}ms (a broken or non-notebook .wasm?)`));
+        return;
+      }
+      setTimeout(tick, 5);
+    };
+    tick();
+  });
+}
+
 /** The structural client. Thin, typed, delete-and-nothing-breaks. */
 export class Notebook {
   /** @param {NotebookPort} port */
@@ -121,6 +184,7 @@ export class Notebook {
    *                         host can validate a value's shape before set()).
    *   - `"wave-settled"`  — the value stream emits a {settled} marker per wave.
    *   - `"epoch-events"`  — value events carry their wave's epoch.
+   *   - `"atomic-set"`    — setMany applies several leaves as one atomic edit.
    *
    * The last two are behavioral (a static object can't be probed for them), so
    * they are gated on the one thing that proves the build generation that added
@@ -136,6 +200,9 @@ export class Notebook {
     }
     if (this.port.meta.some((m) => m.Type)) {
       caps.push("leaf-types");
+    }
+    if (typeof this.port.setMany === "function") {
+      caps.push("atomic-set");
     }
     return caps;
   }
@@ -197,6 +264,22 @@ export class Notebook {
    */
   set(leaf, value) {
     this.port.set(leaf, value);
+  }
+
+  /**
+   * Set several leaves as ONE atomic edit: every value is applied under a single
+   * epoch and one recompute wave, so a host changing related inputs together
+   * (principal, rate, term) never lands an intermediate combination a subscriber
+   * could observe. Prefer this over multiple set() calls for a form or a
+   * parameter-sweep step. Throws if the port predates it (an older .wasm) — use
+   * can("atomic-set") to feature-detect, or fall back to per-leaf set().
+   * @param {Object<string,*>} values  a {leaf: value} map
+   */
+  setMany(values) {
+    if (typeof this.port.setMany !== "function") {
+      throw new Error("go-notebook: this notebook's port has no setMany (rebuild with a newer go-notebook)");
+    }
+    this.port.setMany(values);
   }
 
   /** Pull a snapshot of every leaf's current value. @returns {Object<string,*>} */

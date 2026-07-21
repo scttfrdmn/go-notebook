@@ -112,7 +112,21 @@ func wasmMainBody(alias string) string {
 			log.Printf("notebook: set %q: %v", leaf, err)
 		}
 	}
-	wasm.RunNotebook(rt, ` + alias + `.NotebookMeta, ` + alias + `.NotebookProvenance, ` + alias + `.NotebookLayout, set)
+	// setMany applies several leaves as one atomic edit: coerce EVERY value first
+	// (writing nothing if any fails), then commit them under one epoch via SetMany.
+	setMany := func(ctx context.Context, r *engine.Runtime, vals map[string]any) {
+		typed := make(map[engine.LeafID]any, len(vals))
+		for leaf, raw := range vals {
+			v, err := coerceLeafValue(leaf, raw)
+			if err != nil {
+				log.Printf("notebook: setMany %q: %v", leaf, err)
+				return
+			}
+			typed[engine.LeafID(leaf)] = v
+		}
+		r.SetMany(ctx, typed)
+	}
+	wasm.RunNotebook(rt, ` + alias + `.NotebookMeta, ` + alias + `.NotebookProvenance, ` + alias + `.NotebookLayout, set, setMany)
 }
 `
 }
@@ -319,6 +333,21 @@ func mainBody(alias string) string {
 		go rt.Set(c, engine.LeafID(leaf), typed)
 		return nil
 	}
+	// setMany is the type-aware atomic batch: coerce EVERY value first (writing
+	// nothing if any fails, so a bad leaf in the batch can't land a partial edit),
+	// then commit them all under one epoch via rt.SetMany and return that epoch.
+	setMany := func(c context.Context, vals map[string]any) (uint64, error) {
+		typed := make(map[engine.LeafID]any, len(vals))
+		for leaf, raw := range vals {
+			v, err := coerceLeafValue(leaf, raw)
+			if err != nil {
+				log.Printf("notebook: /set (batch): %v", err)
+				return 0, err
+			}
+			typed[engine.LeafID(leaf)] = v
+		}
+		return uint64(rt.SetMany(c, typed)), nil
+	}
 	// onReady fires once the listener is bound, with the RESOLVED address (so
 	// --addr :0 reports its real port). It emits one machine-readable readiness
 	// line on stdout — the notebook-as-service contract (docs/notebook-as-service.md):
@@ -335,7 +364,8 @@ func mainBody(alias string) string {
 			fmt.Println(string(b))
 		}
 	}
-	if err := server.ServeNotebookReady(ctx, *addr, rt, ` + alias + `.NotebookMeta, ` + alias + `.NotebookProvenance, ` + alias + `.NotebookLayout, set, onReady); err != nil {
+	if err := server.ServeNotebookReady(ctx, *addr, rt, ` + alias + `.NotebookMeta, ` + alias + `.NotebookProvenance, ` + alias + `.NotebookLayout, set, onReady,
+		func(s *server.Server) { s.SetManyWith(setMany) }); err != nil {
 		log.Printf("server: %v", err)
 		os.Exit(1)
 	}

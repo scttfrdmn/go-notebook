@@ -179,17 +179,36 @@ func (r *Runtime) emit(ev Event) {
 // is superseded by a newer edit.
 func (r *Runtime) Set(ctx context.Context, leaf LeafID, v any) {
 	epoch := r.head.Set(leaf, v)
-
-	// A leaf is a symbol too, but nothing "produces" it, so bumpVersions (which
-	// runs on cell outputs) never versions it. Bump it here — only when it
-	// actually changed — so pure cells that read this leaf get a fresh cache key
-	// and recompute. Without this, a slider drag would serve a stale cached
-	// value: the exact opposite of reactive.
 	r.bumpVersions(Outputs{leaf: v})
+	r.runEdit(ctx, epoch)
+}
 
-	// Record this as the newest epoch and cancel every older in-flight wave, so
-	// a superseded wave's cells that honor ctx.Done() actually abandon their
-	// compute instead of finishing and having the result discarded.
+// SetMany writes several leaves as ONE atomic edit and runs a SINGLE wave over
+// all of them. The values enter the head under one epoch (see [Head.SetMany]), so
+// a host changing several related inputs together — principal, rate, term — gets
+// one coherent recompute, never three waves with intermediate combinations a
+// subscriber could observe. It is the batch form of [Set], sharing the same
+// supersede-and-run tail; the returned epoch is the one the resulting wave (and
+// its settled marker) carries, so a caller can correlate the edit with its result.
+func (r *Runtime) SetMany(ctx context.Context, vals map[LeafID]any) Epoch {
+	epoch := r.head.SetMany(vals)
+	// Version every changed leaf, so pure cells reading any of them recompute —
+	// the same reason Set bumps its one leaf (else a cached stale value serves).
+	out := make(Outputs, len(vals))
+	for leaf, v := range vals {
+		out[leaf] = v // LeafID is an alias for Symbol
+	}
+	r.bumpVersions(out)
+	r.runEdit(ctx, epoch)
+	return epoch
+}
+
+// runEdit is the shared tail of Set/SetMany: record this as the newest epoch,
+// cancel every older in-flight wave (so a superseded wave's ctx.Done()-honoring
+// cells abandon their compute rather than finishing to a discarded result), then
+// run the wave over a fresh head snapshot. Factored out so Set and SetMany cannot
+// drift in how they supersede and schedule.
+func (r *Runtime) runEdit(ctx context.Context, epoch Epoch) {
 	r.mu.Lock()
 	if epoch > r.current {
 		r.current = epoch

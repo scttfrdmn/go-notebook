@@ -72,6 +72,25 @@ func (h *Head) Set(leaf LeafID, v any) Epoch {
 	return h.epoch
 }
 
+// SetMany writes several leaves as ONE edit: it applies every value, bumps the
+// epoch exactly once, and returns that single epoch. This is what makes a
+// multi-leaf edit atomic — the values enter under one epoch, so a single wave
+// computes over all of them at once and no subscriber ever observes an
+// intermediate combination (three sliders moved together, not three separate
+// waves). It stays within the single-chokepoint discipline: every write is still
+// a head write; SetMany is Set for a set of leaves, not a second mutation path.
+// An empty map still bumps the epoch (a no-op edit is a wave, matching Set).
+func (h *Head) SetMany(vals map[LeafID]any) Epoch {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for leaf, v := range vals {
+		h.vals[leaf] = v
+	}
+	h.epoch++
+	h.persistLocked()
+	return h.epoch
+}
+
 // Snapshot returns an immutable copy of the current leaf values together with
 // the epoch at which it was taken. A wave reads only from this copy, never from
 // the live map — the guarantee that makes propagation glitch-free.
