@@ -41,6 +41,16 @@ type Server struct {
 	set     SetFunc
 	setMany SetManyFunc
 	mux     *http.ServeMux
+	// requireLoopbackHost, when set, rejects any request whose Host header is not a
+	// loopback literal (127.0.0.1 / [::1] / localhost). It is turned on only when
+	// the server is bound to a loopback address (see ServeNotebookReady), which is
+	// the default. It defends the localhost posture against DNS rebinding: a page at
+	// evil.com can rebind its name to 127.0.0.1 and POST /set (the browser sends the
+	// request; same-origin only blocks reading the reply), but it cannot forge the
+	// Host header, so a loopback-bound server checking Host refuses it. A server the
+	// user deliberately bound to a non-loopback address has opted into network
+	// exposure; Host validation is then its reverse proxy's job and this stays off.
+	requireLoopbackHost bool
 }
 
 // SetManyWith installs the type-aware atomic multi-leaf setter and returns the
@@ -120,8 +130,46 @@ func NewNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provena
 }
 
 // Handler returns the HTTP handler, so callers can wrap or test it without a
-// live listener.
-func (s *Server) Handler() http.Handler { return s.mux }
+// live listener. When the server is loopback-bound (the default), it wraps the
+// mux in the Host-header guard against DNS rebinding.
+func (s *Server) Handler() http.Handler {
+	if !s.requireLoopbackHost {
+		return s.mux
+	}
+	mux := s.mux
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !loopbackHost(r.Host) {
+			http.Error(w, "forbidden: this notebook is bound to localhost and only accepts a loopback Host "+
+				"(a cross-origin page cannot forge it — likely DNS rebinding). Reach it as 127.0.0.1 or localhost.",
+				http.StatusForbidden)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
+}
+
+// loopbackHost reports whether an HTTP Host header names a loopback destination:
+// 127.0.0.0/8, ::1, or the literal "localhost" (with or without a port). A tunnel
+// (ssh -L) still targets 127.0.0.1 on the notebook's box, so this does not block a
+// tunneled driver — only a browser tricked into resolving an off-box name to
+// loopback, which cannot set a matching Host.
+func loopbackHost(host string) bool {
+	if host == "" {
+		return false
+	}
+	h := host
+	if hostOnly, _, err := net.SplitHostPort(host); err == nil {
+		h = hostOnly
+	}
+	h = strings.TrimSuffix(strings.TrimPrefix(h, "["), "]") // unwrap [::1]
+	if h == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(h); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
+}
 
 // handleEvents streams cell updates as Server-Sent Events. SSE (rather than a
 // WebSocket) keeps this package stdlib-only: it is a one-directional
@@ -325,6 +373,13 @@ func ServeNotebookReady(ctx context.Context, addr string, rt *engine.Runtime, me
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listening on %s: %w", addr, err)
+	}
+	// Bound to loopback (the default 127.0.0.1) → require a loopback Host, closing
+	// the DNS-rebinding hole for the default-safe posture. A deliberate non-loopback
+	// bind (0.0.0.0, a LAN IP) is an opt-in to exposure; leave Host validation to
+	// the reverse proxy the security docs already require there.
+	if a, ok := ln.Addr().(*net.TCPAddr); ok && a.IP.IsLoopback() {
+		s.requireLoopbackHost = true
 	}
 	srv := &http.Server{Handler: s.Handler()}
 	go func() {

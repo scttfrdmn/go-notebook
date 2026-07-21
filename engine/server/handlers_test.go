@@ -74,6 +74,64 @@ func TestNewNilSetFallback(t *testing.T) {
 	}
 }
 
+// TestLoopbackHost pins the Host classifier: loopback literals (with or without a
+// port, v4 or v6, and the "localhost" name) pass; anything else fails. This is the
+// predicate the DNS-rebinding guard turns on.
+func TestLoopbackHost(t *testing.T) {
+	pass := []string{"127.0.0.1", "127.0.0.1:8080", "localhost", "localhost:80", "[::1]", "[::1]:8080", "127.0.0.5:9"}
+	fail := []string{"", "evil.com", "evil.com:80", "192.168.1.9", "192.168.1.9:8080", "notebook.local", "0.0.0.0:80"}
+	for _, h := range pass {
+		if !loopbackHost(h) {
+			t.Errorf("loopbackHost(%q) = false, want true", h)
+		}
+	}
+	for _, h := range fail {
+		if loopbackHost(h) {
+			t.Errorf("loopbackHost(%q) = true, want false", h)
+		}
+	}
+}
+
+// TestHostGuardRejectsForgedHost is the DNS-rebinding defense (#226): a
+// loopback-bound server accepts a loopback Host and rejects a forged one (403),
+// while a server without the guard (the default New(), as tests use) accepts any
+// Host — so the guard is opt-in to a loopback bind, never a regression to callers
+// that didn't ask for it.
+func TestHostGuardRejectsForgedHost(t *testing.T) {
+	rt, meta := testRuntime(t)
+
+	// Default handler (no loopback binding) accepts any Host — unchanged behavior.
+	open := New(rt, meta, nil).Handler()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/leaves", nil)
+	req.Host = "evil.com"
+	open.ServeHTTP(rec, req)
+	if rec.Code == http.StatusForbidden {
+		t.Error("the default (non-loopback-guarded) handler must not reject a Host — that would regress the New() path")
+	}
+
+	// A loopback-bound server: forged Host → 403, loopback Host → allowed.
+	guarded := New(rt, meta, nil)
+	guarded.requireLoopbackHost = true
+	h := guarded.Handler()
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/leaves", nil)
+	req.Host = "evil.com"
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("forged Host on a loopback-bound server = %d, want 403", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/leaves", nil)
+	req.Host = "127.0.0.1:8080"
+	h.ServeHTTP(rec, req)
+	if rec.Code == http.StatusForbidden {
+		t.Errorf("loopback Host on a loopback-bound server = 403, want it allowed")
+	}
+}
+
 // TestHandleSetRejectsOversizeBody confirms POST /set bounds its body: a payload
 // past the cap is 413, not decoded unboundedly. A leaf edit is tiny, so a
 // multi-megabyte body is a mistake or abuse — the localhost boundary should
