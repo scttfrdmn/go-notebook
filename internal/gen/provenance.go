@@ -108,9 +108,16 @@ func hashSources(goFiles, embedFiles []string) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-// gitState returns the short commit and whether the working tree is dirty, for
-// the notebook's directory. Absence of git (no repo, git not installed) is not
-// an error — it returns "", false, and provenance simply omits the git fields.
+// gitState returns the short commit and whether the working tree is dirty. The
+// `git -C dir` only tells git where to FIND the repo (the notebook's directory);
+// `status --porcelain` then reports the WHOLE repository, not just that
+// subdirectory — so `dirty` is whole-tree, and a change to a shared helper in a
+// sibling package correctly marks the build dirty. This matches Go's own
+// `vcs.modified` (visible via `go version -m` on a native binary) by
+// construction: same git, same whole-tree scope. Absence of git (no repo, git
+// not installed) is not an error — it returns "", false, and provenance omits the
+// git fields. Computed at codegen time, so it is uniform across native and wasm
+// (unlike debug.ReadBuildInfo's VCS fields, which the wasm build does not carry).
 func gitState(dir string) (commit string, dirty bool) {
 	out, err := exec.Command("git", "-C", dir, "rev-parse", "--short", "HEAD").Output()
 	if err != nil {
