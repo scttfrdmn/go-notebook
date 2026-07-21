@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/scttfrdmn/go-notebook/engine"
@@ -26,12 +27,25 @@ import (
 
 // Server serves a runtime over HTTP.
 type Server struct {
-	rt     *engine.Runtime
-	meta   []engine.CellMeta
-	prov   engine.Provenance
-	layout [][]string
-	set    SetFunc
-	mux    *http.ServeMux
+	rt      *engine.Runtime
+	meta    []engine.CellMeta
+	prov    engine.Provenance
+	layout  [][]string
+	set     SetFunc
+	setMany SetManyFunc
+	mux     *http.ServeMux
+}
+
+// SetManyWith installs the type-aware atomic multi-leaf setter and returns the
+// server, for chaining after construction. It is a post-construction option
+// rather than a New/Serve parameter so the many serve entry points keep their
+// signatures — the batch path is additive. Without it, /set still accepts a batch
+// body and applies it under one epoch via the default (raw) SetMany fallback.
+func (s *Server) SetManyWith(setMany SetManyFunc) *Server {
+	if setMany != nil {
+		s.setMany = setMany
+	}
+	return s
 }
 
 // SetFunc validates and applies a leaf edit. It coerces the raw JSON value
@@ -44,6 +58,17 @@ type Server struct {
 // type-agnostic. A nil SetFunc falls back to writing the raw value (used in tests
 // with already-typed values), which cannot fail, so it returns nil.
 type SetFunc func(ctx context.Context, leaf string, raw any) error
+
+// SetManyFunc validates and applies SEVERAL leaf edits as one atomic edit. It
+// coerces every value FIRST (returning the first error, wrapping
+// [engine.ErrUnknownLeaf]/[engine.ErrBadValue], and writing NOTHING if any fails)
+// then commits them all under a single epoch and runs one wave — so the caller
+// never lands an intermediate combination. It returns the committed epoch so the
+// caller can correlate the edit with its settled event. The generated main
+// supplies it (only codegen knows each leaf's type); a nil SetManyFunc means the
+// server writes each raw value under one epoch via [engine.Runtime.SetMany]
+// directly (the test fallback, which cannot fail).
+type SetManyFunc func(ctx context.Context, vals map[string]any) (epoch uint64, err error)
 
 // New builds a server for a runtime, its cell metadata, and a type-aware leaf
 // setter. If set is nil, edits write the raw JSON value directly (fine for
@@ -66,7 +91,20 @@ func NewNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provena
 			return nil
 		}
 	}
-	s := &Server{rt: rt, meta: meta, prov: prov, set: set, mux: http.NewServeMux()}
+	// The default atomic multi-set: write the raw values under one epoch via
+	// Runtime.SetMany. No coercion (tests pass already-typed values); the generated
+	// main installs a type-aware SetManyFunc via SetManyWith. Unlike single /set
+	// (fire-and-forget, for rapid-drag coalescing), a batch edit is a deliberate
+	// one-shot, so it runs the wave and returns the committed epoch — the caller
+	// wants to know it landed and to correlate it with the settled event.
+	setMany := func(ctx context.Context, vals map[string]any) (uint64, error) {
+		leaves := make(map[engine.LeafID]any, len(vals))
+		for k, v := range vals {
+			leaves[engine.LeafID(k)] = v
+		}
+		return uint64(rt.SetMany(ctx, leaves)), nil
+	}
+	s := &Server{rt: rt, meta: meta, prov: prov, set: set, setMany: setMany, mux: http.NewServeMux()}
 	s.mux.HandleFunc("/", s.handleIndex)
 	s.mux.HandleFunc("/events", s.handleEvents)
 	s.mux.HandleFunc("/set", s.handleSet)
@@ -118,17 +156,26 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleSet applies a leaf edit posted as {"leaf": "...", "value": <json>}. The
-// write goes through the runtime, which funnels it into the head's single Set
-// chokepoint and runs the resulting wave.
+// handleSet applies a leaf edit. Two body shapes on the same endpoint:
+//
+//	{"leaf": "c", "value": 40}                 — one leaf (fire-and-forget)
+//	{"values": {"c": 40, "price": 3.5}}        — several leaves, ONE atomic edit
+//
+// The single form backgrounds its wave (rapid drags coalesce). The batch form is
+// a deliberate one-shot: it validates every value first, commits them under one
+// epoch, runs one wave, and returns the committed epoch in X-Notebook-Epoch — so
+// a form or a parameter sweep never lands an intermediate combination and can
+// correlate its edit with the settled event. Both funnel through the head's
+// single chokepoint.
 func (s *Server) handleSet(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "POST only", http.StatusMethodNotAllowed)
 		return
 	}
 	var req struct {
-		Leaf  string `json:"leaf"`
-		Value any    `json:"value"`
+		Leaf   string         `json:"leaf"`
+		Value  any            `json:"value"`
+		Values map[string]any `json:"values"`
 	}
 	// UseNumber so a numeric selection stays a json.Number, not a float64 — the
 	// leaf coercer preserves int vs float (a Range[int] or an int64 id would be
@@ -139,14 +186,30 @@ func (s *Server) handleSet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	// Validate synchronously: the set func coerces the value to the leaf's type
-	// and returns an error for an unknown leaf or an uncoercible value, WITHOUT
-	// waiting for the recompute wave (it backgrounds that itself). So a bad edit
-	// gets a real status instead of a silent 204 that changed nothing — a typo'd
-	// leaf name used to look successful. errors.Is distinguishes the two failure
-	// kinds; the wave still runs asynchronously and streams over /events.
-	switch err := s.set(context.Background(), req.Leaf, req.Value); {
+
+	// Batch form: {"values": {...}}. Validate all, commit atomically, report epoch.
+	if req.Values != nil {
+		epoch, err := s.setMany(context.Background(), req.Values)
+		s.writeSetStatus(w, err, epoch)
+		return
+	}
+
+	// Single form. Validate synchronously: the set func coerces the value and
+	// returns an error for an unknown leaf or an uncoercible value WITHOUT waiting
+	// for the wave (it backgrounds that itself). So a bad edit gets a real status
+	// instead of a silent 204 that changed nothing.
+	s.writeSetStatus(w, s.set(context.Background(), req.Leaf, req.Value), 0)
+}
+
+// writeSetStatus maps a set/setMany result to the HTTP status: 204 accepted (with
+// X-Notebook-Epoch when a batch edit reported its committed epoch), 404 unknown
+// leaf, 422 uncoercible value, 400 otherwise. One place so single and batch agree.
+func (s *Server) writeSetStatus(w http.ResponseWriter, err error, epoch uint64) {
+	switch {
 	case err == nil:
+		if epoch > 0 {
+			w.Header().Set("X-Notebook-Epoch", strconv.FormatUint(epoch, 10))
+		}
 		w.WriteHeader(http.StatusNoContent)
 	case errors.Is(err, engine.ErrUnknownLeaf):
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -227,9 +290,16 @@ func ServeNotebook(ctx context.Context, addr string, rt *engine.Runtime, meta []
 // what is free on the box — but ANNOUNCES it rather than fixing it, so a parent
 // never has to poll-and-hope. onReady is called once, with the bound host:port,
 // just before the accept loop starts; a nil onReady preserves the old behavior.
-func ServeNotebookReady(ctx context.Context, addr string, rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, layout [][]string, set SetFunc, onReady func(addr string)) error {
+func ServeNotebookReady(ctx context.Context, addr string, rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, layout [][]string, set SetFunc, onReady func(addr string), opts ...func(*Server)) error {
 	s := NewNotebook(rt, meta, prov, set)
 	s.layout = layout
+	// Post-construction options (e.g. SetManyWith for a type-aware batch setter).
+	// Variadic so existing callers are unchanged and the option is additive.
+	for _, opt := range opts {
+		if opt != nil {
+			opt(s)
+		}
+	}
 	// Listen first, so a host:0 request resolves to a concrete port we can report.
 	// http.Server.ListenAndServe hides the listener, which is exactly why :0 is
 	// useless there — the chosen port is never surfaced.

@@ -125,3 +125,52 @@ func TestHandleSetStatusReflectsValidation(t *testing.T) {
 		})
 	}
 }
+
+// TestHandleSetBatch is the atomic multi-leaf edit (#225): a {"values": {...}}
+// body validates every value first, commits under one epoch, and reports it in
+// X-Notebook-Epoch — and a bad leaf in the batch fails the whole edit (404),
+// writing nothing. The test's SetManyFunc mirrors the generated coerce-all-first
+// contract; the testRuntime leaf is "n".
+func TestHandleSetBatch(t *testing.T) {
+	rt, meta := testRuntime(t)
+	// A coerce-all-first batch setter: any unknown leaf fails the whole map.
+	setMany := func(_ context.Context, vals map[string]any) (uint64, error) {
+		for leaf := range vals {
+			if leaf != "n" {
+				return 0, fmt.Errorf("%w: %s", engine.ErrUnknownLeaf, leaf)
+			}
+		}
+		return uint64(rt.SetMany(context.Background(), toLeaves(vals))), nil
+	}
+	h := New(rt, meta, validatingSet).SetManyWith(setMany).Handler()
+
+	t.Run("accepted batch reports its epoch", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/set", strings.NewReader(`{"values":{"n":7}}`))
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("batch /set = %d, want 204 (%s)", rec.Code, rec.Body.String())
+		}
+		if rec.Header().Get("X-Notebook-Epoch") == "" {
+			t.Error("accepted batch must report X-Notebook-Epoch")
+		}
+	})
+
+	t.Run("bad leaf fails the whole batch", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/set", strings.NewReader(`{"values":{"n":7,"nope":1}}`))
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("batch with an unknown leaf = %d, want 404", rec.Code)
+		}
+	})
+}
+
+// toLeaves converts a string-keyed value map to LeafID keys for rt.SetMany.
+func toLeaves(vals map[string]any) map[engine.LeafID]any {
+	out := make(map[engine.LeafID]any, len(vals))
+	for k, v := range vals {
+		out[engine.LeafID(k)] = v
+	}
+	return out
+}

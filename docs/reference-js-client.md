@@ -42,11 +42,35 @@ the host annualizes it.
 
   nb.start();          // run the first wave, so cells paint their defaults
   nb.set("c", 40);     // edit a leaf by its symbol; downstream recomputes
+  nb.setMany({ c: 40, price: 3.5 }); // several leaves as ONE atomic edit
 </script>
 ```
 
 `connect()` throws if no port is found (the script ran before the WASM published
 `globalThis.notebook`, or you passed something that is not a notebook port).
+
+### `loadNotebook` — fetch, start, and connect in one call
+
+`connect()` assumes the WASM is already running. `loadNotebook` does the whole
+boilerplate — instantiate the `.wasm` (with a buffered fallback for a host that
+doesn't serve `application/wasm`), run it, and wait for the port — and resolves to
+a connected client. Crucially it has a **timeout**: a broken artifact or a build
+that never publishes the port *rejects* rather than polling forever.
+
+```html
+<script src="wasm_exec.js"></script> <!-- defines globalThis.Go -->
+<script type="module">
+  import { loadNotebook } from "./notebook.js";
+
+  const nb = await loadNotebook({ wasm: "./notebook.wasm", timeout: 10_000 });
+  nb.subscribeEpoch(({ values }) => render(values));
+  nb.start();
+</script>
+```
+
+It owns the MIME fallback, `go.run`, the readiness poll, and the timeout — the
+error-prone parts a host would otherwise hand-roll (the manual sequence in
+[The complete host page](#the-complete-host-page) is what this replaces).
 
 ## Feature detection
 
@@ -55,16 +79,32 @@ all added after the first release). Rather than call a method and catch an
 exception to find out what an older `.wasm` supports, ask:
 
 ```js
-nb.capabilities();      // e.g. ["typed-events", "wave-settled", "epoch-events", "leaf-types"]
-nb.can("typed-events"); // true — branch on this instead of try/catch
+nb.capabilities();      // e.g. ["typed-events", "wave-settled", "epoch-events", "leaf-types", "atomic-set"]
+nb.can("atomic-set");   // true — branch on this instead of try/catch
 ```
 
 The list is **derived from the port itself, never hand-maintained** — so it can't
 claim more than the port delivers. `typed-events` is present when `subscribeValues`
-is; `leaf-types` when at least one leaf carries its Go type. The behavioral pair,
-`wave-settled` and `epoch-events` (below), can't be probed from a static object, so
-they are reported together with `typed-events` — they shipped in the same release,
-so a port that has one has all three, and an older port truthfully reports none.
+is; `leaf-types` when at least one leaf carries its Go type; `atomic-set` when the
+port has `setMany`. The behavioral pair, `wave-settled` and `epoch-events` (below),
+can't be probed from a static object, so they are reported together with
+`typed-events` — they shipped in the same release, so a port that has one has all
+three, and an older port truthfully reports none.
+
+## Atomic multi-leaf edit
+
+`setMany({ ... })` applies several leaves as **one** edit — a single epoch, one
+recompute wave — so a host changing related inputs together never lands an
+intermediate combination a subscriber could observe:
+
+```js
+nb.setMany({ principal: 250000, rate: 0.065, term: 30 });
+```
+
+Prefer it over several `set()` calls for a form or a parameter-sweep step. It
+throws on a port that predates it; guard with `nb.can("atomic-set")`. (The HTTP
+equivalent is `POST /set {"values": {…}}`, which also returns the committed epoch
+in `X-Notebook-Epoch` — see [ports](reference-ports.html).)
 There is deliberately **no version number**: a capability set that is always true
 of the port in hand beats a version a client has to map to features.
 

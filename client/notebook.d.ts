@@ -66,6 +66,7 @@ export interface NotebookPort {
   provenance: unknown;
   layout: string[][] | null;
   set(leaf: string, value: unknown): void;
+  setMany?(values: Record<string, unknown>): void;
   subscribe(fn: (ev: WireEvent) => void): () => void;
   subscribeValues?(fn: (ev: ValueEvent) => void): () => void;
   values(): Record<string, unknown>;
@@ -90,6 +91,17 @@ export interface Leaf {
 /** Wrap a raw notebook port (or globalThis.notebook) in the structural client. */
 export function connect(port?: NotebookPort): Notebook;
 
+/**
+ * Fetch, instantiate, and start a WASM notebook, resolving to a connected client
+ * once its port is published — with a timeout, so a broken artifact rejects
+ * rather than polling forever. Requires Go's wasm_exec.js loaded first.
+ */
+export function loadNotebook(opts: {
+  wasm: string;
+  timeout?: number;
+  Go?: unknown;
+}): Promise<Notebook>;
+
 /** The structural client over a go-notebook WASM port. */
 export class Notebook {
   constructor(port: NotebookPort);
@@ -106,6 +118,8 @@ export class Notebook {
   graph(): Record<string, string[]>;
   /** set a leaf (crosses the port's coercer like a UI edit) */
   set(leaf: string, value: unknown): void;
+  /** set several leaves as one atomic edit (one epoch, one wave); throws on an older port */
+  setMany(values: Record<string, unknown>): void;
   /** pull a snapshot of every leaf's current value */
   values(): Record<string, unknown>;
   /** subscribe to rendered events (mime/data) */

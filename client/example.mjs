@@ -120,4 +120,24 @@ if (!lastSnapshot || lastSnapshot.epoch < 1 || Object.keys(lastSnapshot.values).
   console.error("ANTI-PASS FAIL: subscribeEpoch did not deliver a coherent post-edit snapshot");
   process.exit(1);
 }
-console.log("ok: client drove the port end-to-end (enumerate → subscribe → set → typed recompute → coherent snapshot)");
+
+// Atomic multi-leaf edit: set two leaves at once and assert they land together in
+// ONE wave's snapshot (its epoch advances once, not twice). A port that lacked
+// setMany would have failed the capability check; here we exercise the write.
+if (nb.can("atomic-set")) {
+  const epochBefore = lastSnapshot.epoch;
+  const two = nb.leaves().slice(0, 2).map((l) => l.symbol);
+  if (two.length === 2) {
+    nb.setMany({ [two[0]]: 2, [two[1]]: 3 });
+    await new Promise((r) => setTimeout(r, 300));
+    if (lastSnapshot.epoch !== epochBefore + 1) {
+      console.error(`ANTI-PASS FAIL: setMany advanced the epoch by ${lastSnapshot.epoch - epochBefore}, want 1 — a batch edit must be ONE wave, not per-leaf`);
+      process.exit(1);
+    }
+    console.log(`ok: setMany({${two[0]}, ${two[1]}}) landed in one wave (epoch ${epochBefore} → ${lastSnapshot.epoch})`);
+  }
+} else {
+  console.error("ANTI-PASS FAIL: a freshly-built notebook does not report the atomic-set capability");
+  process.exit(1);
+}
+console.log("ok: client drove the port end-to-end (enumerate → subscribe → set → setMany → typed recompute → coherent snapshot)");

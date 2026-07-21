@@ -494,3 +494,57 @@ func TestSupersededWaveDoesNotSettle(t *testing.T) {
 		t.Errorf("settled epoch = %d, want the winning epoch %d — a superseded wave must not settle", settled[0].Epoch, maxEpoch)
 	}
 }
+
+// TestSetManyIsOneAtomicEdit is the atomic multi-leaf edit (#225): setting
+// several leaves via SetMany bumps the epoch ONCE and runs ONE wave over all of
+// them, so a downstream cell that reads two leaves sees both new values together,
+// never an intermediate combination. Contrast with two separate Set calls, which
+// would be two epochs and two waves.
+func TestSetManyIsOneAtomicEdit(t *testing.T) {
+	// a, b are leaves; sum reads both. If a and b arrived in separate waves, sum
+	// would compute once with (newA, oldB) before settling on (newA, newB).
+	a := fnNode{id: "a", out: []Symbol{"a"}, run: func(_ context.Context, _ Inputs) (Outputs, error) { return Outputs{"a": 0}, nil }}
+	b := fnNode{id: "b", out: []Symbol{"b"}, run: func(_ context.Context, _ Inputs) (Outputs, error) { return Outputs{"b": 0}, nil }}
+	sum := fnNode{
+		id: "sum", in: []Symbol{"a", "b"}, out: []Symbol{"s"}, pure: true,
+		run: func(_ context.Context, in Inputs) (Outputs, error) {
+			return Outputs{"s": in["a"].(int) + in["b"].(int)}, nil
+		},
+	}
+	cfg := Config{
+		Nodes:  []Node{a, b, sum},
+		Leaves: []LeafID{"a", "b"},
+		Levels: [][]CellID{{"a", "b"}, {"sum"}},
+	}
+	head := NewHead()
+	head.Set("a", 0)
+	head.Set("b", 0)
+	rt := NewRuntime(cfg, head, NewMemoStore())
+
+	drain := collectEvents(rt)
+	epoch := rt.SetMany(context.Background(), map[LeafID]any{"a": 3, "b": 4})
+	events := drain()
+
+	// The returned epoch is what the wave (and its settled marker) carried.
+	var settledEpoch Epoch
+	sumEpochs := map[Epoch]bool{}
+	for _, ev := range events {
+		if ev.State == StateSettled {
+			settledEpoch = ev.Epoch
+		}
+		if ev.Cell == "sum" && ev.State == StateDone {
+			sumEpochs[ev.Epoch] = true
+		}
+	}
+	if settledEpoch != epoch {
+		t.Errorf("SetMany returned epoch %d but the wave settled at %d", epoch, settledEpoch)
+	}
+	// sum computed in exactly ONE wave (one epoch), not two.
+	if len(sumEpochs) != 1 {
+		t.Errorf("sum ran in %d distinct epochs, want 1 — SetMany must be one wave, not per-leaf", len(sumEpochs))
+	}
+	// And its value is the coherent 3+4=7, never an intermediate (3+0 or 0+4).
+	if v := rt.Finals()["s"]; v != 7 {
+		t.Errorf("sum = %v, want 7 (both leaves applied together)", v)
+	}
+}

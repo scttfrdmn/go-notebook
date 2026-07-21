@@ -61,6 +61,14 @@ import (
 // SetFunc writes the raw value, which is fine when values are already typed.
 type SetFunc func(ctx context.Context, rt *engine.Runtime, leaf string, raw any)
 
+// SetManyFunc coerces several raw JS leaf values and applies them as ONE atomic
+// edit (one epoch, one wave) — the browser twin of the server's batch setter, so
+// a host driving a WASM notebook can change related inputs together without a
+// subscriber seeing an intermediate combination. Generated code supplies it
+// (coerce-all-first, writing nothing if any value fails); a nil SetManyFunc makes
+// notebook.setMany write the raw values under one epoch via engine.Runtime.SetMany.
+type SetManyFunc func(ctx context.Context, rt *engine.Runtime, vals map[string]any)
+
 // Run wires a runtime to the browser and blocks forever (a wasm main must not
 // return). It publishes the port (globalThis.notebook) and pumps engine events
 // to every subscriber. It publishes no provenance; use [RunNotebook] to show
@@ -73,14 +81,29 @@ func Run(rt *engine.Runtime, meta []engine.CellMeta, set SetFunc) {
 // the host can show what produced this .wasm — the content identity a fixed URL
 // cannot convey. Run delegates here with an empty Provenance, so the older
 // signature is unchanged.
-func RunNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, layout [][]string, set SetFunc) {
+// setMany is an optional trailing arg (variadic so the many callers and the
+// older signature are unchanged): the type-aware atomic batch setter. Generated
+// code passes one; without it, notebook.setMany falls back to raw SetMany.
+func RunNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provenance, layout [][]string, set SetFunc, setMany ...SetManyFunc) {
 	if set == nil {
 		set = func(ctx context.Context, rt *engine.Runtime, leaf string, raw any) {
 			rt.Set(ctx, engine.LeafID(leaf), raw)
 		}
 	}
+	var many SetManyFunc
+	if len(setMany) > 0 && setMany[0] != nil {
+		many = setMany[0]
+	} else {
+		many = func(ctx context.Context, rt *engine.Runtime, vals map[string]any) {
+			leaves := make(map[engine.LeafID]any, len(vals))
+			for k, v := range vals {
+				leaves[engine.LeafID(k)] = v
+			}
+			rt.SetMany(ctx, leaves)
+		}
+	}
 
-	p := &port{rt: rt, meta: meta, set: set}
+	p := &port{rt: rt, meta: meta, set: set, setMany: many}
 
 	// One goroutine reads the engine's channel and fans each event out to every
 	// JS subscriber. Started before the port is published, so no event a host
@@ -103,6 +126,22 @@ func RunNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provena
 			leaf := args[0].String()
 			raw := fromJS(args[1])
 			go set(context.Background(), rt, leaf, raw)
+			return nil
+		}),
+		// setMany(obj) applies several leaves as one atomic edit — the browser twin
+		// of POST /set {"values":{…}}. obj is a plain {leaf: value} JS object; each
+		// value crosses fromJS exactly as set()'s does.
+		"setMany": js.FuncOf(func(_ js.Value, args []js.Value) any {
+			if len(args) != 1 || args[0].Type() != js.TypeObject {
+				return nil
+			}
+			vals := map[string]any{}
+			keys := js.Global().Get("Object").Call("keys", args[0])
+			for i := 0; i < keys.Length(); i++ {
+				k := keys.Index(i).String()
+				vals[k] = fromJS(args[0].Get(k))
+			}
+			go p.setMany(context.Background(), rt, vals)
 			return nil
 		}),
 		"subscribe": js.FuncOf(func(_ js.Value, args []js.Value) any {
@@ -143,9 +182,10 @@ func RunNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provena
 // port holds the JS-facing state: the runtime, the notebook metadata, the leaf
 // coercer, and the set of live event subscribers.
 type port struct {
-	rt   *engine.Runtime
-	meta []engine.CellMeta
-	set  SetFunc
+	rt      *engine.Runtime
+	meta    []engine.CellMeta
+	set     SetFunc
+	setMany SetManyFunc
 
 	mu        sync.Mutex
 	subs      map[int]js.Value // subscribe(fn): rendered-event subscribers
