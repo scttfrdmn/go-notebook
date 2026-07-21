@@ -25,6 +25,13 @@ import (
 	"github.com/scttfrdmn/go-notebook/engine"
 )
 
+// maxSetBytes bounds a POST /set body. An edit is a leaf name plus a value, or a
+// small values map — 1 MiB is far above any real edit and well below a payload
+// that could exhaust memory, so it stops an accidental or malicious oversize POST
+// without constraining legitimate use. (The supervisor's /__source has its own,
+// separate limit for whole-file source edits.)
+const maxSetBytes = 1 << 20 // 1 MiB
+
 // Server serves a runtime over HTTP.
 type Server struct {
 	rt      *engine.Runtime
@@ -172,6 +179,11 @@ func (s *Server) handleSet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "POST only", http.StatusMethodNotAllowed)
 		return
 	}
+	// Cap the body: a leaf edit (or a batch of them) is small — a leaf name plus a
+	// value or a modest values map. A multi-megabyte POST is a mistake or an abuse,
+	// not a real edit, so bound it rather than decode unboundedly. MaxBytesReader
+	// makes the decode below fail once the limit is crossed; we map that to 413.
+	r.Body = http.MaxBytesReader(w, r.Body, maxSetBytes)
 	var req struct {
 		Leaf   string         `json:"leaf"`
 		Value  any            `json:"value"`
@@ -183,6 +195,13 @@ func (s *Server) handleSet(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	dec.UseNumber()
 	if err := dec.Decode(&req); err != nil {
+		// MaxBytesReader signals the overflow with a *http.MaxBytesError; report it
+		// as 413 so an oversize body is distinct from malformed JSON (400).
+		var mbe *http.MaxBytesError
+		if errors.As(err, &mbe) {
+			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
 		return
 	}

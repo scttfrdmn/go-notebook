@@ -74,6 +74,24 @@ func TestNewNilSetFallback(t *testing.T) {
 	}
 }
 
+// TestHandleSetRejectsOversizeBody confirms POST /set bounds its body: a payload
+// past the cap is 413, not decoded unboundedly. A leaf edit is tiny, so a
+// multi-megabyte body is a mistake or abuse — the localhost boundary should
+// refuse it rather than allocate for it.
+func TestHandleSetRejectsOversizeBody(t *testing.T) {
+	rt, meta := testRuntime(t)
+	h := New(rt, meta, nil).Handler()
+
+	// A JSON body comfortably over the 1 MiB cap.
+	big := `{"leaf":"n","value":"` + strings.Repeat("x", (1<<20)+1024) + `"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/set", strings.NewReader(big))
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("oversize POST /set = %d, want 413", rec.Code)
+	}
+}
+
 // validatingSet mirrors the generated SetFunc's contract for the test: it coerces
 // synchronously, wrapping engine.ErrUnknownLeaf for a name it doesn't know and
 // engine.ErrBadValue for a value of the wrong kind, and only "applies" (a no-op
