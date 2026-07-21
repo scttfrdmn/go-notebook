@@ -65,10 +65,17 @@ var pages = []page{
 	{"docs/paper.md", "paper", "The paper", "Why it works this way — the system paper, with the corpus, the numbers, and the findings.", "Deep reads"},
 }
 
-// buildStamp is the docs' own provenance — the commit and date these pages were
-// generated from — shown in every page footer. A project whose core story is
-// artifact provenance should date its own documentation. Computed once in main.
-var buildStamp string
+// buildStamp is the docs' own provenance — the release, commit, and date these
+// pages were generated from — shown in every page footer. A project whose core
+// story is artifact provenance should date its own documentation. Computed once
+// in main. buildCommit is the full commit SHA (for per-page source links);
+// buildRelease is the latest release tag (so a reader knows which tool the docs
+// match). Both may be empty outside a git checkout.
+var (
+	buildStamp   string
+	buildCommit  string
+	buildRelease string
+)
 
 func main() {
 	root, err := os.Getwd()
@@ -114,7 +121,7 @@ func main() {
 		// other token untouched.
 		lit := strings.ReplaceAll(body.String(), "color:#007f7f", "color:#4db6ac")
 		content := rewriteLinks(lit) + pager(i)
-		out := shell(p.title, navLinks(p.slug), content, p.slug, p.blurb)
+		out := shell(p.title, navLinks(p.slug), content, p.slug, p.blurb, p.src)
 		must(os.WriteFile(filepath.Join(outDir, p.slug+".html"), []byte(out), 0o644))
 		fmt.Printf("docs: wrote site/docs/%s.html\n", p.slug)
 	}
@@ -142,7 +149,7 @@ func main() {
 		`<h1>Documentation</h1>
 <p class="lead">New here? Start with <b>Write your first notebook</b>. The <b>Reference</b> covers every feature; the <b>Deep reads</b> explain why the system is shaped this way.</p>
 `+cards.String(),
-		"index", "Documentation for go-notebook — the guide, a full feature reference, and the design and paper.")
+		"index", "Documentation for go-notebook — the guide, a full feature reference, and the design and paper.", "")
 	must(os.WriteFile(filepath.Join(outDir, "index.html"), []byte(index), 0o644))
 	fmt.Println("docs: wrote site/docs/index.html")
 
@@ -350,7 +357,10 @@ func rewriteLinks(htmlBody string) string {
 // and self-hosted Atkinson fonts as the landing page, plus a docs sidebar. slug
 // and desc drive the per-page canonical URL, meta description, and JSON-LD so each
 // page is individually discoverable (AI-readiness) and legible to assistive tech.
-func shell(title, sidebar, content, slug, desc string) string {
+// srcPath is the page's own Markdown source (e.g. "docs/authoring.md"), so the
+// footer links to the exact file at the built commit — "source is one click away"
+// made literal; "" (the synthetic index) links to the docs tree instead.
+func shell(title, sidebar, content, slug, desc, srcPath string) string {
 	canonical := baseURL + "/docs/" + slug + ".html"
 	if slug == "index" {
 		canonical = baseURL + "/docs/"
@@ -372,6 +382,16 @@ func shell(title, sidebar, content, slug, desc string) string {
 			"codeRepository": "https://github.com/scttfrdmn/go-notebook",
 		},
 	})
+	// Footer source link: the exact Markdown file at the built commit, so a reader
+	// is one click from the source they're reading (and can edit it). Falls back to
+	// the repo tree for the synthetic index, or when git gave no commit.
+	const repo = "https://github.com/scttfrdmn/go-notebook"
+	sourceLink := repo
+	if srcPath != "" && buildCommit != "" {
+		sourceLink = repo + "/blob/" + buildCommit + "/" + srcPath
+	} else if srcPath == "" && buildCommit != "" {
+		sourceLink = repo + "/tree/" + buildCommit + "/docs"
+	}
 	return `<!doctype html>
 <html lang="en">
 <head>
@@ -402,7 +422,7 @@ func shell(title, sidebar, content, slug, desc string) string {
 <div class="docwrap">
   <aside class="sidebar"><nav aria-label="Documentation">` + sidebar + `</nav></aside>
   <main class="doc" id="main">` + content + `
-    <footer class="docprov">` + html.EscapeString(buildStamp) + ` · <a href="https://github.com/scttfrdmn/go-notebook">source</a></footer>
+    <footer class="docprov">` + html.EscapeString(buildStamp) + ` · <a href="` + sourceLink + `">source</a></footer>
   </main>
 </div>
 <script>
@@ -449,16 +469,25 @@ func must(err error) {
 	}
 }
 
-// computeBuildStamp returns "built <UTC date> · <short commit>" for the docs
-// footer, best-effort: if git is unavailable (a source tarball) the commit is
-// omitted and only the date shows. Prefers SOURCE_DATE_EPOCH-style reproducibility
-// via git's own commit date rather than wall-clock, so a rebuild of the same
-// commit stamps the same date.
+// computeBuildStamp returns "<release> · built <UTC date> · <short commit>" for
+// the docs footer and, as a side effect, populates buildCommit (full SHA, for
+// per-page source links) and buildRelease (latest tag). Best-effort: if git is
+// unavailable (a source tarball) the missing parts are omitted. Prefers
+// SOURCE_DATE_EPOCH-style reproducibility via git's own commit date rather than
+// wall-clock, so a rebuild of the same commit stamps the same date.
 func computeBuildStamp() string {
-	commit := ""
+	shortCommit := ""
 	date := ""
 	if out, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output(); err == nil {
-		commit = strings.TrimSpace(string(out))
+		shortCommit = strings.TrimSpace(string(out))
+	}
+	if out, err := exec.Command("git", "rev-parse", "HEAD").Output(); err == nil {
+		buildCommit = strings.TrimSpace(string(out))
+	}
+	// The latest release tag, so the footer says which tool version these docs
+	// describe. --abbrev=0 gives the bare tag (e.g. v0.5.0), not a +N-gN suffix.
+	if out, err := exec.Command("git", "describe", "--tags", "--abbrev=0").Output(); err == nil {
+		buildRelease = strings.TrimSpace(string(out))
 	}
 	// The commit's own date, so the stamp is a property of the source, not of when
 	// the build machine happened to run.
@@ -468,10 +497,14 @@ func computeBuildStamp() string {
 	if date == "" {
 		date = time.Now().UTC().Format("2006-01-02")
 	}
-	if commit == "" {
-		return "built " + date
+	stamp := "built " + date
+	if shortCommit != "" {
+		stamp += " · " + shortCommit
 	}
-	return "built " + date + " · " + commit
+	if buildRelease != "" {
+		stamp = buildRelease + " · " + stamp
+	}
+	return stamp
 }
 
 // docCSS is the docs stylesheet: the landing page's fonts/palette (fonts live one

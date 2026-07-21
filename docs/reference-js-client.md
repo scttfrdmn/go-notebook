@@ -84,6 +84,15 @@ nb.subscribeValues((ev) => {
 });
 ```
 
+An event is one of two shapes — a per-cell value, or the terminal wave-settled
+marker (see [Coherent per-wave snapshots](#coherent-per-wave-snapshots)):
+
+```ts
+type ValueEvent =
+  | { epoch: number; cell: string; value: unknown }  // one cell's typed value
+  | { epoch: number; settled: true };                // the wave is complete
+```
+
 This is the capability the pipe adds. Before it, a host could only `subscribe` to
 **rendered events** — `{ mime, data }`, where `data` is the string a human reads.
 Multiplying `"40.24"` by a number is a bug waiting to happen; multiplying `40.24`
@@ -184,7 +193,7 @@ event streams have their own fixed lowercase schemas.
 | `leaves()[i].type` (nested, raw) | PascalCase | `leaves()[0].type.Name`, `.type.Underlying` |
 | `leaves()[i].columns[j]` (nested, raw) | PascalCase | `columns[0].Name`, `columns[0].Type` |
 | Rendered event — `subscribe` | fixed lowercase | `{ epoch, cell, state, mime, data, err }` |
-| Typed event — `subscribeValues` | fixed lowercase | `{ cell, value }` |
+| Typed event — `subscribeValues` | fixed lowercase | `{ epoch, cell, value }` or `{ epoch, settled: true }` |
 
 Rule of thumb: if you read it off `notebook.` directly, it is PascalCase; if you
 read it off a `leaves()` row's top level, it is camelCase; the nested `type` and

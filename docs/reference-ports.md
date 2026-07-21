@@ -128,16 +128,18 @@ notebook.meta                 // CellMeta[] — the graph, labels, leaf symbols,
 notebook.provenance           // build identity (source hash, commit)
 notebook.set(leaf, value)     // edit a leaf (data in) — same coercer as POST /set
 notebook.subscribe(fn)        // rendered events {epoch,cell,state,mime,data,err} → returns unsubscribe
-notebook.subscribeValues(fn)  // TYPED value events {cell, value} → returns unsubscribe
+notebook.subscribeValues(fn)  // TYPED value events {epoch,cell,value} + {epoch,settled} → returns unsubscribe
 notebook.values()             // synchronous snapshot of every leaf's current value
 notebook.start()              // run the first wave, so cells paint their defaults
 ```
 
 - `subscribe(fn)` delivers the **same wire-event shape** as `/events` (mime/data
   strings — what a human reads). `subscribe` returns an unsubscribe function.
-- `subscribeValues(fn)` delivers **typed** values (`{cell, value}` where `value`
-  is a real JS number/bool/object) — what a program computes on. See the
-  [JS client](reference-js-client.html), which wraps this with types.
+- `subscribeValues(fn)` delivers **typed** values — a per-cell event
+  `{epoch, cell, value}` (where `value` is a real JS number/bool/object), and once
+  per settled wave a terminal marker `{epoch, settled: true}` (no cell/value). What
+  a program computes on. See the [JS client](reference-js-client.html), which wraps
+  this with types and a coherent-snapshot helper.
 - The startup order matters: the port is published during WASM init; wait for
   `globalThis.notebook` to exist, install your subscriber, then call `start()`.
 
@@ -148,8 +150,15 @@ a multi-user service:
 
 - **No authentication.** Any client that can reach the port may read `/events`
   and mutate **any** leaf via `/set`.
-- **No TLS, no CORS restrictions, no per-request rate or size limits** beyond Go's
-  defaults.
+- **No TLS** and **no per-request rate or size limits** beyond Go's defaults.
+- **No CORS headers.** The server emits no `Access-Control-Allow-Origin`, so
+  browsers apply the same-origin policy by default — a page from another origin
+  cannot read `/events` or `/set` responses. (This is the opposite of a permissive
+  `Access-Control-Allow-Origin: *`; the server neither loosens nor tightens CORS,
+  it stays silent and lets the browser's default stand.) Note the same-origin
+  policy does not stop a cross-origin page from *sending* a `POST /set` — a leaf
+  can still be driven blind by a malicious local page; bind to `127.0.0.1` and
+  front the server before exposing it.
 - It binds `127.0.0.1` by default, so it is not exposed off the machine unless you
   change `--addr` or put it behind something.
 
