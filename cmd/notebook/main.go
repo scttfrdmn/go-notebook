@@ -11,6 +11,8 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/scttfrdmn/go-notebook/internal/gen"
 )
 
 // version is the build version, injected by the release build (GoReleaser
@@ -37,6 +39,13 @@ func main() {
 // run dispatches a subcommand and returns the process exit code, so it is
 // testable without spawning a process.
 func run(args []string) int {
+	// Stamp the tool version into every artifact codegen produces this run, so a
+	// built notebook records which go-notebook generated it. A plain dev build
+	// reports "dev"; provenance treats that as un-versioned (empty), so only a
+	// released tool stamps a real version.
+	if version != "dev" {
+		gen.ToolVersion = version
+	}
 	if len(args) == 0 {
 		fmt.Fprint(os.Stderr, usage)
 		return 2

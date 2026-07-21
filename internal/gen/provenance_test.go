@@ -92,6 +92,44 @@ func TestGitStateGracefulWithoutRepo(t *testing.T) {
 	}
 }
 
+// TestToolVersionInProvenance pins that the go-notebook tool version, when set,
+// flows into the provenance record — codegen changes can change behavior for
+// identical source, so the tool version is part of "what produced this" — and
+// that a dev build (empty ToolVersion) omits it rather than stamping "".
+func TestToolVersionInProvenance(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "nb.go")
+	if err := os.WriteFile(f, []byte("package nb\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	info := analyze.PackageInfo{Dir: dir, GoFiles: []string{f}}
+
+	// Empty (a dev build of the tool): the field is empty and the literal omits
+	// nothing but a "" — the engine JSON tag (omitempty) drops it on the wire.
+	ToolVersion = ""
+	p, err := computeProvenance(info, time.Unix(0, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.ToolVersion != "" {
+		t.Errorf("dev build should leave ToolVersion empty, got %q", p.ToolVersion)
+	}
+
+	// Set (a released tool): it flows into the record and the emitted literal.
+	ToolVersion = "v9.9.9"
+	defer func() { ToolVersion = "" }() // don't leak into other tests
+	p, err = computeProvenance(info, time.Unix(0, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.ToolVersion != "v9.9.9" {
+		t.Errorf("ToolVersion = %q, want v9.9.9", p.ToolVersion)
+	}
+	if lit := provenanceLiteral(p); !strings.Contains(lit, `ToolVersion: "v9.9.9"`) {
+		t.Errorf("provenance literal missing the tool version, got: %s", lit)
+	}
+}
+
 func firstProvLine(src string) string {
 	for _, line := range strings.Split(src, "\n") {
 		if strings.Contains(line, "NotebookProvenance") {

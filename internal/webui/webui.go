@@ -878,6 +878,7 @@ const NB = (function () {
     if (p.commit) parts.push('commit ' + short(p.commit) + (p.dirty ? ' +dirty' : ''));
     if (p.builtAt) parts.push(p.builtAt);
     if (p.goVersion) parts.push(p.goVersion);
+    if (p.toolVersion) parts.push('notebook ' + p.toolVersion);
     foot.textContent = parts.join(' · ');
     if (p.dirty) {
       const tag = document.createElement('span');
