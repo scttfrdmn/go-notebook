@@ -37,7 +37,7 @@ The `[pure]` tag is the analyzer reporting that it proved each cell a pure funct
 
 ### `run`
 
-Builds the notebook and serves it in your browser over HTTP, rebuilding on source edits. Flags: `--addr` (listen address, default `127.0.0.1:8080`), `--no-open` (don't launch a browser), `--timing`.
+Builds the notebook, serves it over HTTP, and **opens it in your browser** — then rebuilds on every source edit. This is the one command for "compile and run interactively": `go tool notebook run ./mynotebook`. Flags: `--addr` (listen address, default `127.0.0.1:8080`), `--no-open` (serve but don't launch a browser), `--timing`.
 
 ### `build`
 
