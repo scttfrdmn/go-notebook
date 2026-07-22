@@ -60,12 +60,13 @@ This is the run-loop port-ownership lesson applied across a machine boundary: th
 A served workload prints, once, when it begins serving:
 
 ```json
-{"event":"ready","addr":"<host:port it is listening on>","provenance":{…}}
+{"event":"ready","addr":"<host:port it is listening on>","provenance":{…},"token":"<if --token>"}
 ```
 
 - **`event`** is a discriminator so a launcher can ignore other stdout lines (log output, warnings). One line, newline-terminated, on stdout.
 - **`addr`** is the actual listening address (post-`:0` resolution).
 - **`provenance`** is the existing build identity (source hash, commit) — so the substrate can log *what* it spawned, the content-addressed identity a fixed URL can't convey.
+- **`token`** is present **only when the notebook was started with `--token`**. When present, the substrate/driver must forward it on every request (an `X-Notebook-Token` header or `?token=`); the field is omitted entirely on the open default, so the line shape is unchanged for a tokenless notebook. This is how a credential rides the same one-line contract without the substrate learning anything notebook-specific — it forwards a token it treats as opaque.
 
 Nothing about notebooks is in this line. Any HTTP workload that prints it is spawnable by the same substrate verb. That is the reusability the generic shape buys — and why it is preferred over teaching spore.host the `/set`+`/events` API directly (which would couple the substrate to go-notebook's surface for no gain: the tunnel already carries that API transparently).
 

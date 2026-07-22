@@ -181,8 +181,15 @@ notebook.start()              // run the first wave, so cells paint their defaul
 The built-in server is a **local development and trusted-network endpoint**, not
 a multi-user service:
 
-- **No authentication.** Any client that can reach the port may read `/events`
-  and mutate **any** leaf via `/set`.
+- **Authentication is opt-in.** By default any client that can reach the port may
+  read `/events` and mutate **any** leaf via `/set`. Pass **`--token`** to require
+  one: `--token=auto` generates a random token (printed in the readiness line and
+  the startup log), or `--token=<value>` uses a value you supply. Every request
+  must then carry it — an `X-Notebook-Token` header or a `?token=` query param —
+  or gets `401`. This is the cross-**user** defense the Host check does not
+  provide: on a shared host any local process sends a loopback `Host`, but only one
+  that read the readiness line knows the token. The token is compared in constant
+  time. (WASM builds serve no HTTP, so this applies to the served native binary.)
 - **No TLS** and **no per-request rate limit** beyond Go's defaults. `POST /set`
   does cap its body (1 MiB → `413`); other endpoints do not.
 - **No CORS headers.** The server emits no `Access-Control-Allow-Origin`, so
