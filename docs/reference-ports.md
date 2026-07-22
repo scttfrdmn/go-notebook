@@ -71,9 +71,13 @@ To change several leaves **together**, post a `values` map instead of a single
 
 ### `GET /events` — subscribe to cell updates (SSE)
 
-A `text/event-stream`. On connect, the server runs a full wave so a freshly
-opened client receives every cell's current output (not a blank page). Each event
-is one line:
+A `text/event-stream`. On connect, the server **replays the current committed
+state to the new client only** — the latest event for each cell, so a freshly
+opened page paints immediately without a blank frame. It does *not* run a fresh
+wave to do this, so a second tab connecting neither re-runs the notebook's cells
+nor pushes a redundant repaint to clients already connected. (Only the very first
+connection, before any wave has run, triggers the initial wave to produce that
+state.) Each event is one line:
 
 ```
 data: {"epoch":7,"cell":"hourlyCost","state":"done","mime":"text/plain","data":"40.24"}
@@ -132,11 +136,19 @@ programmatically ignores this and uses `/set` + `/events`.
   drop stale lower-epoch events. Rapid edits (a slider drag) coalesce in the
   scheduler.
 - **No missed-event replay.** The SSE stream carries no `id:`/`retry:` fields, so
-  there is no `Last-Event-ID` resumption. On reconnect the server replays current
-  state by running a fresh wave (every cell re-emits its current output) — you get
-  the current truth, not the events you missed. A driver should be **state-based**
+  there is no `Last-Event-ID` resumption. On reconnect the server replays the
+  current committed state (the latest event per cell) to that client — you get the
+  current truth, not the events you missed. A driver should be **state-based**
   (react to the latest value per cell), not event-log-based.
 - **Ordering** within a wave is per-cell; across waves, the epoch orders them.
+- **Slow consumers are dropped, not backpressured.** Each subscriber has a
+  256-event buffer; if a client can't keep up and the buffer fills, further events
+  are **dropped for that client** (the wave never blocks on a slow reader). Because
+  the contract is state-based, a client that missed intermediate events still
+  converges on the correct current value once it drains — and a reconnect replays
+  current state. There is no per-client flow control or configurable queue bound
+  today; a client that needs guaranteed delivery of every transition should poll
+  `/leaves` (state) rather than rely on the event log.
 
 ## Browser (the WASM build: `globalThis.notebook`)
 

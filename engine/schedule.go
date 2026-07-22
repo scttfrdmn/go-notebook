@@ -39,6 +39,17 @@ type Runtime struct {
 	mu      sync.Mutex
 	subs    []chan Event
 	current Epoch // the newest epoch that has begun a wave; used to supersede
+	// lastEvent holds the most recent event emitted for each cell — the current
+	// committed display state. A newly-connecting subscriber is seeded from this
+	// snapshot (see [Runtime.SubscribeReplay]) instead of triggering a fresh
+	// whole-graph wave, so a new observer does not perturb existing ones (a wave
+	// re-emits to ALL subscribers, and re-runs impure cells). Guarded by mu, so it
+	// is consistent with the subs fan-out it is captured alongside in emit.
+	lastEvent map[CellID]Event
+	// order preserves first-seen cell order so a replay is emitted in a stable,
+	// dependency-respecting sequence (cells first appear in level order during a
+	// wave), not Go's random map order.
+	lastEventOrder []CellID
 	// waves holds the cancel func of each in-flight wave by epoch, so a newer
 	// edit can cancel older waves' contexts — turning supersession from "discard
 	// the result" into "abandon the compute" for cells that honor ctx.Done().
@@ -79,18 +90,19 @@ type Config struct {
 // NewRuntime builds a runtime from a config, a head, and a cache.
 func NewRuntime(cfg Config, head *Head, cache Store) *Runtime {
 	r := &Runtime{
-		nodes:    make(map[CellID]Node, len(cfg.Nodes)),
-		deps:     make(map[CellID][]CellID),
-		levels:   cfg.Levels,
-		producer: make(map[Symbol]CellID),
-		leaves:   make(map[LeafID]bool, len(cfg.Leaves)),
-		head:     head,
-		cache:    cache,
-		versions: make(map[Symbol]uint64),
-		lastVals: make(map[Symbol]any),
-		finals:   make(map[Symbol]any),
-		waves:    make(map[Epoch]context.CancelFunc),
-		serial:   cfg.Serial,
+		nodes:     make(map[CellID]Node, len(cfg.Nodes)),
+		deps:      make(map[CellID][]CellID),
+		levels:    cfg.Levels,
+		producer:  make(map[Symbol]CellID),
+		leaves:    make(map[LeafID]bool, len(cfg.Leaves)),
+		head:      head,
+		cache:     cache,
+		versions:  make(map[Symbol]uint64),
+		lastVals:  make(map[Symbol]any),
+		finals:    make(map[Symbol]any),
+		waves:     make(map[Epoch]context.CancelFunc),
+		lastEvent: make(map[CellID]Event),
+		serial:    cfg.Serial,
 	}
 	for _, n := range cfg.Nodes {
 		r.nodes[n.ID()] = n
@@ -160,10 +172,40 @@ func (r *Runtime) subscribe() <-chan Event {
 	return ch
 }
 
+// SubscribeReplay registers a subscriber AND returns the current committed state
+// — the latest event per cell, in first-seen order — captured atomically with the
+// registration. A transport replays that snapshot to the newly-connected client
+// (only), so a new observer sees current state WITHOUT the engine running a fresh
+// whole-graph wave: no re-emit to existing subscribers, no re-run of impure cells
+// on someone else's behalf. `hasState` is false before any wave has run, so the
+// first-ever connection can fall back to running the initial wave. The snapshot is
+// a copy; the returned channel receives all subsequent live events.
+func (r *Runtime) SubscribeReplay() (ch <-chan Event, snapshot []Event, hasState bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	c := make(chan Event, 256)
+	r.subs = append(r.subs, c)
+	snap := make([]Event, 0, len(r.lastEventOrder))
+	for _, id := range r.lastEventOrder {
+		snap = append(snap, r.lastEvent[id])
+	}
+	return c, snap, len(snap) > 0
+}
+
 // emit sends an event to all subscribers, dropping it for any subscriber whose
-// buffer is full rather than blocking the wave.
+// buffer is full rather than blocking the wave. It also records the latest
+// per-cell event as the current committed display state, so a newly-connecting
+// subscriber can be seeded from that snapshot ([Runtime.SubscribeReplay]) instead
+// of forcing a fresh wave. The wave-settled marker (empty Cell) is a per-wave
+// signal, not a cell's state, so it is fanned out but not retained.
 func (r *Runtime) emit(ev Event) {
 	r.mu.Lock()
+	if ev.Cell != "" {
+		if _, seen := r.lastEvent[ev.Cell]; !seen {
+			r.lastEventOrder = append(r.lastEventOrder, ev.Cell)
+		}
+		r.lastEvent[ev.Cell] = ev
+	}
 	subs := r.subs
 	r.mu.Unlock()
 	for _, ch := range subs {
