@@ -14,6 +14,7 @@ package server
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -51,6 +52,21 @@ type Server struct {
 	// user deliberately bound to a non-loopback address has opted into network
 	// exposure; Host validation is then its reverse proxy's job and this stays off.
 	requireLoopbackHost bool
+	// token, when non-empty, is required on every request — via the
+	// X-Notebook-Token header or a ?token= query param. Opt-in (--token), off by
+	// default. It defends the cross-USER threat the Host guard does not: on a
+	// shared host any local process can send a loopback Host, but only one that
+	// read the readiness line knows the token. Compared in constant time.
+	token string
+}
+
+// TokenWith installs the access token every request must carry (X-Notebook-Token
+// header or ?token= query param) and returns the server, for chaining. Empty
+// leaves the endpoint open (the default). Like SetManyWith it is a
+// post-construction option so the serve entry points keep their signatures.
+func (s *Server) TokenWith(token string) *Server {
+	s.token = token
+	return s
 }
 
 // SetManyWith installs the type-aware atomic multi-leaf setter and returns the
@@ -130,22 +146,49 @@ func NewNotebook(rt *engine.Runtime, meta []engine.CellMeta, prov engine.Provena
 }
 
 // Handler returns the HTTP handler, so callers can wrap or test it without a
-// live listener. When the server is loopback-bound (the default), it wraps the
-// mux in the Host-header guard against DNS rebinding.
+// live listener. It composes two opt-in guards around the mux, outermost first:
+// the access-token check (401 when --token is set and the request lacks/mismatches
+// it) and, when the server is loopback-bound (the default), the Host-header guard
+// against DNS rebinding (403). Each is a no-op when its condition is off, so the
+// default posture is the bare mux plus the Host guard.
 func (s *Server) Handler() http.Handler {
-	if !s.requireLoopbackHost {
-		return s.mux
+	var h http.Handler = s.mux
+	if s.requireLoopbackHost {
+		inner := h
+		h = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !loopbackHost(r.Host) {
+				http.Error(w, "forbidden: this notebook is bound to localhost and only accepts a loopback Host "+
+					"(a cross-origin page cannot forge it — likely DNS rebinding). Reach it as 127.0.0.1 or localhost.",
+					http.StatusForbidden)
+				return
+			}
+			inner.ServeHTTP(w, r)
+		})
 	}
-	mux := s.mux
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !loopbackHost(r.Host) {
-			http.Error(w, "forbidden: this notebook is bound to localhost and only accepts a loopback Host "+
-				"(a cross-origin page cannot forge it — likely DNS rebinding). Reach it as 127.0.0.1 or localhost.",
-				http.StatusForbidden)
-			return
-		}
-		mux.ServeHTTP(w, r)
-	})
+	if s.token != "" {
+		inner := h
+		h = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !s.tokenOK(r) {
+				http.Error(w, "unauthorized: this notebook requires an access token "+
+					"(X-Notebook-Token header or ?token= query param) — see the readiness line for its value.",
+					http.StatusUnauthorized)
+				return
+			}
+			inner.ServeHTTP(w, r)
+		})
+	}
+	return h
+}
+
+// tokenOK reports whether the request carries the required token, from the
+// X-Notebook-Token header or the ?token= query param. Constant-time compare so a
+// caller can't time-probe the token byte by byte.
+func (s *Server) tokenOK(r *http.Request) bool {
+	got := r.Header.Get("X-Notebook-Token")
+	if got == "" {
+		got = r.URL.Query().Get("token")
+	}
+	return subtle.ConstantTimeCompare([]byte(got), []byte(s.token)) == 1
 }
 
 // loopbackHost reports whether an HTTP Host header names a loopback destination:

@@ -74,6 +74,53 @@ func TestNewNilSetFallback(t *testing.T) {
 	}
 }
 
+// TestTokenGuard is the opt-in access token (#226): with a token set, every
+// request must carry it (X-Notebook-Token header or ?token= query), else 401;
+// without a token set (the default), the endpoint is open. This is the cross-user
+// defense the Host guard doesn't provide.
+func TestTokenGuard(t *testing.T) {
+	rt, meta := testRuntime(t)
+
+	// Default: no token → open.
+	open := New(rt, meta, nil).Handler()
+	rec := httptest.NewRecorder()
+	open.ServeHTTP(rec, httptest.NewRequest("GET", "/leaves", nil))
+	if rec.Code == http.StatusUnauthorized {
+		t.Error("a server without --token must not require one (default is open)")
+	}
+
+	// Token set: enforce it.
+	guarded := New(rt, meta, nil).TokenWith("s3cret")
+	h := guarded.Handler()
+
+	cases := []struct {
+		name string
+		set  func(*http.Request)
+		want int
+	}{
+		{"no token", func(r *http.Request) {}, http.StatusUnauthorized},
+		{"wrong header", func(r *http.Request) { r.Header.Set("X-Notebook-Token", "nope") }, http.StatusUnauthorized},
+		{"right header", func(r *http.Request) { r.Header.Set("X-Notebook-Token", "s3cret") }, http.StatusOK},
+		{"right query", func(r *http.Request) { r.URL.RawQuery = "token=s3cret" }, http.StatusOK},
+		{"wrong query", func(r *http.Request) { r.URL.RawQuery = "token=nope" }, http.StatusUnauthorized},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/leaves", nil)
+			tc.set(req)
+			h.ServeHTTP(rec, req)
+			// /leaves returns 200 on success; only assert the auth outcome (200 vs 401).
+			if tc.want == http.StatusUnauthorized && rec.Code != http.StatusUnauthorized {
+				t.Errorf("%s: code = %d, want 401", tc.name, rec.Code)
+			}
+			if tc.want == http.StatusOK && rec.Code == http.StatusUnauthorized {
+				t.Errorf("%s: got 401, want the request allowed through", tc.name)
+			}
+		})
+	}
+}
+
 // TestLoopbackHost pins the Host classifier: loopback literals (with or without a
 // port, v4 or v6, and the "localhost" name) pass; anything else fails. This is the
 // predicate the DNS-rebinding guard turns on.

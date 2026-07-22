@@ -38,7 +38,7 @@ func MainPackage(g *graph.Graph, info analyze.PackageInfo) (GeneratedFile, error
 	// the --set/--json machinery references all of them. (The old string-parser
 	// pulled in strconv only for numeric-leaf notebooks; routing --set through
 	// engine.CoerceWire removed the one conditional import.)
-	for _, imp := range []string{"context", "encoding/json", "flag", "fmt", "log", "os", "sort", "strings"} {
+	for _, imp := range []string{"context", "crypto/rand", "encoding/hex", "encoding/json", "flag", "fmt", "log", "os", "sort", "strings"} {
 		fmt.Fprintf(&b, "\t%q\n", imp)
 	}
 	fmt.Fprintf(&b, "\n\t%q\n\t%q\n\t%s %q\n)\n\n",
@@ -255,19 +255,28 @@ func mainBody(alias string) string {
 	asJSON := flag.Bool("json", false, "print final cell values as JSON (implies --headless)")
 	serial := flag.Bool("serial", false, "disable goroutine fan-out (per-cell stdout)")
 	headPath := flag.String("head", "notebook-head.json", "head persistence file")
+	token := flag.String("token", "", "require an access token on /set and /events (X-Notebook-Token header or ?token=): empty = off (default), \"auto\" = generate and print one in the readiness line, any other value = use verbatim")
 	var sets multiFlag
 	flag.Var(&sets, "set", "override a leaf: --set leaf=value (repeatable)")
 	flag.Parse()
 
-	// headSpecified reports whether --head was passed explicitly, distinct from
-	// the flag merely holding its default. It selects head persistence by mode
-	// below.
+	// headSpecified reports whether --head was passed explicitly, distinct from the
+	// flag merely holding its default; it selects head persistence by mode below.
 	headSpecified := false
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "head" {
 			headSpecified = true
 		}
 	})
+	// Resolve the access token: opt-in, off by default. A single string flag (not a
+	// bare bool + value) because Go's flag package can't express "--token with no
+	// value" — a string flag always consumes the next arg. So the sentinel "auto"
+	// means generate; any other non-empty value is used verbatim (a launcher that
+	// set it ahead of time); "" leaves the endpoint open.
+	authToken := *token
+	if authToken == "auto" {
+		authToken = randomToken()
+	}
 
 	// Choose the head by mode. A batch run (--headless/--json) must be a pure
 	// function of (source, --set): it starts from a fresh in-memory head and
@@ -354,18 +363,28 @@ func mainBody(alias string) string {
 	// a launcher reads {event:"ready",addr,provenance} instead of polling-and-hoping,
 	// and the human-facing log line still prints for interactive use.
 	onReady := func(resolved string) {
-		log.Printf("notebook serving on http://%s", resolved)
+		if authToken != "" {
+			log.Printf("notebook serving on http://%s (access token: %s)", resolved, authToken)
+		} else {
+			log.Printf("notebook serving on http://%s", resolved)
+		}
 		ready := map[string]any{
 			"event":      "ready",
 			"addr":       resolved,
 			"provenance": ` + alias + `.NotebookProvenance,
+		}
+		// The token rides the readiness line ONLY when set, so a launcher/tunnel can
+		// forward it to drivers; omitted (not "") on the open default so the line
+		// shape is unchanged for the common case.
+		if authToken != "" {
+			ready["token"] = authToken
 		}
 		if b, err := json.Marshal(ready); err == nil {
 			fmt.Println(string(b))
 		}
 	}
 	if err := server.ServeNotebookReady(ctx, *addr, rt, ` + alias + `.NotebookMeta, ` + alias + `.NotebookProvenance, ` + alias + `.NotebookLayout, set, onReady,
-		func(s *server.Server) { s.SetManyWith(setMany) }); err != nil {
+		func(s *server.Server) { s.SetManyWith(setMany); s.TokenWith(authToken) }); err != nil {
 		log.Printf("server: %v", err)
 		os.Exit(1)
 	}
@@ -445,6 +464,17 @@ func cutEquals(s string) (name, val string, ok bool) {
 		}
 	}
 	return "", "", false
+}
+
+// randomToken returns a 128-bit hex token for --token with no value. crypto/rand
+// so it is unguessable; a rand failure is fatal rather than serving with a weak
+// token (a security control that silently degrades is worse than none).
+func randomToken() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		log.Fatalf("notebook: generating access token: %v", err)
+	}
+	return hex.EncodeToString(b)
 }
 `
 }
