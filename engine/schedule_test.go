@@ -548,3 +548,63 @@ func TestSetManyIsOneAtomicEdit(t *testing.T) {
 		t.Errorf("sum = %v, want 7 (both leaves applied together)", v)
 	}
 }
+
+// TestSubscribeReplayReflectsStateWithoutRerun is #225 item 2: a newly-connecting
+// subscriber is seeded from the current committed state (SubscribeReplay's
+// snapshot) without the engine running a fresh wave — so a new observer does not
+// re-run cells or perturb existing subscribers. It asserts (a) the snapshot
+// carries the last event per cell after a wave, and (b) subscribing does NOT
+// re-execute the graph (a run counter is unchanged by the second subscribe).
+func TestSubscribeReplayReflectsStateWithoutRerun(t *testing.T) {
+	var runs int64
+	leaf := fnNode{id: "n", out: []Symbol{"n"}, run: func(_ context.Context, _ Inputs) (Outputs, error) {
+		return Outputs{"n": 0}, nil
+	}}
+	derived := fnNode{
+		id: "d", in: []Symbol{"n"}, out: []Symbol{"d"}, pure: true,
+		run: func(_ context.Context, in Inputs) (Outputs, error) {
+			atomic.AddInt64(&runs, 1)
+			return Outputs{"d": in["n"].(int) + 1}, nil
+		},
+	}
+	cfg := Config{Nodes: []Node{leaf, derived}, Leaves: []LeafID{"n"}, Levels: [][]CellID{{"n"}, {"d"}}}
+	head := NewHead()
+	head.Set("n", 5)
+	rt := NewRuntime(cfg, head, NewMemoStore())
+
+	// One wave establishes committed state (and runs the cell once).
+	rt.RunAll(context.Background())
+	runsAfterWave := atomic.LoadInt64(&runs)
+	if runsAfterWave == 0 {
+		t.Fatal("the wave did not run the derived cell — test premise broken")
+	}
+
+	// A replay-subscribe reflects the committed state...
+	_, snapshot, hasState := rt.SubscribeReplay()
+	if !hasState {
+		t.Fatal("SubscribeReplay reports no state after a wave ran")
+	}
+	seen := map[CellID]Event{}
+	for _, ev := range snapshot {
+		seen[ev.Cell] = ev
+	}
+	if _, ok := seen["d"]; !ok {
+		t.Errorf("replay snapshot missing the derived cell 'd'; got cells %v", snapshotCells(snapshot))
+	}
+	if ev := seen["d"]; ev.State != StateDone {
+		t.Errorf("replayed 'd' state = %v, want done", ev.State)
+	}
+
+	// ...and it did NOT re-run the graph: the run counter is unchanged by subscribing.
+	if got := atomic.LoadInt64(&runs); got != runsAfterWave {
+		t.Errorf("SubscribeReplay re-ran cells: runs went %d → %d (a new observer must not recompute)", runsAfterWave, got)
+	}
+}
+
+func snapshotCells(evs []Event) []CellID {
+	out := make([]CellID, 0, len(evs))
+	for _, e := range evs {
+		out = append(out, e.Cell)
+	}
+	return out
+}

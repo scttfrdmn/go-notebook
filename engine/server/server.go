@@ -185,28 +185,42 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	sub := s.rt.Subscribe()
-	// Replay current state for the newly-connected client: the initial wave's
-	// events were emitted before this subscription existed, so without this a
-	// freshly-opened page would be blank until the first edit. Running a full
-	// wave now re-emits every cell's current output to all subscribers.
-	go s.rt.RunAll(r.Context())
+	// Seed the newly-connected client from the current committed state (the latest
+	// event per cell), captured atomically with the subscription. This replaces the
+	// old "run a full wave on connect" — which re-emitted to EVERY subscriber (so a
+	// second tab repainted the first) and re-ran impure cells on the new client's
+	// behalf. Replaying to just this client removes that cross-client perturbation.
+	// Only when no wave has run yet (the very first connection) is there no state to
+	// replay, so we run the initial wave then.
+	sub, snapshot, hasState := s.rt.SubscribeReplay()
+	if !hasState {
+		go s.rt.RunAll(r.Context())
+	}
 
 	enc := json.NewEncoder(w)
+	send := func(ev engine.Event) bool {
+		_, _ = fmt.Fprint(w, "data: ")
+		if err := enc.Encode(engine.ToWire(ev)); err != nil {
+			return false // client disconnected
+		}
+		_, _ = fmt.Fprint(w, "\n")
+		flusher.Flush()
+		return true
+	}
+	// Replay the snapshot to this client only, in dependency order.
+	for _, ev := range snapshot {
+		if !send(ev) {
+			return
+		}
+	}
 	for {
 		select {
 		case <-r.Context().Done():
 			return
 		case ev := <-sub:
-			// A write error means the client disconnected; the encoder error
-			// path below returns, so the bare Fprints only need their errors
-			// discarded.
-			_, _ = fmt.Fprint(w, "data: ")
-			if err := enc.Encode(engine.ToWire(ev)); err != nil {
+			if !send(ev) {
 				return
 			}
-			_, _ = fmt.Fprint(w, "\n")
-			flusher.Flush()
 		}
 	}
 }
