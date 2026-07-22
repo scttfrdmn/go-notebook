@@ -150,6 +150,16 @@
   .corpus { border-top: 1px solid var(--line); padding: 2rem 0 1rem; }
   .corpus h2 { color: var(--navy); font-size: var(--t-h2); margin: 0 0 .3rem; }
   .corpus .lead { color: var(--muted); margin: 0 0 1.5rem; max-width: 64ch; }
+  /* Filter chips: a wrapping row of pills, built by JS from the group headers.
+     The active chip is filled; the rest are outlined. Empty until JS runs. */
+  .corpusfilter { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1.5rem; }
+  .corpusfilter:empty { display: none; }
+  .corpusfilter button { font: inherit; font-size: var(--t-meta); cursor: pointer;
+    padding: .3rem .8rem; border-radius: 999px; border: 1px solid var(--line);
+    background: #fff; color: var(--muted); transition: background .12s, color .12s, border-color .12s; }
+  .corpusfilter button:hover { border-color: var(--go); color: var(--navy); }
+  .corpusfilter button[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .corpusfilter button:focus-visible { outline: 2px solid var(--go); outline-offset: 2px; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
   /* A group heading spans the full grid row so themed collections read as bands. */
   .tilegroup { grid-column: 1 / -1; margin: 1.4rem 0 .1rem; }
@@ -305,6 +315,10 @@
   <section class="corpus" id="corpus">
     <h2>The corpus — thirty-eight notebooks you can drag</h2>
     <p class="lead">Every notebook is a plain Go package, compiled to WebAssembly and running right here in your browser — a notebook is browser-portable only if it touches no <code>net</code>, <code>os</code>, or cgo, and the toolchain derives that from the call graph. Several were ported from marimo's gallery (porting them found real bugs); others are originals built to put one mechanism on stage — including a few that render not a chart but a <em>document</em>: an invoice, a table, a heatmap, drawn in HTML because that is the medium the answer takes. Each tile links to its source; many link to the <a href="https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal">minimal recipe</a> for the mechanism it puts on stage — the smallest copyable version.</p>
+    <!-- Filter chips are built by JS from the group headers below, so they can't
+         drift from the corpus. With JS off, the corpus shows in full (progressive
+         enhancement) — the chips simply don't appear. -->
+    <nav class="corpusfilter" aria-label="Filter the corpus by topic"></nav>
     <div class="tiles">
 
       <div class="tilegroup">
@@ -652,6 +666,57 @@
       if (f.contentWindow === e.source) { f.style.height = d.height + 'px'; break; }
     }
   });
+
+  // Corpus filter — jump-to-section chips, built from the group headers so they
+  // can't drift from the corpus. The .tiles grid is a flat sequence of
+  // .tilegroup (a header) and .tile siblings; each header owns the tiles that
+  // follow it until the next header. A chip shows one group (its header + tiles)
+  // and hides the rest; "All" clears the filter. Progressive enhancement: if this
+  // never runs, every tile stays visible.
+  (function () {
+    const tiles = document.querySelector('.tiles');
+    const bar = document.querySelector('.corpusfilter');
+    if (!tiles || !bar) return;
+
+    // Assign each element a group index by walking the flat sequence.
+    const groups = []; // { label, els: [header, ...tiles] }
+    let cur = null;
+    for (const el of tiles.children) {
+      if (el.classList.contains('tilegroup')) {
+        const hd = el.querySelector('.grouphd');
+        cur = { label: hd ? hd.textContent.trim() : 'Other', els: [el] };
+        groups.push(cur);
+      } else if (cur) {
+        cur.els.push(el);
+      }
+    }
+    if (groups.length < 2) return; // nothing to filter
+
+    function show(idx) { // idx = -1 → all
+      groups.forEach((g, i) => {
+        const on = idx === -1 || i === idx;
+        for (const el of g.els) el.hidden = !on;
+      });
+      for (const b of bar.children) b.setAttribute('aria-pressed', String(Number(b.dataset.idx) === idx));
+    }
+
+    function chip(label, idx) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.dataset.idx = String(idx);
+      b.addEventListener('click', () => show(idx));
+      bar.appendChild(b);
+    }
+
+    chip('All', -1);
+    groups.forEach((g, i) => chip(shortLabel(g.label), i));
+    show(-1);
+
+    // The group headers read as full sentences ("Controls & direct manipulation");
+    // a chip wants the short lead noun. Trim at the first & or em dash.
+    function shortLabel(s) { return s.split(/\s*[&—]\s*/)[0].trim(); }
+  })();
 </script>
 </body>
 </html>
