@@ -107,7 +107,16 @@
   .hero { padding: 2.5rem 0 1.5rem; }
   .hero .herotop { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
                    gap: 2.5rem; align-items: center; }
-  .hero .art img { width: 100%; height: auto; display: block; }
+  /* Fit the illustration to its column: the source PNG carries generous
+     whitespace around the gopher, so it read small and floaty at width:100%.
+     object-fit:cover on a defined aspect box crops that dead margin and fills
+     the column; object-position keeps the gopher (left-of-centre in the canvas)
+     in frame while the empty right edge is what crops toward the headline —
+     the intentional meet against the text. A bespoke asset (see the art brief
+     in docs/) will drop in here and can lose the cover crop. */
+  .hero .art img { width: 100%; height: auto; display: block;
+                   aspect-ratio: 5 / 4; object-fit: cover; object-position: 42% 50%; }
+  @media (max-width: 720px) { .hero .art img { aspect-ratio: 16 / 9; } }
   .hero .wordmark { font-size: var(--t-meta); font-weight: 700; color: var(--go-text);
                     letter-spacing: .01em; text-transform: none; }
   .hero h1 { font-size: var(--t-hero); line-height: 1.03; letter-spacing: -.03em;
