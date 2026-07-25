@@ -68,6 +68,7 @@ which is a worked example.
 | [`setport`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/setport) | the minimal live feed: a driver POSTs one leaf, a pure cell reacts | 23 + driver | [ports](reference-ports.html) |
 | [`testing`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/testing) | cells tested as ordinary Go functions (`go test`) | 52 | — |
 | [`component-host`](https://github.com/scttfrdmn/go-notebook/tree/main/site/component) | a foreign page drives a WASM notebook through the JS client — its own layout, `subscribeValues` for typed output, no built-in UI *(worked example)* | index.html + app.js | [JS client](reference-js-client.html#the-complete-host-page) |
+| [`notebook-in-notebook`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/notebook-in-notebook) | embed a live notebook as an interactive *figure* inside another — a `text/html` `Render` iframe to the inner notebook's `?embed` view; composition without an import (the allowed "notebook as a component" direction, not the forbidden nested graph) | 55 | [rendering](reference-rendering.html) |
 
 ## Two things every recipe shows
 

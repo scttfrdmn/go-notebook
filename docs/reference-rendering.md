@@ -106,6 +106,34 @@ in an image `onerror`). But it means:
 The trust boundary is the same one Go always has: you are running Go code. Rich
 rendering just extends that to the markup it emits.
 
+## Embedding a notebook as a figure
+
+Because a cell can render `text/html`, one notebook can place **another live
+notebook** inside its own output as an interactive figure — a `Render()` that
+returns an `<iframe>` pointing at the inner notebook's built directory:
+
+```go
+type Figure struct{ Src string }
+func (f Figure) Render() Rendered {
+	return Rendered{MIME: "text/html", Data: `<iframe src="` + f.Src + `"></iframe>`}
+}
+func demo() (fig Figure) { return Figure{Src: "reaction/?embed"} }
+```
+
+This is composition the allowed way — *the notebook as a component* (the paper's
+§13), not an import. The inner notebook is a **separate compiled program** that
+runs itself; the outer one only decides where it sits. There is no merged
+dependency graph and no nested-cell model — those would be the "component model"
+the design forbids, because the graph is a projection of *one* package's function
+signatures and cannot span two. Build both notebooks and place the inner one where
+the `src` points; see the [`notebook-in-notebook`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/notebook-in-notebook) recipe.
+
+**`?embed`** — appending it to a served/built notebook's URL drops the page chrome
+(the title, the dependency-graph panel, the provenance footer), leaving just the
+controls and cell output. It is presentation only — the notebook runs identically,
+the graph still drives the recompute, it is merely not shown — so an embedded
+figure reads as a figure, not a page inside a page.
+
 ## Accessible output
 
 A `Render()` that returns HTML or SVG is producing **application UI**, so the

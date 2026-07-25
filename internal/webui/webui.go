@@ -132,6 +132,12 @@ const CSS = `
           --font:"Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
           --mono:"Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", Menlo, monospace; }
   body { font: 14px/1.5 var(--font); margin: 2rem auto; max-width: 900px; padding: 0 24px; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  /* Embed mode (?embed): hide the page chrome so the notebook drops cleanly into
+     another page's figure — no header, no graph panel, no provenance footer, and
+     tight margins since the host supplies the frame. Set by the JS hook adding
+     .embed to <html>; the notebook still runs and the graph still drives it. */
+  html.embed body { margin: 0.75rem auto; max-width: none; }
+  html.embed h1, html.embed .graphwrap, html.embed #provenance { display: none; }
   /* Accessibility: skip link (appears on focus), visible focus rings, and honoring
      reduced-motion — the recompute-wave transitions are decorative, so drop them. */
   .skip { position: absolute; left: -999px; top: 0; z-index: 100; background: var(--navy);
@@ -305,6 +311,21 @@ const CSS = `
 //
 // The page must contain #controls, #cells, and #graph elements before init.
 const JS = `
+// Embed mode: when the page is loaded with ?embed (e.g. inside another notebook's
+// iframe figure), drop the page chrome — the <h1>, the dependency-graph panel, and
+// the provenance footer — leaving just the controls and cell output. It is a
+// presentation toggle only: the notebook runs identically, the graph still drives
+// the recompute, it is merely not shown. A class on <body> does the hiding via CSS
+// so nothing in the render path changes. Read from location.search so the same
+// static page serves both the standalone and the embedded view.
+(function () {
+  try {
+    if (new URLSearchParams(location.search).has('embed')) {
+      document.documentElement.classList.add('embed');
+    }
+  } catch (_) {}
+})();
+
 const NB = (function () {
   const cellEls = {};       // cell id -> its .cell element
   const graphNodes = {};    // cell id -> its <g> in the graph
