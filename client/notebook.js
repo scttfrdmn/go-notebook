@@ -143,25 +143,79 @@ export async function loadNotebook(opts) {
 
   // Poll for the port, but bounded: a wasm that fails to publish it must reject,
   // not hang the caller. connect() validates the port shape once it appears.
+  return connectWhenReady(() => globalThis.notebook, timeout, "this notebook's WASM");
+}
+
+/**
+ * connectWhenReady polls getPort() until it returns a value, then resolves to a
+ * connected {@link Notebook}; rejects after `timeout` ms if the port never
+ * appears. The shared readiness loop behind loadNotebook and connectFrame — a
+ * notebook's port is published asynchronously (during WASM init), so any consumer
+ * that didn't create the notebook itself must wait for it, bounded so a broken or
+ * missing notebook rejects instead of hanging. `what` names the source in the
+ * timeout error.
+ * @param {() => (NotebookPort|undefined)} getPort
+ * @param {number} timeout @param {string} what
+ * @returns {Promise<Notebook>}
+ */
+function connectWhenReady(getPort, timeout, what) {
   const deadline = Date.now() + timeout;
-  return await new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const tick = () => {
-      if (globalThis.notebook) {
+      const p = getPort();
+      if (p) {
         try {
-          resolve(connect(globalThis.notebook));
+          resolve(connect(p));
         } catch (e) {
           reject(e);
         }
         return;
       }
       if (Date.now() >= deadline) {
-        reject(new Error(`go-notebook: notebook port did not appear within ${timeout}ms (a broken or non-notebook .wasm?)`));
+        reject(new Error(`go-notebook: notebook port from ${what} did not appear within ${timeout}ms (broken, still loading, or not a notebook?)`));
         return;
       }
       setTimeout(tick, 5);
     };
     tick();
   });
+}
+
+/**
+ * connectFrame connects to a notebook running in an <iframe> and resolves to a
+ * {@link Notebook} that drives it — so an outer page (or an outer notebook, via
+ * its text/html render escape hatch) can steer an embedded notebook as a
+ * parameterized "black box with knobs": set its leaves, subscribe to its typed
+ * values, read its graph — all through the same port surface as a local notebook.
+ *
+ * The iframe must be SAME-ORIGIN (a sibling notebook served from the same host, as
+ * an embedded figure is) — a cross-origin frame's `globalThis.notebook` is walled
+ * off by the browser and cannot be reached. The inner notebook publishes its port
+ * asynchronously as its WASM boots, so this polls (bounded by `timeout`) rather
+ * than assuming it is ready the moment the iframe element exists.
+ *
+ * @param {HTMLIFrameElement} iframe  the embedded notebook's frame
+ * @param {Object} [opts]
+ * @param {number} [opts.timeout]     ms to wait for the inner port (default 10000)
+ * @returns {Promise<Notebook>} the connected client for the INNER notebook
+ */
+export async function connectFrame(iframe, opts) {
+  const { timeout = 10000 } = opts || {};
+  if (!iframe || iframe.tagName !== "IFRAME") {
+    throw new Error("go-notebook: connectFrame needs an <iframe> element");
+  }
+  return connectWhenReady(() => {
+    // A cross-origin frame throws on contentWindow access; report it as a clear
+    // error rather than a confusing timeout.
+    let win;
+    try {
+      win = iframe.contentWindow;
+      void win.location.href; // touch to trip the cross-origin SecurityError early
+    } catch (_) {
+      throw new Error("go-notebook: connectFrame requires a same-origin iframe (the embedded notebook must be served from the same host)");
+    }
+    return win && win.notebook;
+  }, timeout, "the embedded iframe");
 }
 
 /** The structural client. Thin, typed, delete-and-nothing-breaks. */

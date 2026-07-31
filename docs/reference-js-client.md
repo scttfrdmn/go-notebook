@@ -72,6 +72,32 @@ It owns the MIME fallback, `go.run`, the readiness poll, and the timeout — the
 error-prone parts a host would otherwise hand-roll (the manual sequence in
 [The complete host page](#the-complete-host-page) is what this replaces).
 
+### `connectFrame` — drive a notebook embedded in an iframe
+
+When one notebook embeds another as a live figure (see [embedding a notebook](reference-rendering.html#embedding-a-notebook-as-a-figure)),
+the outer page can *drive* the inner one — set its leaves, subscribe to its typed
+values — treating it as a parameterized **black box with knobs**. `connectFrame`
+connects to the notebook running inside a **same-origin** `<iframe>` and returns
+the same `Notebook` you'd get for a local one:
+
+```html
+<iframe id="inner" src="./inner/?embed"></iframe>
+<script type="module">
+  import { connectFrame } from "./notebook.js";
+
+  const inner = await connectFrame(document.getElementById("inner"));
+  myKnob.addEventListener("input", e => inner.set("c", Number(e.target.value)));
+  inner.subscribeValues(ev => { /* read the inner notebook's results back */ });
+</script>
+```
+
+It owns the readiness poll (the inner notebook publishes its port asynchronously
+as its WASM boots) and the same-origin port grab, with a **timeout** so a broken
+or cross-origin frame rejects instead of hanging. Same-origin is required — a
+cross-origin frame's port is walled off by the browser. This is still composition
+the allowed way: the inner notebook is its own program, reached only through its
+one public port — no merged graph, no import. See the [`driven-inner`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/driven-inner) recipe.
+
 ## Feature detection
 
 A notebook's port grows over time (typed values, per-wave epochs, leaf types were
