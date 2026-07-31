@@ -69,6 +69,7 @@ which is a worked example.
 | [`testing`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/testing) | cells tested as ordinary Go functions (`go test`) | 52 | — |
 | [`component-host`](https://github.com/scttfrdmn/go-notebook/tree/main/site/component) | a foreign page drives a WASM notebook through the JS client — its own layout, `subscribeValues` for typed output, no built-in UI *(worked example)* | index.html + app.js | [JS client](reference-js-client.html#the-complete-host-page) |
 | [`notebook-in-notebook`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/notebook-in-notebook) | embed a live notebook as an interactive *figure* inside another — a `text/html` `Render` iframe to the inner notebook's `?embed` view; composition without an import (the allowed "notebook as a component" direction, not the forbidden nested graph) | 55 | [rendering](reference-rendering.html) |
+| [`driven-inner`](https://github.com/scttfrdmn/go-notebook/tree/main/examples/minimal/driven-inner) | *drive* an embedded notebook — the outer notebook's knob pushes into the inner one's leaves via the client's `connectFrame`, treating it as a parameterized black-box compute; the bridge rides an `<img onerror>` escape hatch *(worked example)* | 80 | [JS client](reference-js-client.html#connectframe--drive-a-notebook-embedded-in-an-iframe) |
 
 ## Two things every recipe shows
 

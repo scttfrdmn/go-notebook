@@ -102,6 +102,17 @@ export function loadNotebook(opts: {
   Go?: unknown;
 }): Promise<Notebook>;
 
+/**
+ * Connect to a notebook running in a SAME-ORIGIN <iframe> and drive it — set its
+ * leaves, subscribe to its typed values — so an outer page can steer an embedded
+ * notebook as a parameterized component. Polls for the inner port (bounded by
+ * timeout); rejects on a cross-origin frame.
+ */
+export function connectFrame(
+  iframe: HTMLIFrameElement,
+  opts?: { timeout?: number },
+): Promise<Notebook>;
+
 /** The structural client over a go-notebook WASM port. */
 export class Notebook {
   constructor(port: NotebookPort);
