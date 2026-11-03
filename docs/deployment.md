@@ -64,17 +64,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
-          go-version: "1.25"
+          go-version: "1.27"
           cache: true
       - name: build the notebook to WASM
         run: |
           go mod download
           go tool notebook build --target=wasm -o ./out ./mynotebook
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: out
   deploy:
@@ -85,7 +85,7 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 ```
 
 Enable Pages for the repository with **Settings → Pages → Source: GitHub Actions**, then push to `main`. The notebook is rebuilt from source on every push, so the published page can never drift from the committed code. GitHub Pages already serves `.wasm` as `application/wasm`.

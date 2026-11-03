@@ -96,9 +96,19 @@ type supervisor struct {
 func newSupervisor(st *status, srcPath string) *supervisor {
 	s := &supervisor{status: st, srcPath: srcPath}
 	s.proxy = &httputil.ReverseProxy{
-		// Director reads the CURRENT child target on every request, so a swap to
-		// a new child needs no proxy rebuild.
-		Director: func(r *http.Request) {
+		// Rewrite reads the CURRENT child target on every request, so a swap to a
+		// new child needs no proxy rebuild. (Rewrite, not the Director it replaced:
+		// Director is deprecated since Go 1.26 because hop-by-hop header removal
+		// runs AFTER it and can strip what it set; Rewrite sees the already-cleaned
+		// outbound request.)
+		//
+		// SetURL, not hand-set URL fields: under Rewrite the outbound Host starts as
+		// the INBOUND Host, and only SetURL clears it to the child's. That matters
+		// because the child's DNS-rebinding guard rejects a non-loopback Host —
+		// forwarding the browser's would 403 the proxied request. Pinned by
+		// TestSupervisorProxiesAndStreams. Rewrite also drops inbound X-Forwarded-*
+		// and adds none (nothing downstream reads them).
+		Rewrite: func(pr *httputil.ProxyRequest) {
 			_, _, to := st.snapshot()
 			if to == "" {
 				return // no child; ServeHTTP handles this before proxying
@@ -107,9 +117,7 @@ func newSupervisor(st *status, srcPath string) *supervisor {
 			if err != nil {
 				return
 			}
-			r.URL.Scheme = u.Scheme
-			r.URL.Host = u.Host
-			r.Host = u.Host
+			pr.SetURL(u)
 		},
 		// FlushInterval -1 flushes every write immediately — required for the
 		// SSE event stream, which the default buffering would stall.

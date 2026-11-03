@@ -19,8 +19,14 @@ import (
 // stream flows without buffering. SSE-through-a-proxy is the real risk (default
 // buffering stalls the stream), so it is what this proves first.
 func TestSupervisorProxiesAndStreams(t *testing.T) {
-	// A fake child: a plain endpoint and an SSE endpoint that emits ticks.
+	// A fake child: a plain endpoint and an SSE endpoint that emits ticks. It
+	// records the Host and query it receives, so the test can pin what the proxy
+	// forwards (see the outbound-request assertions below).
+	var gotHost, gotQuery string
 	child := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/probe" {
+			gotHost, gotQuery = r.Host, r.URL.RawQuery
+		}
 		if r.URL.Path == "/events" {
 			f, ok := w.(http.Flusher)
 			if !ok {
@@ -52,6 +58,28 @@ func TestSupervisorProxiesAndStreams(t *testing.T) {
 	body := readAll(t, resp)
 	if !strings.Contains(body, "hello from child at /foo") {
 		t.Errorf("proxy did not forward path; got %q", body)
+	}
+
+	// The outbound request targets the CHILD's host, whatever Host the browser
+	// sent. This is load-bearing: the child's DNS-rebinding guard rejects a
+	// non-loopback Host, so forwarding the inbound Host verbatim would 403 every
+	// proxied request reached by a non-loopback name. (Under ReverseProxy.Rewrite
+	// the outbound Host STARTS as the inbound one; only SetURL clears it, so a
+	// port that sets just the URL fields breaks this.) The query must survive
+	// too — ?token= is one of the two ways to present the access token.
+	childHost := strings.TrimPrefix(child.URL, "http://")
+	preq, _ := http.NewRequest("GET", sup.URL+"/probe?token=abc&x=1", nil)
+	preq.Host = "notebook.example:8080"
+	presp, err := http.DefaultClient.Do(preq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = readAll(t, presp)
+	if gotHost != childHost {
+		t.Errorf("child saw Host %q, want the child's own %q (inbound Host leaked through)", gotHost, childHost)
+	}
+	if gotQuery != "token=abc&x=1" {
+		t.Errorf("child saw query %q, want %q", gotQuery, "token=abc&x=1")
 	}
 
 	// SSE streams through incrementally: read the first tick well before the
