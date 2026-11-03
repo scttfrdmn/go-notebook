@@ -26,12 +26,47 @@ import (
 	"time"
 
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
+	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/yuin/goldmark"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	gmhtml "github.com/yuin/goldmark/renderer/html"
 )
+
+// highlightStyle is the chroma theme fenced code renders in. It is checked by
+// name at startup (checkStyle) because chroma's own lookup never fails: an
+// unknown name silently returns styles.Fallback. That is not hypothetical —
+// chroma v2.2.0 had no "github-dark", so for the site's whole life until the
+// Go 1.27 bump it shipped the fallback theme while this name claimed otherwise.
+const highlightStyle = "github-dark"
+
+// checkStyle reports an error if name is not a registered chroma style, turning
+// chroma's silent fallback into a loud build failure.
+func checkStyle(name string) error {
+	if _, ok := styles.Registry[name]; !ok {
+		return fmt.Errorf("docgen: chroma has no style %q (it would silently render styles.Fallback)", name)
+	}
+	return nil
+}
+
+// preOpen matches the opening tag of a <pre> block, with or without attributes.
+var preOpen = regexp.MustCompile(`<pre(\s[^>]*)?>`)
+
+// focusablePre adds tabindex="0" to every <pre> that lacks one, so a code block
+// that overflows horizontally can be focused and scrolled from the keyboard
+// (WCAG 2.1.1). It covers both render paths: chroma's highlighted blocks (chroma
+// v2.2.0 emitted tabindex itself; v2.27.0 stopped) and goldmark's plain blocks
+// for fences with no language, which never had it. Safe as a string rewrite: a
+// literal "<pre" inside a code sample is HTML-escaped to "&lt;pre" by then.
+func focusablePre(h string) string {
+	return preOpen.ReplaceAllStringFunc(h, func(tag string) string {
+		if strings.Contains(tag, "tabindex") {
+			return tag
+		}
+		return `<pre tabindex="0"` + strings.TrimPrefix(tag, "<pre")
+	})
+}
 
 // page is one entry in the docs nav: the source markdown, the output slug, the
 // short title/blurb shown in the sidebar and index, and the section it groups under.
@@ -90,6 +125,7 @@ func main() {
 	must(os.MkdirAll(outDir, 0o755))
 
 	buildStamp = computeBuildStamp()
+	must(checkStyle(highlightStyle))
 
 	md := goldmark.New(
 		goldmark.WithExtensions(
@@ -100,7 +136,7 @@ func main() {
 			// the dark theme sits on our dark --code-bg. Build-time only — chroma
 			// never enters the notebook binary.
 			highlighting.NewHighlighting(
-				highlighting.WithStyle("github-dark"),
+				highlighting.WithStyle(highlightStyle),
 				highlighting.WithFormatOptions(chromahtml.WithClasses(false)),
 			),
 		),
@@ -114,13 +150,13 @@ func main() {
 
 		var body bytes.Buffer
 		must(md.Convert(srcBytes, &body))
-		// Lift the github-dark comment color: its #007f7f teal is too dark on our
-		// #0f1524 code background, and comments carry weight here (//go:notebook,
-		// the directives). This one hex is comments-only in the theme, so a
-		// targeted swap to a lighter teal of the same hue is safe and leaves every
-		// other token untouched.
-		lit := strings.ReplaceAll(body.String(), "color:#007f7f", "color:#4db6ac")
-		content := rewriteLinks(lit) + pager(i)
+		// Contrast, measured on the real github-dark output against its own
+		// #0d1117 background: every visible token clears WCAG AA (lowest 5.65:1;
+		// comments 6.15:1). The one sub-4.5 color, #6e7681, is TextWhitespace —
+		// spaces and tabs, no glyph. (An earlier #007f7f→#4db6ac comment swap here
+		// targeted the FALLBACK theme's teal and matched nothing once the real
+		// theme rendered; removed.)
+		content := rewriteLinks(focusablePre(body.String())) + pager(i)
 		out := shell(p.title, navLinks(p.slug), content, p.slug, p.blurb, p.src)
 		must(os.WriteFile(filepath.Join(outDir, p.slug+".html"), []byte(out), 0o644))
 		fmt.Printf("docs: wrote site/docs/%s.html\n", p.slug)

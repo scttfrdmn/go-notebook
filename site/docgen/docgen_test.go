@@ -299,3 +299,35 @@ func TestStamplessPagesDetectsSkew(t *testing.T) {
 		t.Errorf("stamplessPages = %v, want none when every page carries the stamp", missing)
 	}
 }
+
+// TestHighlightStyleIsReal guards the silent-fallback hole: chroma's styles.Get
+// never fails — an unknown name returns styles.Fallback — so the site rendered a
+// theme other than the one highlightStyle names for as long as chroma (v2.2.0)
+// lacked "github-dark", and nothing noticed. checkStyle makes that a build error.
+func TestHighlightStyleIsReal(t *testing.T) {
+	if err := checkStyle(highlightStyle); err != nil {
+		t.Fatalf("highlightStyle %q is not a registered chroma style: %v", highlightStyle, err)
+	}
+	if checkStyle("no-such-style") == nil {
+		t.Fatal("checkStyle accepted an unregistered style name; the silent fallback would go unnoticed")
+	}
+}
+
+// TestFocusablePre pins that every <pre> — chroma's styled blocks and goldmark's
+// plain no-language blocks alike — is keyboard-focusable, so overflowing code can
+// be scrolled without a mouse. chroma v2.27.0 stopped emitting tabindex itself;
+// this is what keeps a dependency bump from silently dropping it again.
+func TestFocusablePre(t *testing.T) {
+	cases := map[string]string{
+		`<pre style="color:#e6edf3"><code>x</code></pre>`:  `<pre tabindex="0" style="color:#e6edf3"><code>x</code></pre>`,
+		`<pre><code>data: {}</code></pre>`:                 `<pre tabindex="0"><code>data: {}</code></pre>`,
+		`<pre tabindex="0" style="c"><code>y</code></pre>`: `<pre tabindex="0" style="c"><code>y</code></pre>`, // idempotent
+		`<p>&lt;pre&gt; and <code>&lt;pre</code></p>`:      `<p>&lt;pre&gt; and <code>&lt;pre</code></p>`,      // escaped text untouched
+		`<prefix-el>`: `<prefix-el>`, // not a <pre> tag
+	}
+	for in, want := range cases {
+		if got := focusablePre(in); got != want {
+			t.Errorf("focusablePre(%q)\n got  %q\n want %q", in, got, want)
+		}
+	}
+}
