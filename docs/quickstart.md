@@ -6,7 +6,7 @@ read [Write your first notebook](authoring.html) next.*
 
 ---
 
-You need **Go 1.25 or newer**. A notebook is an ordinary Go package, so it lives
+You need **Go 1.27 or newer** (an older `go` command fetches it for you under the default `GOTOOLCHAIN=auto`). A notebook is an ordinary Go package, so it lives
 in a Go module.
 
 ```bash

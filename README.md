@@ -6,7 +6,7 @@
   <a href="https://github.com/scttfrdmn/go-notebook/actions/workflows/ci.yml"><img src="https://github.com/scttfrdmn/go-notebook/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/scttfrdmn/go-notebook/actions/workflows/lint.yml"><img src="https://github.com/scttfrdmn/go-notebook/actions/workflows/lint.yml/badge.svg" alt="golangci-lint"></a>
   <a href="https://pkg.go.dev/github.com/scttfrdmn/go-notebook"><img src="https://pkg.go.dev/badge/github.com/scttfrdmn/go-notebook.svg" alt="Go Reference"></a>
-  <img src="https://img.shields.io/badge/go-1.25-00ADD8?logo=go&logoColor=white" alt="Go 1.25">
+  <img src="https://img.shields.io/badge/go-1.27-00ADD8?logo=go&logoColor=white" alt="Go 1.27">
   <a href="https://doi.org/10.5281/zenodo.21440008"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.21440008.svg" alt="DOI"></a>
 </p>
 
@@ -43,7 +43,7 @@ The wiring rule, in one sentence:
 
 ## Write your first notebook
 
-You need **Go 1.25+**. A notebook is an ordinary Go package, so it lives in a module:
+You need **Go 1.27+** (an older `go` fetches it for you under the default `GOTOOLCHAIN=auto`). A notebook is an ordinary Go package, so it lives in a module:
 
 ```bash
 mkdir tempconv && cd tempconv && go mod init example.com/tempconv

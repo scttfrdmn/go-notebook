@@ -7,7 +7,7 @@
   "codeRepository": "https://github.com/scttfrdmn/go-notebook",
   "url": "https://github.com/scttfrdmn/go-notebook",
   "programmingLanguage": "Go",
-  "runtimePlatform": ["Go 1.25+", "WebAssembly (GOOS=js)"],
+  "runtimePlatform": ["Go 1.27+", "WebAssembly (GOOS=js)"],
   "license": "https://spdx.org/licenses/Apache-2.0",
   "version": "0.5.0",
   "dateModified": "2026-07-19",
