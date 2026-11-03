@@ -3,7 +3,7 @@
 // Watching a posterior form.
 //
 // Bayesian linear regression, Bishop §3.3: the prior over weights collapses toward the
-// truth as observations arrive. Drag the slider to add data; drag the data points too.
+// truth as observations arrive. Drag the slider to add data.
 //
 // This notebook exists to answer a question the queue simulator raised. Bayesian
 // updating is LITERALLY CALLED updating — posterior_n = f(posterior_{n-1}, point_n).
@@ -58,8 +58,9 @@ var truth = Weights{-0.3, 0.5}
 // global RNG and no hidden state. Change it to redraw the world.
 func seed() (seed int64) { return 7 }
 
-// Observations. Generated from the truth, then draggable — the grips from the curve
-// editor, unchanged. Drag a point and the posterior moves.
+// Observations, generated from the truth. (Meant to be draggable — drag a point and
+// the posterior moves — but the grips were never routable; see the note on
+// Chart.Render and #244.)
 func data(seed int64) (points Draggable[Pt]) {
 	r := Rand(seed | 1)
 	pts := make([]Pt, 40)
@@ -313,9 +314,15 @@ func (c Chart) Render() Rendered {
 			`stroke="#0797b8" stroke-width="1.5" stroke-opacity="0.65"/>`,
 			sx(l[0].X), sy(l[0].Y), sx(l[1].X), sy(l[1].Y))
 	}
+	// Observations are drawn as plain markers, NOT as draggable grips (#244). They
+	// used to carry data-grip=%q of g.Ref, but Ref is the withdrawn grip-token
+	// shape (an unexported struct the runtime never stamps), so the attribute was
+	// unroutable garbage and the grab cursor promised a drag that never happened.
+	// Restoring real dragging needs WithLeaf + Ref.MarshalText + Reconcile and an
+	// agreed coordinate contract (#245) — verified by a browser drag, not markup.
 	for _, g := range c.Grips {
 		fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="5" fill="#fff" stroke="#1b3a6b" `+
-			`stroke-width="1.5" data-grip=%q style="cursor:grab"/>`, sx(g.At.X), sy(g.At.Y), g.Ref)
+			`stroke-width="1.5"/>`, sx(g.At.X), sy(g.At.Y))
 	}
 	if c.Cross != nil {
 		x, y := sx(c.Cross.X), sy(c.Cross.Y)
