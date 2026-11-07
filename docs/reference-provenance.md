@@ -72,7 +72,7 @@ whoever is authoritative for it, rather than one hash straining to be all three.
     "commit": "f7aab67",
     "builtAt": "2026-07-19T05:31:03Z",
     "goVersion": "go1.26.5",
-    "toolVersion": "v0.5.0"
+    "toolVersion": "v0.5.1"
   },
   "values": { "c": 20, "f": 68 }
 }

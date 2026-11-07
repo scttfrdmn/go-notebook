@@ -9,8 +9,8 @@
   "programmingLanguage": "Go",
   "runtimePlatform": ["Go 1.27+", "WebAssembly (GOOS=js)"],
   "license": "https://spdx.org/licenses/Apache-2.0",
-  "version": "0.5.0",
-  "dateModified": "2026-07-19",
+  "version": "0.5.1",
+  "dateModified": "2026-11-06",
   "keywords": [
     "reactive notebook",
     "Go",
