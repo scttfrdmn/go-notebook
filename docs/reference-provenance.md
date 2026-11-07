@@ -13,7 +13,7 @@ Codegen fills a provenance record at build time; every transport displays it (a 
 | `dirty` | `true` if the repository's working tree had **any** uncommitted change at build time — whole-tree, not just the notebook's directory, so a change to a shared helper elsewhere in the repo marks the build dirty (it matches Go's own `vcs.modified`) |
 | `builtAt` | build time (RFC3339) |
 | `goVersion` | the Go toolchain that compiled the artifact |
-| `toolVersion` | the go-notebook toolchain that generated it — codegen changes can change behavior for identical source. Present only for a released tool (a dev build omits it). |
+| `toolVersion` | the go-notebook toolchain that generated it — codegen changes can change behavior for identical source. Present for a released binary and for `go tool notebook` pinned by the `tool` directive (read from the module build info, in the same `0.5.1` form); only a source-tree dev build omits it. |
 
 All fields except `sourceHash` are best-effort: a notebook outside a git repo is a normal case, so the git fields are simply empty then, and `toolVersion` is empty for an un-versioned dev build. The source hash is always present.
 
@@ -72,7 +72,7 @@ whoever is authoritative for it, rather than one hash straining to be all three.
     "commit": "f7aab67",
     "builtAt": "2026-07-19T05:31:03Z",
     "goVersion": "go1.26.5",
-    "toolVersion": "v0.5.1"
+    "toolVersion": "0.5.1"
   },
   "values": { "c": 20, "f": 68 }
 }
